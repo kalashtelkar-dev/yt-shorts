@@ -1,21 +1,20 @@
 // pnpm enginex:smoke — checks Engine X connectivity and prints each catalog pipeline's inputs.
-// Prints response shapes, never the key or signed URLs.
+// Prints response shapes, never the key or signed URLs. Full pipeline JSON goes to .smoke/<slug>.json.
+import { mkdirSync, writeFileSync } from "node:fs";
 import { catalogSeed } from "@/db/catalog-seed";
 import { enginex } from "@/server/enginex/client";
 
+type Node = Record<string, unknown>;
 const client = enginex();
-const clip = (v: unknown, n = 3000) => {
-  const s = JSON.stringify(v, null, 2);
-  return s.length > n ? `${s.slice(0, n)}\n… (${s.length} chars)` : s;
-};
-
 let failed = false;
+mkdirSync(".smoke", { recursive: true });
 
 try {
   const t = Date.now();
   const fleet = await client.fleetStatus();
-  console.log(`✓ fleetStatus ${Date.now() - t} ms — engines: ${Object.keys(fleet.engines).join(", ")}`);
-  console.log(clip(fleet.raw, 1500));
+  const missing = fleet.known.filter((e) => !fleet.available[e]);
+  console.log(`✓ fleetStatus ${Date.now() - t} ms — ${Object.keys(fleet.available).length}/${fleet.known.length} engines live`);
+  if (missing.length) console.log(`  no workers: ${missing.join(", ")}`);
 } catch (e) {
   failed = true;
   console.error("✗ fleetStatus", e);
@@ -24,13 +23,20 @@ try {
 for (const item of catalogSeed) {
   try {
     const p = await client.getPipeline(item.templateId);
-    const mapped = Object.keys(item.inputMap ?? {});
-    const unmapped = p.inputs.length ? mapped.filter((k) => !p.inputs.includes(k)) : [];
-    console.log(`\n✓ ${item.slug} (${item.templateId}) published=${p.published} compiles=${p.compiles}`);
-    console.log(`  inputs (parsed): ${p.inputs.join(", ") || "(none parsed — see raw below)"}`);
-    if (unmapped.length) console.log(`  ⚠ inputMap targets not in pipeline: ${unmapped.join(", ")}`);
-    console.log(`  raw top-level keys: ${Object.keys(p.raw as object).join(", ")}`);
-    console.log(clip(p.raw));
+    writeFileSync(`.smoke/${item.slug}.json`, JSON.stringify(p.raw, null, 2));
+    console.log(`\n✓ ${item.slug} (${item.templateId}) "${p.name}" head=v${p.version} published=v${p.publishedVersion ?? "none"} compiles=${p.compiles}`);
+    if (p.version !== p.publishedVersion) console.log("  ⚠ head is an unpublished draft; runs use the published version");
+    console.log(`  inputs (parsed): ${p.inputs.join(", ") || "(none parsed)"}`);
+    const nodes = ((p.raw as { graph?: { nodes?: Node[] } }).graph?.nodes ?? []) as Node[];
+    console.log(`  nodes (${nodes.length}):`);
+    for (const n of nodes) {
+      const scalars = Object.entries(n)
+        .filter(([k, v]) => k !== "id" && k !== "position" && (typeof v !== "object" || v === null))
+        .map(([k, v]) => `${k}=${String(v)}`);
+      const data = n.data && typeof n.data === "object" ? n.data : n.params && typeof n.params === "object" ? n.params : {};
+      const dataStr = JSON.stringify(data);
+      console.log(`    ${String(n.id).padEnd(24)} ${scalars.join(" ")}  ${dataStr.length > 140 ? dataStr.slice(0, 140) + "…" : dataStr}`);
+    }
   } catch (e) {
     failed = true;
     console.error(`✗ ${item.slug} (${item.templateId})`, e);

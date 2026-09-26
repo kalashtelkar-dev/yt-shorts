@@ -90,8 +90,9 @@ export function createClient(
 
     async fleetStatus() {
       const data = await request("GET", "/v1/engines");
-      const engines = (data.engines as Json | undefined) ?? data;
-      return { engines, raw: data };
+      const known = Array.isArray(data.known) ? (data.known as string[]) : [];
+      const available = (data.available as Record<string, string[]> | undefined) ?? {};
+      return { known, available, raw: data };
     },
   };
 }
@@ -191,19 +192,21 @@ export function normaliseSigned(keys: string[], data: Json): Record<string, stri
 }
 
 export function normalisePipeline(id: string, data: Json): Pipeline {
-  const p = (data.pipeline as Json | undefined) ?? data;
-  const issues = Array.isArray(p.issues) ? p.issues : Array.isArray(data.issues) ? (data.issues as unknown[]) : [];
-  const graph = (p.graph as Json | undefined) ?? {};
+  const issues = Array.isArray(data.issues) ? (data.issues as unknown[]) : [];
+  const graph = (data.graph as Json | undefined) ?? {};
   const nodes = Array.isArray(graph.nodes) ? (graph.nodes as Json[]) : [];
+  // ponytail: input-node detection is a heuristic until the node shape is confirmed by the smoke dump.
   const inputs = nodes
-    .filter((n) => /input|request/i.test(String(n.type ?? n.kind ?? "")))
-    .map((n) => str((n.data as Json | undefined)?.name) ?? str(n.name) ?? str(n.id))
+    .filter((n) => /input|request|param/i.test(String(n.type ?? n.op ?? n.kind ?? "")))
+    .map((n) => str((n.data as Json | undefined)?.field) ?? str((n.data as Json | undefined)?.name) ?? str(n.name) ?? str(n.id))
     .filter((x): x is string => !!x);
   return {
-    id: str(p.id) ?? id,
-    etag: str(p.etag) ?? str(data.etag) ?? null,
-    published: Boolean(p.published ?? p.publishedVersion ?? p.status === "published"),
-    compiles: issues.every((i) => (i as Json)?.severity !== "error"),
+    id: str(data.id) ?? id,
+    name: str(data.name) ?? id,
+    etag: str(data.etag) ?? null,
+    version: num(data.version) ?? null,
+    publishedVersion: num(data.currentVersion) ?? null,
+    compiles: typeof data.compiles === "boolean" ? data.compiles : issues.length === 0,
     inputs,
     issues,
     raw: data,

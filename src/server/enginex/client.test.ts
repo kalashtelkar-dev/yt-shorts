@@ -17,9 +17,10 @@ function clientWith(...responses: (Response | Error)[]) {
 
 describe("Engine X client", () => {
   it("retries 5xx and network errors, then succeeds", async () => {
-    const { client, fetchImpl } = clientWith(json(502, {}), new TypeError("fetch failed"), json(200, { engines: { ocr: {} } }));
+    const { client, fetchImpl } = clientWith(json(502, {}), new TypeError("fetch failed"), json(200, { known: ["ocr", "vllm"], available: { ocr: ["cpu", "gpu"] } }));
     const fleet = await client.fleetStatus();
-    expect(fleet.engines).toEqual({ ocr: {} });
+    expect(fleet.available).toEqual({ ocr: ["cpu", "gpu"] });
+    expect(fleet.known).toEqual(["ocr", "vllm"]);
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 

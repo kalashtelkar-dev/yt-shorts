@@ -83,8 +83,10 @@ export const mockClient: EngineXClient = {
   async getPipeline(templateId) {
     return {
       id: templateId,
+      name: "mock-pipeline",
       etag: "mock",
-      published: true,
+      version: 1,
+      publishedVersion: 1,
       compiles: true,
       inputs: ["youtubeUrl", "playerName", "durationSec", "songUrl", "songStart", "songEnd", "lyricsLrc"],
       issues: [],
@@ -92,7 +94,7 @@ export const mockClient: EngineXClient = {
     };
   },
   async fleetStatus() {
-    const engines = Object.fromEntries(STEPS.map((s) => [s.engine, { tiers: ["cpu"] }]));
-    return { engines, raw: engines };
+    const available = Object.fromEntries(STEPS.map((s) => [s.engine, ["cpu"]]));
+    return { known: Object.keys(available), available, raw: { available } };
   },
 };

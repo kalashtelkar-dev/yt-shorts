@@ -22,8 +22,12 @@ export type Run = {
 
 export type Pipeline = {
   id: string;
+  name: string;
   etag: string | null;
-  published: boolean;
+  /** Head version (may be an unpublished draft). */
+  version: number | null;
+  /** Published version that /v1/run executes; null = never published. */
+  publishedVersion: number | null;
   compiles: boolean;
   inputs: string[];
   issues: unknown[];
@@ -32,7 +36,8 @@ export type Pipeline = {
 
 export type UploadTarget = { url: string; key: string };
 
-export type FleetStatus = { engines: Record<string, unknown>; raw: unknown };
+/** `available` maps each engine with live workers to its tiers. */
+export type FleetStatus = { known: string[]; available: Record<string, string[]>; raw: unknown };
 
 export class EngineXError extends Error {
   constructor(

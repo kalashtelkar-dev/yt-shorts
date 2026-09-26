@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader, Panel } from "@/components/admin/bits";
 import { formatClock, formatCredits, formatRupees, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
-import { overviewStats } from "@/server/admin/queries";
+import { ongoingIncidents, overviewStats } from "@/server/admin/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ const rate = (ok: number, bad: number) => (ok + bad ? `${Math.round((ok / (ok + 
 
 export default async function Overview() {
   await requireAdmin();
-  const { today, week, recentFailures } = await overviewStats();
+  const [{ today, week, recentFailures }, open] = await Promise.all([overviewStats(), ongoingIncidents()]);
 
   const tiles = [
     { label: "Jobs today", value: String(today.total), sub: `${week.total} in 7 days · ${today.running} running now` },
@@ -22,7 +22,15 @@ export default async function Overview() {
 
   return (
     <>
-      <PageHeader title="Overview" />
+      <PageHeader title="Overview">
+        <Link
+          href="/admin/health"
+          className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${open.length ? "border-danger/50 bg-danger/10 text-danger" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <span className={`size-2 ${open.length ? "bg-danger" : "rounded-full bg-success"}`} aria-hidden />
+          {open.length ? `${open.length} ongoing incident${open.length === 1 ? "" : "s"}` : "All systems operational"}
+        </Link>
+      </PageHeader>
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {tiles.map((t) => (
           <div key={t.label} className="flex flex-col gap-1 rounded-xl border bg-panel p-4">

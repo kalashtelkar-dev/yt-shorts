@@ -5,7 +5,9 @@ import { redis } from "@/server/redis";
 import { bucketStatus, fleetUptime, RANGES, uptimeOf, worstOf, type Counts, type ProbeStatus, type Range } from "@/lib/uptime";
 import { probeCatalog } from ".";
 import { HEARTBEAT_KEY } from "./probes/worker";
-import type { HealthView, ProbeView } from "@/lib/health";
+import type { HealthView, IncidentView, ProbeView } from "@/lib/health";
+import { desc, gte, isNull, or } from "drizzle-orm";
+import { incidents } from "@/db/schema";
 
 const empty = (): Counts => ({ checks: 0, up: 0, degraded: 0, down: 0 });
 
@@ -43,6 +45,12 @@ export async function healthView(range: Range): Promise<HealthView> {
           group by 1, 2`),
     redis.get(HEARTBEAT_KEY),
   ]);
+  const incidentRows = await db
+    .select()
+    .from(incidents)
+    .where(or(isNull(incidents.resolvedAt), gte(incidents.startedAt, new Date(now - 30 * 86_400_000))))
+    .orderBy(desc(incidents.startedAt))
+    .limit(50);
 
   const byProbe = new Map<string, Counts[]>(ids.map((id) => [id, Array.from({ length: n }, empty)]));
   for (const r of counts) {
@@ -65,6 +73,7 @@ export async function healthView(range: Range): Promise<HealthView> {
       message: l?.message ?? null,
       checkedAt: l ? new Date(l.checked_at).toISOString() : null,
       buckets,
+      counts: c,
       uptime: uptimeOf(c),
       downBuckets: buckets.filter((b) => b === "down").length,
       recent: recent
@@ -75,10 +84,26 @@ export async function healthView(range: Range): Promise<HealthView> {
 
   const critical = views.filter((v) => v.critical && v.status !== "not_configured");
   const lastSweep = latest.reduce<Date | null>((m, r) => (!m || new Date(r.checked_at) > m ? new Date(r.checked_at) : m), null);
+  const names = new Map(probes.map((p) => [p.id, p.name]));
+  const toIncident = (i: typeof incidents.$inferSelect): IncidentView => ({
+    id: i.id,
+    probeId: i.probeId,
+    name: names.get(i.probeId) ?? i.probeId,
+    severity: i.severity === "down" ? "down" : "degraded",
+    startedAt: i.startedAt.toISOString(),
+    resolvedAt: i.resolvedAt?.toISOString() ?? null,
+    message: i.lastMessage,
+  });
   return {
     range,
     probes: views,
-    fleet: { uptime: fleetUptime(critical.map((v) => v.uptime)), buckets: worstOf(critical.map((v) => v.buckets)), criticalCount: critical.length },
+    fleet: {
+      uptime: fleetUptime(critical.map((v) => v.uptime)),
+      buckets: worstOf(critical.map((v) => v.buckets)),
+      criticalCount: critical.length,
+      troubled: Array.from({ length: n }, (_, i) => critical.filter((v) => v.buckets[i] === "down" || v.buckets[i] === "degraded").map((v) => v.name)),
+    },
+    incidents: { ongoing: incidentRows.filter((i) => !i.resolvedAt).map(toIncident), recent: incidentRows.filter((i) => i.resolvedAt).map(toIncident) },
     lastSweepAt: lastSweep?.toISOString() ?? null,
     workerAlive: !!beat && now - Number(beat) < 60_000,
     generatedAt: new Date(now).toISOString(),

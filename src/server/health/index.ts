@@ -1,7 +1,9 @@
 import "server-only";
-import { eq, lt, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { catalogItems, probeDaily, probeResults } from "@/db/schema";
+import { catalogItems, incidents, probeDaily, probeResults } from "@/db/schema";
+import type { ProbeStatus } from "@/lib/uptime";
+import { incidentAction } from "./incidents";
 import { enginex } from "@/server/enginex/client";
 import type { FleetStatus } from "@/server/enginex/types";
 import { engineProbe } from "./probes/engines";
@@ -81,11 +83,30 @@ export async function runHealthSweep(now = new Date()) {
   const results = await Promise.all(probes.map(async (p) => ({ probe: p, result: await runProbe(p, ctx) })));
 
   const day = now.toISOString().slice(0, 10);
+  const [prevRows, openRows] = await Promise.all([
+    db.execute<{ probe_id: string; status: ProbeStatus; checked_at: Date }>(sql`
+      select distinct on (probe_id) probe_id, status, checked_at from probe_results
+      where checked_at > now() - interval '5 minutes' order by probe_id, checked_at desc`),
+    db.select().from(incidents).where(isNull(incidents.resolvedAt)),
+  ]);
+  const prevBy = new Map(prevRows.map((r) => [r.probe_id, { status: r.status, at: new Date(r.checked_at) }]));
+  const openBy = new Map(openRows.map((i) => [i.probeId, i]));
+
   await db.transaction(async (tx) => {
     await tx.insert(probeResults).values(
       results.map(({ probe, result }) => ({ probeId: probe.id, status: result.status, latencyMs: result.latencyMs, message: result.message ?? null, checkedAt: now })),
     );
     for (const { probe, result } of results) {
+      const open = openBy.get(probe.id) ?? null;
+      const action = incidentAction(prevBy.get(probe.id) ?? null, { status: result.status, at: now }, open);
+      if (action?.kind === "open") {
+        await tx.insert(incidents).values({ probeId: probe.id, severity: action.severity, startedAt: action.startedAt, lastMessage: result.message ?? null }).onConflictDoNothing();
+      } else if (action?.kind === "update" && open) {
+        await tx.update(incidents).set({ severity: action.severity, lastMessage: result.message ?? open.lastMessage }).where(eq(incidents.id, open.id));
+      } else if (action?.kind === "resolve" && open) {
+        await tx.update(incidents).set({ resolvedAt: action.resolvedAt }).where(eq(incidents.id, open.id));
+      }
+
       if (result.status === "not_configured") continue;
       const add = { checks: 1, up: result.status === "up" ? 1 : 0, degraded: result.status === "degraded" ? 1 : 0, down: result.status === "down" ? 1 : 0 };
       await tx
@@ -107,6 +128,7 @@ export async function runHealthSweep(now = new Date()) {
     lastCleanup = now.getTime();
     await db.delete(probeResults).where(lt(probeResults.checkedAt, new Date(now.getTime() - RAW_KEEP_DAYS * 86_400_000)));
     await db.delete(probeDaily).where(lt(probeDaily.day, new Date(now.getTime() - DAILY_KEEP_DAYS * 86_400_000).toISOString().slice(0, 10)));
+    await db.delete(incidents).where(and(isNotNull(incidents.resolvedAt), lt(incidents.resolvedAt, new Date(now.getTime() - DAILY_KEEP_DAYS * 86_400_000))));
   }
   return results;
 }

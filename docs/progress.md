@@ -179,3 +179,11 @@ In mock mode a player name containing "fail" fails at the kill-feed step, and "t
 2. Stop the worker → within a minute the page says checks are paused.
 3. Stop Redis (`docker compose stop redis`) → Redis goes down (red, dashed edge), fleet uptime drops. Start it again.
 4. Click a node → its recent checks appear in the side panel.
+
+## Health page upgrade (2026-09-26)
+
+- **Live traffic:** dots drift along healthy edges (slower on degraded links, none on broken ones, which stay dashed red). Hidden when the OS asks for reduced motion.
+- **Hover details:** service cards (status, latency, uptime for the range, last check, role, last message); every uptime bar shows its time slot, status and check counts, and the fleet strip lists which critical services were affected.
+- **Incidents:** opened after 2 failing checks in a row (dated from the first), resolved after 2 good checks, severity only escalates; one open incident per service enforced by the DB. Ongoing incidents show as a banner on the health page and a status chip on the admin Overview; 30-day history with durations. Resolved incidents are kept 90 days.
+
+**Manual check:** `docker compose stop redis`, wait a minute → incident banner and a red Redis node; `docker compose start redis`, wait a minute → the incident shows as resolved with its duration.

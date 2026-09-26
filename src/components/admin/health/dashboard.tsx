@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { formatTime } from "@/lib/format";
+import { formatClock, formatTime, formatWhen } from "@/lib/format";
 import { formatPct, RANGES, type Range } from "@/lib/uptime";
 import { cn } from "@/lib/utils";
 import type { HealthView } from "@/lib/health";
@@ -59,6 +59,20 @@ export function HealthDashboard({ view }: { view: HealthView }) {
         </div>
       </div>
 
+      {view.incidents.ongoing.length > 0 && (
+        <section role="alert" className="flex flex-col gap-2 rounded-lg border border-danger/50 bg-danger/10 px-4 py-3" aria-label="Ongoing incidents">
+          {view.incidents.ongoing.map((i) => (
+            <p key={i.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <StatusMark status={i.severity} />
+              <span className="font-medium">{i.name}</span>
+              <span className={i.severity === "down" ? "text-danger" : "text-warning"}>{i.severity === "down" ? "is down" : "is degraded"}</span>
+              <span className="text-muted-foreground">· for {formatClock(now - Date.parse(i.startedAt))} since {formatTime(i.startedAt)}</span>
+              {i.message && <span className="truncate font-mono text-xs text-muted-foreground">· {i.message}</span>}
+            </p>
+          ))}
+        </section>
+      )}
+
       {stale && (
         <p role="alert" className="rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-sm text-danger">
           {view.workerAlive ? "No health checks in the last 90 seconds." : "The worker isn't running, so health checks are paused."} What you see below may be out of date.
@@ -72,7 +86,13 @@ export function HealthDashboard({ view }: { view: HealthView }) {
             fleet uptime · {label} · worst of {view.fleet.criticalCount} critical checks
           </span>
         </p>
-        <BucketStrip buckets={view.fleet.buckets} bucketMs={bucketMs} now={now} label={`Fleet uptime, ${label}`} />
+        <BucketStrip
+          buckets={view.fleet.buckets}
+          bucketMs={bucketMs}
+          now={now}
+          label={`Fleet uptime, ${label}`}
+          extra={(i) => (view.fleet.troubled[i]?.length ? [`Affected: ${view.fleet.troubled[i].join(", ")}`] : [])}
+        />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{view.range === "24h" ? "24 hours ago" : view.range === "7d" ? "7 days ago" : "90 days ago"}</span>
           <span>now</span>
@@ -81,8 +101,8 @@ export function HealthDashboard({ view }: { view: HealthView }) {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <section className="hidden overflow-hidden rounded-xl border bg-panel p-2 md:block" aria-label="Service map">
-          <HealthGraph probes={view.probes} selected={selected} onSelect={setSelected} />
-          <p className="px-2 pb-1 text-xs text-muted-foreground">Click a service for its recent checks.</p>
+          <HealthGraph probes={view.probes} selected={selected} onSelect={setSelected} rangeLabel={label} />
+          <p className="px-2 pb-1 text-xs text-muted-foreground">Hover a service for details, click it for recent checks. Dots show traffic flowing on healthy links.</p>
         </section>
 
         <aside className="flex flex-col gap-4 rounded-xl border bg-panel p-4" aria-live="polite">
@@ -165,7 +185,7 @@ export function HealthDashboard({ view }: { view: HealthView }) {
                 </span>
                 <span className="pl-4 text-[10px] tracking-wide text-muted-foreground uppercase">{TIER_LABEL[p.tier]}</span>
               </div>
-              <BucketStrip buckets={p.buckets} bucketMs={bucketMs} now={now} label={`${p.name}, ${label}`} className="h-6" />
+              <BucketStrip buckets={p.buckets} counts={p.counts} bucketMs={bucketMs} now={now} label={`${p.name}, ${label}`} className="h-6" />
               <div className="flex flex-row items-baseline justify-between gap-2 md:flex-col md:items-end md:gap-0">
                 <span className="font-mono text-sm tabular">{p.status === "not_configured" ? "—" : formatPct(p.uptime)}</span>
                 <span className="text-xs text-muted-foreground">
@@ -175,6 +195,37 @@ export function HealthDashboard({ view }: { view: HealthView }) {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="flex flex-col gap-3" aria-label="Incidents">
+        <h2 className="text-sm font-medium">
+          Incidents <span className="font-normal text-muted-foreground">· last 30 days</span>
+        </h2>
+        {view.incidents.ongoing.length + view.incidents.recent.length === 0 ? (
+          <p className="rounded-xl border bg-panel px-4 py-6 text-center text-sm text-muted-foreground">No incidents in the last 30 days.</p>
+        ) : (
+          <ul className="flex flex-col divide-y rounded-xl border bg-panel">
+            {[...view.incidents.ongoing, ...view.incidents.recent].map((i) => {
+              const end = i.resolvedAt ? Date.parse(i.resolvedAt) : now;
+              return (
+                <li key={i.id} className="grid grid-cols-1 gap-1 px-4 py-3 text-sm md:grid-cols-[220px_140px_minmax(0,1fr)_150px] md:items-center md:gap-4">
+                  <span className="flex items-center gap-2">
+                    <StatusMark status={i.severity} />
+                    <span className="font-medium">{i.name}</span>
+                    <span className={cn("text-xs", i.severity === "down" ? "text-danger" : "text-warning")}>{i.severity === "down" ? "Down" : "Degraded"}</span>
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground tabular">{formatWhen(i.startedAt)}</span>
+                  <span className="truncate font-mono text-xs text-muted-foreground" title={i.message ?? undefined}>
+                    {i.message ?? "—"}
+                  </span>
+                  <span className={cn("font-mono text-xs tabular md:text-right", i.resolvedAt ? "text-muted-foreground" : "text-danger")}>
+                    {i.resolvedAt ? `Resolved after ${formatClock(end - Date.parse(i.startedAt))}` : `Ongoing · ${formatClock(end - Date.parse(i.startedAt))}`}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
     </>
   );

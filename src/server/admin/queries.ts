@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, gte, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { adminAuditLog, catalogItems, creditLedger, jobEvents, jobs, userBalances, users } from "@/db/schema";
+import { adminAuditLog, catalogItems, creditLedger, incidents, jobEvents, jobs, userBalances, users } from "@/db/schema";
 import { enginex } from "@/server/enginex/client";
 import type { RunStep } from "@/server/enginex/types";
 
@@ -175,4 +175,8 @@ export async function resolveUserId(q: string): Promise<string | null> {
     .from(users)
     .where(byId ? eq(users.id, term) : eq(sql`lower(${users.email})`, term.toLowerCase()));
   return u?.id ?? null;
+}
+
+export async function ongoingIncidents() {
+  return db.select({ id: incidents.id, probeId: incidents.probeId, severity: incidents.severity, startedAt: incidents.startedAt }).from(incidents).where(sql`${incidents.resolvedAt} is null`);
 }

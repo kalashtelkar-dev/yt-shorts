@@ -310,3 +310,22 @@ export const probeDaily = pgTable(
   },
   (t) => [primaryKey({ columns: [t.probeId, t.day] })],
 );
+
+// A probe failing 2 checks in a row opens an incident; 2 good checks in a row resolve it.
+export const incidents = pgTable(
+  "incidents",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    probeId: text().notNull(),
+    severity: probeStatus().notNull(), // 'degraded' or 'down' (escalates to down, never back)
+    startedAt: timestamp({ withTimezone: true }).notNull(),
+    resolvedAt: timestamp({ withTimezone: true }),
+    lastMessage: text(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    // At most one open incident per probe, enforced by the database.
+    uniqueIndex().on(t.probeId).where(sql`${t.resolvedAt} is null`),
+    index().on(t.startedAt.desc()),
+  ],
+);

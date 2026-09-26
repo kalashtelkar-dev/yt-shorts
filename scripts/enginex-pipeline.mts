@@ -9,9 +9,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const base = process.env.ENGINEX_BASE_URL;
-const key = process.env.ENGINEX_API_KEY;
+// Saving and publishing need an Engine X admin key. Keep it separate from the app's run-only key:
+// ENGINEX_ADMIN_KEY is read only by this script, never by the app.
+const key = process.env.ENGINEX_ADMIN_KEY || process.env.ENGINEX_API_KEY;
 if (!base || !key) {
-  console.error("ENGINEX_BASE_URL and ENGINEX_API_KEY must be set (.env)");
+  console.error("ENGINEX_BASE_URL and ENGINEX_ADMIN_KEY (or ENGINEX_API_KEY for read-only commands) must be set (.env)");
   process.exit(1);
 }
 

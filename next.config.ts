@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Tree-shake icon imports so each page ships only the icons it uses.
+  experimental: { optimizePackageImports: ["lucide-react"] },
 };
 
 export default nextConfig;

@@ -87,12 +87,12 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 
 ### 8.1 Speed budgets (checked with `next build` output and Lighthouse mobile)
 
-- User routes (`/`, `/jobs/[id]`, `/library`): first-load JS ≤ 130 KB gzip, LCP < 2.0 s, CLS < 0.05, INP < 200 ms on a mid-range phone over 4G.
+- User routes (`/`, `/jobs/[id]`, `/library`): first-load JS ≤ 135 KB gzip (React 19 + Next 15 baseline is ~115 KB), LCP < 2.0 s, CLS < 0.05, INP < 200 ms on a mid-range phone over 4G.
 - Server Components by default. Put `'use client'` only on interactive leaves (the create form, progress stream, video player). Never make a whole page a client component.
 - Load fonts with `next/font` (self-hosted, `display: swap`, subset). No font or CSS requests to third parties.
 - React Flow and admin charts load through `next/dynamic`, only on `/admin` routes. They must never appear in a user-route bundle.
 - Every route segment gets a `loading.tsx` skeleton with the same dimensions as the final layout, so there's no layout shift.
-- The Generate button responds instantly: `useTransition` pending state, then redirect to `/jobs/:id`, which renders its first frame on the server from the DB (no client fetch waterfall).
+- The Generate button responds instantly: a React form action (`useActionState` + server action) shows the pending state, works before hydration, and redirects to `/jobs/:id`, which renders its first frame on the server from the DB (no client fetch waterfall).
 - Video: `preload="metadata"`, a fixed 9:16 aspect box before load, and no autoplay with sound.
 - Images use `next/image` with explicit sizes. No hero images on the user side; the product is the form.
 

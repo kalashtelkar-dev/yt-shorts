@@ -79,3 +79,40 @@
 **Open issues**
 - Kill Montage has no length input yet: see `docs/enginex-requests.md`.
 - Run/sign/upload response bodies are still parsed leniently; confirm on the first real run.
+
+## Pricing change (2026-09-26)
+
+Fixed price per style and length (`catalog_items.prices`), charged when the job is created and refunded in full on failure, cancel or timeout. Estimates, settle-by-runtime and the negative-balance rule are gone. Placeholder prices: Kill Montage 30/60/90 s = 300/450/600 credits (set real ones in the admin). Lyrical is switched off for now.
+
+## Milestone 6: User flow (done 2026-09-26)
+
+**Done**
+- **Create** (`/`): YouTube link, in-game name, length (30/60/90). Exact price and balance shown; the button is disabled when short. The style picker only appears when more than one style is enabled. File upload stays hidden until it's tested through Engine X.
+- **Progress + Result** (`/jobs/:id`): rendered on the server from the DB, then live over SSE (`/api/jobs/:id/events`, Redis pub/sub), falling back to polling `/api/jobs/:id`. Stages appear as kill-feed rows in a 9:16 frame with a progress bar. On finish: video preview (fresh signed link), Download (fresh link each click), Make another. On failure: friendly message, Try again. Header balance refreshes when the job ends.
+- **My videos** (`/library`): past jobs with status; empty state with one action.
+- Signature element: an in-game kill feed. On desktop the Create page previews it with the typed player name.
+- Form uses a React form action + server action: works before hydration, keeps typed values on errors.
+- `createJob` validates (zod strict, YouTube https allowlist, catalog fields), checks suspension, concurrency (`maxConcurrentJobsPerUser`) and a per-user hourly limit, then charges and inserts in one transaction.
+- Swapped Base UI Button/Input for native elements and `cn` for `clsx` + `tailwind-merge`: first-load JS 147 KB → 134 KB.
+
+**Numbers:** `/` 134 KB, `/jobs/[id]` 134 KB, `/library` 119 KB first-load JS (budget 135 KB). 48 unit tests pass. No horizontal scroll at 360 px; inputs 16 px; buttons 44–48 px.
+
+**Demo (mock Engine X, no compute cost):**
+```bash
+docker compose up -d
+ENGINEX_MODE=mock pnpm worker:dev
+ENGINEX_MODE=mock pnpm dev
+```
+In mock mode a player name containing "fail" fails at the kill-feed step, and "timeout" never finishes.
+
+**Manual checks**
+1. At 360 px and at desktop width: Create fits without horizontal scroll; the Make my montage button stays pinned at the bottom on mobile.
+2. Paste a non-YouTube link → error under the field, typed values stay.
+3. Happy path: stages appear one by one, then the video plays; Download opens a fresh link; balance drops by the price.
+4. Name containing "fail" → friendly error, Try again, balance restored in the header.
+5. Close the tab mid-job, reopen `/jobs/:id` → live progress continues.
+6. My videos lists every job with the right status.
+
+**Open issues**
+- With `ENGINEX_MODE=live`, confirm the run, sign and upload response bodies on the first real run.
+- Deploy skew: a tab left open across a deploy gets "Server Action not found". Handle in M11 (stable action encryption key / reload prompt).

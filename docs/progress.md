@@ -142,3 +142,23 @@ In mock mode a player name containing "fail" fails at the kill-feed step, and "t
 
 **Open issues**
 - No password reset yet (M10); re-run `pnpm admin:create` to reset an admin's password.
+
+## Milestone 8: Admin part 2 (done 2026-09-26)
+
+**Done**
+- **Catalog** (`/admin/catalog`): list, create, edit, delete (only if no job used the item; otherwise switch it off). Edit title, slug, description, template ID, enabled, beta, order, lengths with a price each, and the `fields` / `inputMap` / `stageMap` JSON with strict validation (only supported mapping expressions; `$fields.x` must name a real field).
+- **Validate** calls `getPipeline`. Errors (block saving): unknown ID, never published, doesn't compile, a required pipeline input not mapped, output field missing. Warnings: mapped inputs the pipeline doesn't declare, unpublished draft ahead of the published version. Saving re-validates whenever the template, input map or output field changes.
+- Every save writes a `catalog_revisions` snapshot and an audit entry; the item page shows the history with which fields changed. New jobs use changes immediately; running jobs keep their snapshot. The Create page updates without a deploy.
+- **Billing** (`/admin/billing`): 30-day tiles (compute cost incl. failed runs, credits earned net of refunds, revenue and margin at the sell price), a cost-per-montage table per style and length (median run time, cost per successful montage including failed runs' compute, price, margin), and the pricing/limits settings (audited). Transactions: placeholder until payments (M12).
+- Admin forms keep what was typed when an action is refused, and clear after success.
+
+**Numbers:** 68 unit tests pass. Catalog editor 134 KB, other admin pages ≤ 131 KB.
+
+**Manual checks**
+1. Catalog → Kill Montage → Validate: with live Engine X it should be valid, with a warning about the unpublished draft.
+2. Change a price, save → the Create page shows the new price immediately.
+3. Enter a template ID that doesn't exist → Validate and Save both refuse; nothing changes.
+4. Billing: set a sell price per credit → revenue and margin columns fill in; negative margins show in red.
+
+**Open issues**
+- When Engine X adds `durationSec` to Kill Montage: add `"durationSec": "$durationSec"` to its input map in the catalog editor.

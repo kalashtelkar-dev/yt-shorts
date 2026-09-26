@@ -12,6 +12,8 @@ import { env } from "@/config/env";
 import { adjustUserCredits, refundJobByAdmin, retryJob, setRole, setSuspended } from "@/server/admin/mutations";
 import { currentAdmin, isAdmin } from "@/server/admin/guard";
 import { resolveUserId } from "@/server/admin/queries";
+import { deleteCatalogItem, saveCatalogItem, validateTemplate, type ValidationReport } from "@/server/admin/catalog";
+import { updateSettings } from "@/server/admin/billing";
 import { auth } from "@/server/auth";
 import { clientIp } from "@/server/ip";
 import { underLimit } from "@/server/redis";
@@ -117,4 +119,107 @@ export async function retryAction(_prev: FormState, form: FormData): Promise<For
   const r = await retryJob(admin, jobId.data);
   if (!r.ok) return { ok: false, message: r.error.message };
   redirect(`/admin/jobs/${r.data.jobId}`);
+}
+
+// ── Catalog ──
+
+export type ValidateState = { report: ValidationReport | null; message: string | null } | null;
+
+function jsonField(form: FormData, name: string, label: string): { value?: unknown; error?: string } {
+  const text = String(form.get(name) ?? "").trim();
+  if (!text) return { value: name === "inputMap" ? {} : [] };
+  try {
+    return { value: JSON.parse(text) };
+  } catch (e) {
+    return { error: `${label} isn't valid JSON: ${(e as Error).message}` };
+  }
+}
+
+/** Form → the shape catalogInput expects. Validation itself happens in the schema. */
+function catalogFromForm(form: FormData): { input?: Record<string, unknown>; error?: string } {
+  const durations = String(form.get("durations") ?? "")
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .map(Number);
+  const prices: Record<string, number> = {};
+  for (const [k, v] of form) if (k.startsWith("price:") && String(v).trim()) prices[k.slice(6)] = Number(v);
+  const json = { fields: jsonField(form, "fields", "Fields"), inputMap: jsonField(form, "inputMap", "Input map"), stageMap: jsonField(form, "stageMap", "Stage map") };
+  const bad = Object.values(json).find((j) => j.error);
+  if (bad) return { error: bad.error };
+  return {
+    input: {
+      slug: String(form.get("slug") ?? "").trim(),
+      title: String(form.get("title") ?? ""),
+      description: String(form.get("description") ?? ""),
+      templateId: String(form.get("templateId") ?? ""),
+      enabled: form.get("enabled") === "on",
+      beta: form.get("beta") === "on",
+      sortOrder: Number(form.get("sortOrder") || 0),
+      durations,
+      prices: Object.fromEntries(Object.entries(prices).filter(([d]) => durations.includes(Number(d)))),
+      fields: json.fields.value,
+      inputMap: json.inputMap.value,
+      stageMap: json.stageMap.value,
+      outputKey: String(form.get("outputKey") ?? "").trim(),
+    },
+  };
+}
+
+export async function validateTemplateAction(_prev: ValidateState, form: FormData): Promise<ValidateState> {
+  if (!(await currentAdmin())) return { report: null, message: denied!.message };
+  const templateId = String(form.get("templateId") ?? "").trim();
+  if (!templateId) return { report: null, message: "Enter a template ID first." };
+  const map = jsonField(form, "inputMap", "Input map");
+  if (map.error) return { report: null, message: map.error };
+  return { report: await validateTemplate(templateId, (map.value ?? {}) as Record<string, unknown>, String(form.get("outputKey") ?? "montage").trim()), message: null };
+}
+
+export async function saveCatalogAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const admin = await currentAdmin();
+  if (!admin) return denied;
+  const id = form.get("id") ? uuid.safeParse(form.get("id")) : null;
+  if (id && !id.success) return { ok: false, message: "Unknown catalog item." };
+  const { input, error } = catalogFromForm(form);
+  if (error) return { ok: false, message: error };
+  const r = await saveCatalogItem(admin, id?.data ?? null, input);
+  if (!r.ok) return { ok: false, message: r.error.message };
+  revalidatePath("/admin", "layout");
+  revalidatePath("/"); // the Create page lists enabled items
+  if (!id) redirect(`/admin/catalog/${r.data.id}`);
+  const warnings = r.data.report?.warnings ?? [];
+  return { ok: true, message: warnings.length ? `Saved, with warnings: ${warnings.join(" ")}` : "Saved. New jobs use this right away." };
+}
+
+export async function deleteCatalogAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const admin = await currentAdmin();
+  if (!admin) return denied;
+  const id = uuid.safeParse(form.get("id"));
+  if (!id.success) return { ok: false, message: "Unknown catalog item." };
+  const r = await deleteCatalogItem(admin, id.data);
+  if (!r.ok) return { ok: false, message: r.error.message };
+  revalidatePath("/");
+  redirect("/admin/catalog");
+}
+
+// ── Billing ──
+
+const rupeesToPaise = (v: FormDataEntryValue | null) => {
+  const s = String(v ?? "").trim();
+  return s === "" ? null : Math.round(Number(s) * 100);
+};
+
+export async function saveSettingsAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const admin = await currentAdmin();
+  if (!admin) return denied;
+  const r = await updateSettings(admin, {
+    costPaisePerSecond: rupeesToPaise(form.get("costRupeesPerSecond")) ?? 0,
+    sellPaisePerCredit: rupeesToPaise(form.get("sellRupeesPerCredit")),
+    starterCredits: Number(form.get("starterCredits")),
+    maxUploadMb: Number(form.get("maxUploadMb")),
+    maxConcurrentJobsPerUser: Number(form.get("maxConcurrentJobsPerUser")),
+    maxRunMinutes: Number(form.get("maxRunMinutes")),
+  });
+  if (!r.ok) return { ok: false, message: r.error.message };
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: "Saved." };
 }

@@ -28,10 +28,19 @@ export function mapInput(inputMap: InputMap, ctx: MapContext): Record<string, st
   return out;
 }
 
+const FIELD_EXPR = /^\$fields\.([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?$/;
+
+/** Null when `expr` is a literal or a supported expression; otherwise why it isn't. */
+export function checkExpression(expr: unknown): string | null {
+  if (typeof expr !== "string" || !expr.startsWith("$")) return null;
+  if (expr === "$source.url" || expr === "$durationSec" || FIELD_EXPR.test(expr)) return null;
+  return `"${expr}" isn't supported. Use $source.url, $durationSec, $fields.name or $fields.name.sub`;
+}
+
 function resolve(expr: string, ctx: MapContext): unknown {
   if (expr === "$source.url") return ctx.sourceUrl;
   if (expr === "$durationSec") return ctx.durationSec;
-  const m = /^\$fields\.([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?$/.exec(expr);
+  const m = FIELD_EXPR.exec(expr);
   if (!m) throw new MapInputError(`Unsupported mapping expression: ${expr}`);
   const field = Object.hasOwn(ctx.fields, m[1]) ? ctx.fields[m[1]] : undefined;
   if (!m[2]) return field;

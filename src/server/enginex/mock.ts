@@ -82,14 +82,20 @@ export const mockClient: EngineXClient = {
     return { url: "http://localhost:3000/__mock_upload", key: `mock/uploads/${Date.now()}-${filename}` };
   },
   async getPipeline(templateId) {
+    // Test hooks: ids containing "missing" don't exist, "draft" were never published.
+    if (templateId.includes("missing")) throw new EngineXError("not_found", "pipeline not found", false, 404);
     return {
       id: templateId,
       name: "mock-pipeline",
       etag: "mock",
       version: 1,
-      publishedVersion: 1,
+      publishedVersion: templateId.includes("draft") ? null : 1,
       compiles: true,
-      inputs: ["youtubeUrl", "playerName", "songUrl", "songStart", "songEnd", "lyricsLrc"].map((name) => ({ name, type: "text", required: name !== "lyricsLrc" })),
+      // Mirrors the real pipelines: the Lyrical template also takes the song inputs.
+      inputs: (templateId === "tpl_fgi2j31DHK_M" || templateId.includes("lyric")
+        ? ["youtubeUrl", "playerName", "songUrl", "songStart", "songEnd", "lyricsLrc"]
+        : ["youtubeUrl", "playerName"]
+      ).map((name) => ({ name, type: "text", required: name !== "lyricsLrc" })),
       outputs: ["montage", "clips", "totalKills", "title"],
       issues: [],
       raw: {},

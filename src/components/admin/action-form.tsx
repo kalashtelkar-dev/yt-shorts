@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useActionState } from "react";
+import { startTransition, useActionState, useEffect, useRef } from "react";
 import type { FormState } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,8 +21,20 @@ export function ActionForm({
   children?: React.ReactNode;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
+  const ref = useRef<HTMLFormElement>(null);
+  // Keep what was typed when the action refuses; clear it after success so it isn't applied twice.
+  useEffect(() => {
+    if (state?.ok) ref.current?.reset();
+  }, [state]);
+
+  function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    startTransition(() => formAction(data));
+  }
+
   return (
-    <form action={formAction} className={cn("flex flex-col gap-3", className)}>
+    <form ref={ref} onSubmit={submit} className={cn("flex flex-col gap-3", className)}>
       {children}
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" variant={variant} disabled={pending}>

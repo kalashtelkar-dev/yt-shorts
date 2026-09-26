@@ -1,0 +1,181 @@
+import "server-only";
+import { asc, count, desc, eq } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "@/db";
+import { adminAuditLog, catalogItems, catalogRevisions, jobs, users } from "@/db/schema";
+import type { ActionResult } from "@/lib/jobs";
+import { checkExpression } from "@/server/catalog";
+import { enginex } from "@/server/enginex/client";
+import { EngineXError } from "@/server/enginex/types";
+import type { Admin } from "./guard";
+
+// Catalog admin (PLAN.md §1.2, §5.2): edits apply to new jobs immediately; running jobs keep their snapshot.
+
+const ident = z.string().regex(/^[A-Za-z_]\w*$/, "Use letters, numbers and _ only, starting with a letter");
+
+const fieldSchema = z.strictObject({
+  name: ident,
+  label: z.string().min(1).max(80),
+  type: z.enum(["text", "url", "textarea", "range"]),
+  required: z.boolean().optional(),
+  max: z.number().int().positive().max(10_000).optional(),
+  maxFrom: z.literal("durationSec").optional(),
+  advanced: z.boolean().optional(),
+  help: z.string().max(200).optional(),
+});
+
+const inputMapSchema = z
+  .record(ident, z.union([z.string().max(500), z.number(), z.boolean()]))
+  .superRefine((map, ctx) => {
+    for (const [k, v] of Object.entries(map)) {
+      const problem = checkExpression(v);
+      if (problem) ctx.addIssue({ code: "custom", path: [k], message: problem });
+    }
+  });
+
+export const catalogInput = z
+  .strictObject({
+    slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and dashes, like kill-montage").max(64),
+    title: z.string().trim().min(1).max(80),
+    description: z.string().trim().max(300),
+    templateId: z.string().trim().min(1).max(100),
+    enabled: z.boolean(),
+    beta: z.boolean(),
+    sortOrder: z.number().int().min(0).max(1000),
+    durations: z.array(z.number().int().min(5).max(600)).min(1).max(6),
+    prices: z.record(z.string().regex(/^\d+$/), z.number().int().min(1).max(1_000_000)),
+    fields: z.array(fieldSchema).max(10),
+    inputMap: inputMapSchema,
+    stageMap: z.array(z.strictObject({ match: z.string().min(1).max(64), label: z.string().min(1).max(60) })).max(40),
+    outputKey: ident,
+  })
+  .superRefine((v, ctx) => {
+    for (const d of v.durations) if (!v.prices[String(d)]) ctx.addIssue({ code: "custom", path: ["prices"], message: `Set a price for ${d} s` });
+    const names = v.fields.map((f) => f.name);
+    if (new Set(names).size !== names.length) ctx.addIssue({ code: "custom", path: ["fields"], message: "Two fields have the same name" });
+    for (const [k, expr] of Object.entries(v.inputMap)) {
+      const m = typeof expr === "string" ? /^\$fields\.(\w+)/.exec(expr) : null;
+      if (m && !names.includes(m[1])) ctx.addIssue({ code: "custom", path: ["inputMap", k], message: `${expr} refers to a field that doesn't exist` });
+    }
+  });
+export type CatalogInput = z.infer<typeof catalogInput>;
+
+export type ValidationReport = {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  pipeline: { name: string; version: number | null; publishedVersion: number | null; inputs: { name: string; required: boolean }[]; outputs: string[] } | null;
+};
+
+/** Checks a template against Engine X and against the item's inputMap / outputKey. */
+export async function validateTemplate(templateId: string, inputMap: Record<string, unknown>, outputKey: string): Promise<ValidationReport> {
+  let p;
+  try {
+    p = await enginex().getPipeline(templateId);
+  } catch (e) {
+    const err = e instanceof EngineXError ? e : null;
+    const msg =
+      err?.status === 404
+        ? `No pipeline with ID ${templateId}.`
+        : err?.status === 403
+          ? "The Engine X key isn't allowed to use this pipeline."
+          : `Couldn't reach Engine X to check this template (${err?.code ?? "error"}). Try again.`;
+    return { ok: false, errors: [msg], warnings: [], pipeline: null };
+  }
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  if (p.publishedVersion === null) errors.push("This pipeline has never been published, so it can't run. Publish it in Engine X first.");
+  else if (p.version !== null && p.version > p.publishedVersion) warnings.push(`Engine X has an unpublished draft (v${p.version}); jobs run the published v${p.publishedVersion}.`);
+  if (!p.compiles) errors.push("This pipeline doesn't compile in Engine X.");
+  const names = p.inputs.map((i) => i.name);
+  const mapped = Object.keys(inputMap);
+  for (const i of p.inputs) if (i.required && !mapped.includes(i.name)) errors.push(`The pipeline needs "${i.name}" but the input map doesn't provide it.`);
+  for (const k of mapped) if (!names.includes(k)) warnings.push(`The input map sends "${k}", which this pipeline doesn't declare. Engine X may reject it.`);
+  if (p.outputs.length && !p.outputs.includes(outputKey)) errors.push(`The pipeline has no "${outputKey}" output. It has: ${p.outputs.join(", ")}.`);
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    pipeline: { name: p.name, version: p.version, publishedVersion: p.publishedVersion, inputs: p.inputs.map(({ name, required }) => ({ name, required })), outputs: p.outputs },
+  };
+}
+
+type Row = typeof catalogItems.$inferSelect;
+const snapshot = (r: Row) => {
+  const { createdAt: _c, updatedAt: _u, ...rest } = r;
+  return rest;
+};
+
+/**
+ * Create (id = null) or update a catalog item. Re-validates against Engine X whenever the
+ * template, input map or output key changes, and refuses to save if validation has errors.
+ */
+export async function saveCatalogItem(admin: Admin, id: string | null, raw: unknown): Promise<ActionResult<{ id: string; report: ValidationReport | null }>> {
+  const parsed = catalogInput.safeParse(raw);
+  if (!parsed.success) {
+    const i = parsed.error.issues[0];
+    return { ok: false, error: { code: "invalid", message: `${i.path.join(".") || "Form"}: ${i.message}`, field: String(i.path[0] ?? "") } };
+  }
+  const input = parsed.data;
+  const [before] = id ? await db.select().from(catalogItems).where(eq(catalogItems.id, id)) : [];
+  if (id && !before) return { ok: false, error: { code: "not_found", message: "That catalog item doesn't exist any more." } };
+
+  const needsCheck =
+    !before || before.templateId !== input.templateId || JSON.stringify(before.inputMap) !== JSON.stringify(input.inputMap) || before.outputKey !== input.outputKey;
+  const report = needsCheck ? await validateTemplate(input.templateId, input.inputMap, input.outputKey) : null;
+  if (report && !report.ok) return { ok: false, error: { code: "validation", message: report.errors.join(" ") } };
+
+  try {
+    const saved = await db.transaction(async (tx) => {
+      const [row] = before
+        ? await tx.update(catalogItems).set(input).where(eq(catalogItems.id, before.id)).returning()
+        : await tx.insert(catalogItems).values(input).returning();
+      await tx.insert(catalogRevisions).values({ catalogItemId: row.id, snapshot: snapshot(row), changedBy: admin.id });
+      await tx.insert(adminAuditLog).values({
+        adminId: admin.id,
+        action: before ? "catalog.update" : "catalog.create",
+        target: `catalog:${row.id}`,
+        before: before ? snapshot(before) : null,
+        after: snapshot(row),
+      });
+      return row;
+    });
+    return { ok: true, data: { id: saved.id, report } };
+  } catch (e) {
+    if (String((e as Error & { cause?: unknown }).cause ?? e).includes("catalog_items_slug_unique")) {
+      return { ok: false, error: { code: "invalid", message: "Another item already uses that slug.", field: "slug" } };
+    }
+    throw e;
+  }
+}
+
+/** Items that have jobs can't be deleted (job history points at them); disable them instead. */
+export async function deleteCatalogItem(admin: Admin, id: string): Promise<ActionResult<null>> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select().from(catalogItems).where(eq(catalogItems.id, id));
+    if (!row) return { ok: false as const, error: { code: "not_found", message: "That catalog item doesn't exist." } };
+    const [{ n }] = await tx.select({ n: count() }).from(jobs).where(eq(jobs.catalogItemId, id));
+    if (n > 0) return { ok: false as const, error: { code: "in_use", message: `${n} job${n === 1 ? "" : "s"} use this item. Switch it off instead of deleting it.` } };
+    await tx.insert(adminAuditLog).values({ adminId: admin.id, action: "catalog.delete", target: `catalog:${id}`, before: snapshot(row), after: null });
+    await tx.delete(catalogItems).where(eq(catalogItems.id, id));
+    return { ok: true as const, data: null };
+  });
+}
+
+export async function listCatalog() {
+  return db.select().from(catalogItems).orderBy(asc(catalogItems.sortOrder), asc(catalogItems.title));
+}
+
+export async function catalogItemWithRevisions(id: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const [item] = await db.select().from(catalogItems).where(eq(catalogItems.id, id));
+  if (!item) return null;
+  const revisions = await db
+    .select({ id: catalogRevisions.id, snapshot: catalogRevisions.snapshot, createdAt: catalogRevisions.createdAt, email: users.email })
+    .from(catalogRevisions)
+    .leftJoin(users, eq(users.id, catalogRevisions.changedBy))
+    .where(eq(catalogRevisions.catalogItemId, id))
+    .orderBy(desc(catalogRevisions.createdAt))
+    .limit(20);
+  return { item, revisions };
+}

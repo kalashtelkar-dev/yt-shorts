@@ -3,6 +3,8 @@
 //
 //   pnpm enginex:pipeline get <templateId>             → .pipelines/<templateId>.json (graph + etag)
 //   pnpm enginex:pipeline nodes                        → .pipelines/nodes.json (the node palette)
+//   pnpm enginex:pipeline export <templateId>          → .pipelines/<templateId>.export.json (portable document)
+//   pnpm enginex:pipeline import <file>                → creates a NEW unpublished pipeline from a document
 //   pnpm enginex:pipeline validate <file>              → compile check, issues or plan
 //   pnpm enginex:pipeline save <templateId> <file>     → replace the draft (needs the etag from `get`; 409 if it moved)
 //   pnpm enginex:pipeline publish <templateId> [etag]  → make the draft the version /v1/run executes
@@ -50,6 +52,14 @@ if (cmd === "get" && a) {
   mkdirSync(".pipelines", { recursive: true });
   writeFileSync(".pipelines/nodes.json", JSON.stringify(r.data, null, 2));
   console.log(`Saved .pipelines/nodes.json (HTTP ${r.status})`);
+} else if (cmd === "export" && a) {
+  const r = await call("GET", `/v1/pipelines/${encodeURIComponent(a)}/export`);
+  mkdirSync(".pipelines", { recursive: true });
+  writeFileSync(`.pipelines/${a}.export.json`, typeof r.data === "string" ? r.data : JSON.stringify(r.data, null, 2));
+  console.log(`HTTP ${r.status}, saved .pipelines/${a}.export.json`);
+} else if (cmd === "import" && a) {
+  // Creates a NEW pipeline (new id, unpublished v1) from an exported document; publish it in the dashboard.
+  show(await call("POST", "/v1/pipelines/import", JSON.parse(readFileSync(a, "utf8"))));
 } else if (cmd === "validate" && a) {
   const file = JSON.parse(readFileSync(a, "utf8")) as { graph: unknown };
   show(await call("POST", "/v1/pipelines/validate", { graph: file.graph }));

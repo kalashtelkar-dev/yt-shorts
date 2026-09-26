@@ -17,10 +17,9 @@ export async function getViewer(): Promise<SessionUser | null> {
   return session?.user ?? null;
 }
 
-/** The balance to show. First-time visitors and brand-new accounts see the starter credits their first action grants. */
+/** The balance to show: the real one, or for a first-time visitor the starter credits they'd get. */
 export async function viewerBalance(viewer: SessionUser | null): Promise<number> {
-  if (viewer && (viewer.isAnonymous || (await hasCreditHistory(viewer.id)))) return getBalance(viewer.id);
-  return (await getSettings()).starterCredits;
+  return viewer ? getBalance(viewer.id) : (await getSettings()).starterCredits;
 }
 
 export class RateLimitedError extends Error {}
@@ -29,6 +28,19 @@ export class SignInRequiredError extends Error {
   constructor() {
     super("Create a free account or sign in to make a montage.");
   }
+}
+
+/**
+ * Starter credits for an account that has never had any, granted right after it signs up or signs in
+ * (so the balance on screen is always real): once per inbox, within the per-network daily cap.
+ * Guests who sign up already brought their credits (a transfer row), so they get nothing extra.
+ * ponytail: the inbox marker lives in Redis; move it to a DB column if Redis stops being durable.
+ */
+export async function welcomeCredits(user: { id: string; email: string }, ip: string): Promise<boolean> {
+  if (await hasCreditHistory(user.id)) return false;
+  if (!(await starterCap(ip))) return false;
+  if (!(await redis.set(`starter-inbox:${inboxKey(user.email)}`, user.id, "NX"))) return false;
+  return grantStarterOnce(user.id, (await getSettings()).starterCredits);
 }
 
 const starterCap = (ip: string) => underLimit(`starter:${ip}:${new Date().toISOString().slice(0, 10)}`, STARTER_GRANTS_PER_IP_PER_DAY, 86_400);
@@ -43,18 +55,7 @@ export async function ensureUser(): Promise<SessionUser> {
   const existing = await auth.api.getSession({ headers: h });
   const ip = clientIp(h, env.TRUSTED_PROXY_HOPS);
 
-  if (existing && !existing.user.isAnonymous) {
-    // Accounts that have never had credits (direct sign-ups) get the starter credits once per inbox.
-    // ponytail: the inbox marker lives in Redis; move it to a DB column if Redis stops being durable.
-    if (
-      !(await hasCreditHistory(existing.user.id)) &&
-      (await starterCap(ip)) &&
-      (await redis.set(`starter-inbox:${inboxKey(existing.user.email)}`, existing.user.id, "NX"))
-    ) {
-      await grantStarterOnce(existing.user.id, (await getSettings()).starterCredits);
-    }
-    return existing.user;
-  }
+  if (existing && !existing.user.isAnonymous) return existing.user; // accounts got credits at sign-in
   if (env.AUTH_MODE === "full") throw new SignInRequiredError();
   if (existing) return existing.user;
 

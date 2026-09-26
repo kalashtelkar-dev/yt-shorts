@@ -20,6 +20,7 @@ import { adjustCredits, chargeForJob, getBalance, grant, grantStarterOnce, refun
 import { applyHeldPassword, holdPassword, sendCode } from "./otp";
 import { inboxKey } from "@/lib/email";
 import { redis } from "./redis";
+import { welcomeCredits } from "./session";
 
 let email: string;
 let ip: string; // fresh per test, so per-network hourly caps don't carry over between runs
@@ -200,6 +201,31 @@ describe("guest → account", () => {
     const { guestId } = await guestWithJob();
     await mergeGuest(guestId, guestId);
     expect(await getBalance(guestId)).toBe(300);
+  });
+});
+
+describe("welcome credits", () => {
+  const account = async (addr: string) => {
+    const id = crypto.randomUUID();
+    await db.insert(users).values({ id, name: "t", email: addr });
+    return { id, email: addr };
+  };
+
+  it("go to a new account once, and once per inbox", async () => {
+    const tag = crypto.randomUUID().slice(0, 8);
+    const a = await account(`me${tag}@gmail.com`);
+    expect(await welcomeCredits(a, ip)).toBe(true);
+    expect(await getBalance(a.id)).toBeGreaterThan(0);
+    expect(await welcomeCredits(a, ip)).toBe(false);
+    const variant = await account(`m.e${tag}+yt@gmail.com`);
+    expect(await welcomeCredits(variant, ip)).toBe(false);
+  });
+
+  it("aren't granted after an admin already added credits (the balance on screen is real)", async () => {
+    const a = await account(`${crypto.randomUUID()}@test.local`);
+    await db.transaction((tx) => adjustCredits(tx, a.id, a.id, 600, "requested"));
+    expect(await welcomeCredits(a, ip)).toBe(false);
+    expect(await getBalance(a.id)).toBe(600);
   });
 });
 

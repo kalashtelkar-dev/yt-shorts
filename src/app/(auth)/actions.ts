@@ -12,7 +12,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { applyHeldPassword, clearPendingEmail, codeErrorMessage, holdPassword, markCodeSent, pendingEmail, pendingSignupNonce, sendCode, setPendingEmail } from "@/server/otp";
 import { failuresUnder, recordFailure, underLimit } from "@/server/redis";
-import { getViewer } from "@/server/session";
+import { getViewer, welcomeCredits } from "@/server/session";
 
 // Full-auth flows (AUTH_MODE=full). Each parses its input with zod, applies Redis rate limits, then
 // calls Better Auth on the server; the nextCookies plugin sets the session cookie on the response.
@@ -68,7 +68,8 @@ export async function signInAction(_prev: AuthState, form: FormData): Promise<Au
     return { ok: false, message: "Too many attempts. Wait 15 minutes, then try again.", email: typed };
   }
   try {
-    await auth.api.signInEmail({ body: parsed.data, headers: await headers() });
+    const { user } = await auth.api.signInEmail({ body: parsed.data, headers: await headers() });
+    await welcomeCredits(user, addr); // no-op unless this account has never had credits
   } catch (e) {
     if (!(e instanceof APIError)) throw e;
     if (errorCode(e) !== "EMAIL_NOT_VERIFIED") await recordFailure(failKey, 900);
@@ -96,6 +97,7 @@ export async function verifyAction(_prev: AuthState, form: FormData): Promise<Au
     const { user } = await auth.api.verifyEmailOTP({ body: { email: to, otp: parsed.data }, headers: await headers() });
     const nonce = await pendingSignupNonce();
     if (nonce) await applyHeldPassword(nonce, to, user.id);
+    await welcomeCredits(user, await ip()); // after the guest merge, which already ran in verifyEmailOTP
   } catch (e) {
     if (e instanceof APIError) return { ok: false, message: codeErrorMessage(errorCode(e)), field: "otp" };
     throw e;

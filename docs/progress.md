@@ -219,13 +219,13 @@ Built and tested with `AUTH_MODE=full`; ships with `AUTH_MODE=anonymous`, where 
 - **No Google:** dropped at the user's request; email + password is the only sign-in.
 - **Accounts required in full mode:** visitors see the price and "Create a free account"; uploads need an account.
 - **Guests keep their stuff:** a guest session from before the switch that signs up or signs in moves its videos and credits to the account (`transfer` ledger rows; refunds of moved jobs go to the account).
-- **Starter credits:** an account that has never had credits gets them once on its first action (same per-network daily cap as guests).
+- **Starter credits:** an account that has never had credits gets them right after it finishes sign-up or signs in (once per inbox, same per-network daily cap as guests), so the balance on screen is always real. (An earlier version showed a preview and granted on the first action; an admin top-up before that action made the preview look unchanged and skipped the grant.)
 - **No account takeover by pre-registration:** the sign-up password is held server-side (tied to that browser) and only becomes the account's password after the code checks out, so an earlier, unverified sign-up of the same email can't keep its password. A repeat sign-up on an unfinished account gets a fresh code.
 - **Abuse limits:** starter credits once per inbox (`me+x@gmail.com` and `m.e@gmail.com` count as one), once per account even after a guest spent down to 0, and within the per-network daily cap; codes capped at 6/hour and 12/day per email; sign-in lockout counts failures only (user and admin), so typing someone's email can't lock them out.
 - **No account enumeration:** sign-up, forgot-password and verify answer the same whether or not an account exists.
 - **Email:** Nodemailer + React Email template. `SMTP_PASSWORD` is accepted as `SMTP_PASS`. New non-critical "Email (SMTP)" health check (full mode only; logs in, sends nothing).
 
-**Numbers:** 102 unit tests pass (OTP rules, reset, change password, pre-registration takeover, guest merge incl. zero balance, starter-once, inbox key, env). `/` 135 KB, auth and account pages 132 KB.
+**Numbers:** 104 unit tests pass (OTP rules, reset, change password, pre-registration takeover, guest merge incl. zero balance, starter-once, inbox key, env). `/` 135 KB, auth and account pages 132 KB.
 
 **Before switching production to full**
 1. Make sure SMTP works (the "Email (SMTP)" health check shows up once full mode is on).

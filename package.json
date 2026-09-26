@@ -11,7 +11,9 @@
     "test": "vitest run",
     "check:secrets": "sh scripts/check-secrets.sh",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx --conditions=react-server --env-file-if-exists=.env src/db/seed.mts",
+    "enginex:smoke": "tsx --conditions=react-server --env-file-if-exists=.env scripts/enginex-smoke.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

@@ -22,3 +22,29 @@
 **Open issues**
 - Docker isn't installed on this machine, so Postgres and Redis aren't running. Needed from M3 (install Docker Desktop / OrbStack, or `brew install postgresql@17 redis`).
 - Engine X transport (REST or MCP) is unconfirmed. M2 starts with `pnpm enginex:smoke`.
+
+## Milestone 2: Engine X adapter (code done; live check pending)
+
+**Done**
+- `src/server/enginex/client.ts`: REST client for `https://enginex.run` with `runPipeline`, `getRun`, `cancelRun`, `signOutput`, `createUploadUrl`, `getPipeline`, `fleetStatus`. 30 s timeout, 3 retries with exponential backoff on network/5xx (never on `runPipeline`), typed `EngineXError`, key never in errors.
+- `runPipeline` sends the job id as `Idempotency-Key` (Engine X returns the existing run on a repeat).
+- `src/server/enginex/mock.ts` (`ENGINEX_MODE=mock`): stateless simulated runs; player name containing "fail" fails at OCR, "timeout" never finishes.
+- `pnpm enginex:smoke` prints fleet engines and each catalog pipeline's inputs plus the raw response shape.
+- Unit tests: retries, no retry on 4xx/runPipeline, key redaction, normalisers, mock scenarios.
+
+**Open issues**
+- The OpenAPI spec doesn't type success bodies, so response parsing is lenient. Run `pnpm enginex:smoke` (live) and tighten `normalise*` from the real output.
+- Confirm step names so `stageMap` prefixes match, and whether Kill Montage accepts `durationSec` (PLAN §5.2).
+
+## Milestone 3: DB and seed (code done; not yet run)
+
+**Done**
+- `src/db/schema.ts`: Better Auth tables (`users` with `isAnonymous`, `role`, `suspendedAt`), catalog + revisions, jobs + events, credit ledger + balances, settings (single row), admin audit log. Payments and probe tables come with M12 and M9.
+- Ledger idempotency is enforced in the DB: unique `(job_id, kind)` where `job_id` is set. A trigger rejects any `UPDATE`/`DELETE` on `credit_ledger`.
+- Migrations in `src/db/migrations`; `pnpm db:seed` inserts both catalog items and the settings row (idempotent).
+
+**Demo:** `docker compose up -d && pnpm db:migrate && pnpm db:seed`
+
+**Open issues**
+- Docker Desktop fails to start on this machine ("Docker Desktop is unable to start"), so migrations haven't run yet.
+- Better Auth's anonymous plugin deletes the anonymous user after linking; ledger rows reference users, so M10 must move rows in `onLinkAccount` first.

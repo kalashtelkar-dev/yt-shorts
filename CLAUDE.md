@@ -32,7 +32,7 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 1. `ENGINEX_API_KEY` (an `ek_live_…` production key) and `ENGINEX_BASE_URL` are **server-only**. Read them only in `src/config/env.ts` (zod-parsed) and use them only in `src/server/enginex/client.ts`.
 2. Never import `src/server/**` from a client component. Put `import 'server-only'` at the top of every file in `src/server/`.
 3. Never log secrets, full signed URLs, or request headers. Redact before logging.
-4. **All Engine X calls go through `src/server/enginex/client.ts`**, with typed methods only: `runPipeline`, `getRun`, `signOutput`, `createUploadUrl`, `getPipeline`, `fleetStatus`. No `fetch` to Engine X anywhere else.
+4. **All Engine X calls go through `src/server/enginex/client.ts`**, with typed methods only: `runPipeline`, `getRun`, `cancelRun`, `signOutput`, `createUploadUrl`, `getPipeline`, `fleetStatus`. No `fetch` to Engine X anywhere else. The API is REST at `ENGINEX_BASE_URL` (`https://enginex.run`; the reference is `/v1/api.md`, and `/v1/openapi.json` needs no auth). `enginex.fapi.run` is its MinIO object store, not the API. `runPipeline` sends the job id as `Idempotency-Key`, and timeouts and cancels call `cancelRun` so compute stops.
 5. The client wraps every call with a timeout (default 30 s), up to 3 retries with exponential backoff on network or 5xx errors (never retry `runPipeline` automatically), and typed errors (`EngineXError { code, message, retryable }`).
 6. **Never hardcode template IDs** in app code. They live in `catalog_items.templateId` (seeded in `src/db/seed.ts`). The app resolves the template ID from the catalog **at job start** and snapshots it on the job row.
 7. Never store signed URLs. Call `signOutput` whenever a download or preview is requested (expiry ≤ 1 h).
@@ -144,7 +144,7 @@ REDIS_URL=redis://...
 
 # Engine X (server-only)
 ENGINEX_MODE=live              # live | mock
-ENGINEX_BASE_URL=
+ENGINEX_BASE_URL=https://enginex.run
 ENGINEX_API_KEY=               # ek_live_... never expose to the client
 
 # Google OAuth (used when AUTH_MODE=full)

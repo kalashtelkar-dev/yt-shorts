@@ -103,8 +103,11 @@ export type CatalogField = {
   help?: string;
 };
 export type InputMap = Record<string, string | number | boolean>;
-/** `itemSeconds`: for fan-out steps, seconds of video per item, so progress can say "4:10 of 24:00 scanned". */
-export type StageMapEntry = { match: string; label: string; itemSeconds?: number };
+/**
+ * `itemSeconds`: for fan-out steps, seconds of video per item, so progress can say "4:10 of 24:00 scanned".
+ * `only`: show this stage only for link or upload jobs (e.g. downloading happens only for links).
+ */
+export type StageMapEntry = { match: string; label: string; itemSeconds?: number; only?: "url" | "upload" };
 
 export const catalogItems = pgTable("catalog_items", {
   id: uuid().primaryKey().defaultRandom(),
@@ -112,6 +115,8 @@ export const catalogItems = pgTable("catalog_items", {
   title: text().notNull(),
   description: text().notNull().default(""),
   templateId: text().notNull(),
+  /** Optional pipeline for uploaded files (no download step). Null = uploads not offered for this style. */
+  uploadTemplateId: text(),
   enabled: boolean().notNull().default(true),
   beta: boolean().notNull().default(false),
   sortOrder: integer().notNull().default(0),

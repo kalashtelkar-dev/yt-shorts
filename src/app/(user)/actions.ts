@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { ActionResult } from "@/lib/jobs";
 import { createJob, type CreateJobInput } from "@/server/jobs/create";
 import { signedVideoUrl } from "@/server/jobs/public";
+import { issueUpload } from "@/server/uploads";
 import { ensureUser, getViewer, RateLimitedError } from "@/server/session";
 
 const serverError = { ok: false as const, error: { code: "server", message: "Something went wrong on our side. Try again in a moment." } };
@@ -17,9 +18,12 @@ export type CreateState = { error: { code: string; message: string; field?: stri
 export async function createJobAction(_prev: CreateState, form: FormData): Promise<CreateState> {
   const fields: Record<string, string> = {};
   for (const [k, v] of form) if (k.startsWith("field:") && typeof v === "string") fields[k.slice(6)] = v;
+  const source = form.get("source") === "upload" ? "upload" : "url";
   const input: CreateJobInput = {
     catalogSlug: String(form.get("style") ?? ""),
-    url: String(form.get("url") ?? ""),
+    source,
+    url: source === "url" ? String(form.get("url") ?? "") : undefined,
+    upload: source === "upload" && form.get("uploadKey") ? { key: String(form.get("uploadKey")), name: String(form.get("uploadName") ?? "") } : undefined,
     durationSec: Number(form.get("duration")),
     fields,
   };
@@ -36,6 +40,19 @@ export async function createJobAction(_prev: CreateState, form: FormData): Promi
     return { error: serverError.error };
   }
   redirect(`/jobs/${jobId}`); // outside try: redirect() works by throwing
+}
+
+/** Presigned upload URL for a file the browser will PUT straight to storage. */
+export async function startUploadAction(file: { name: string; size: number; type: string }): Promise<ActionResult<{ url: string; key: string }>> {
+  try {
+    const user = await ensureUser();
+    if (user.suspendedAt) return { ok: false, error: { code: "suspended", message: "Your account is paused, so you can't upload videos." } };
+    return await issueUpload(user, file);
+  } catch (e) {
+    if (e instanceof RateLimitedError) return { ok: false, error: { code: "rate_limited", message: e.message } };
+    console.error("[startUpload]", e instanceof Error ? e.message : e);
+    return serverError;
+  }
 }
 
 /** A fresh signed link each time it's asked for (CLAUDE.md §4.7). */

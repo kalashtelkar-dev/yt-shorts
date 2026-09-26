@@ -75,3 +75,15 @@ describe("stageDetail", () => {
     expect(stageDetail(steps, map, "Rendering")).toBeNull();
   });
 });
+
+describe("mapInput with uploads", () => {
+  const map = { youtubeUrl: "$source.url", video: "$source.key", videoTitle: "$source.name", playerName: "$fields.playerName" };
+  it("sends only the fields for the source in use", () => {
+    expect(mapInput(map, { sourceUrl: "https://youtu.be/x", durationSec: 30, fields: { playerName: "A" } })).toEqual({ youtubeUrl: "https://youtu.be/x", playerName: "A" });
+    expect(mapInput(map, { sourceUrl: "", uploadKey: "input/k.mp4", uploadName: "match", durationSec: 30, fields: { playerName: "A" } })).toEqual({
+      video: "input/k.mp4",
+      videoTitle: "match",
+      playerName: "A",
+    });
+  });
+});

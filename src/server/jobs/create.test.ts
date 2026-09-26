@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { catalogItems, jobs, users } from "@/db/schema";
 import type { SessionUser } from "@/server/auth";
 import { getBalance, grant } from "@/server/credits";
+import { redis } from "@/server/redis";
+import { cleanFileName, issueUpload } from "@/server/uploads";
 import { createJob } from "./create";
 
 let user: SessionUser;
@@ -19,10 +21,11 @@ beforeEach(async () => {
     slug,
     title: "Kill Montage",
     templateId: "tpl_t",
+    uploadTemplateId: "tpl_upload",
     durations: [30, 60, 90],
     prices: { "30": 100, "60": 200 }, // 90 has no price
     fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32 }],
-    inputMap: { youtubeUrl: "$source.url", playerName: "$fields.playerName" },
+    inputMap: { youtubeUrl: "$source.url", video: "$source.key", videoTitle: "$source.name", playerName: "$fields.playerName" },
   });
   await grant(id, 250, "test");
 });
@@ -48,6 +51,10 @@ describe("createJob", () => {
     expect(await getBalance(user.id)).toBe(250);
   });
 
+  it("requires a file for upload jobs", async () => {
+    expect(await createJob(user, { catalogSlug: slug, source: "upload", durationSec: 30, fields: { playerName: "Aqua" } })).toMatchObject({ ok: false, error: { field: "upload" } });
+  });
+
   it("rejects unknown keys", async () => {
     const r = await createJob(user, { catalogSlug: slug, url, durationSec: 60, fields: {}, templateId: "tpl_evil" } as never);
     expect(r.ok).toBe(false);
@@ -67,5 +74,33 @@ describe("createJob", () => {
   it("blocks suspended users", async () => {
     const r = await createJob({ ...user, suspendedAt: new Date() } as SessionUser, { catalogSlug: slug, url, durationSec: 30, fields: { playerName: "Aqua" } });
     expect(r).toMatchObject({ ok: false, error: { code: "suspended" } });
+  });
+});
+
+describe("uploads", () => {
+  it("checks type and size before issuing an upload URL", async () => {
+    expect(await issueUpload(user, { name: "clip.exe", size: 10, type: "application/x-msdownload" })).toMatchObject({ ok: false, error: { code: "type" } });
+    expect(await issueUpload(user, { name: "clip.mp4", size: 10, type: "image/png" })).toMatchObject({ ok: false, error: { code: "type" } });
+    expect(await issueUpload(user, { name: "huge.mp4", size: 50 * 1024 ** 3, type: "video/mp4" })).toMatchObject({ ok: false, error: { code: "too_big" } });
+    const ok = await issueUpload(user, { name: "my match.MKV", size: 1024, type: "" });
+    expect(ok.ok).toBe(true);
+  });
+
+  it("cleans file names", () => {
+    expect(cleanFileName("../../etc/pass wd.mp4")).toBe("pass wd.mp4");
+    expect(cleanFileName("C:\\Videos\\ranked<1>.mov")).toBe("ranked_1_.mov");
+  });
+
+  it("starts an upload job on the upload template, only with the user's own key", async () => {
+    const issued = await issueUpload(user, { name: "ranked game.mp4", size: 1024, type: "video/mp4" });
+    const key = issued.ok ? issued.data.key : "";
+    const r = await createJob(user, { catalogSlug: slug, source: "upload", upload: { key, name: "ranked game.mp4" }, durationSec: 30, fields: { playerName: "Aqua" } });
+    expect(r.ok).toBe(true);
+    const [job] = await db.select().from(jobs).where(eq(jobs.userId, user.id));
+    expect(job).toMatchObject({ source: "upload", uploadKey: key, sourceUrl: null, templateId: "tpl_upload", input: { video: key, videoTitle: "ranked game", playerName: "Aqua" } });
+
+    await redis.del(`upload:${key}`);
+    const stranger = await createJob(user, { catalogSlug: slug, source: "upload", upload: { key: "input/someone-else.mp4", name: "x.mp4" }, durationSec: 30, fields: { playerName: "Aqua" } });
+    expect(stranger).toMatchObject({ ok: false, error: { field: "upload" } });
   });
 });

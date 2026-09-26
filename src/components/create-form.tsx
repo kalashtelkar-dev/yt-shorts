@@ -7,27 +7,39 @@ import { Frame, KillRow } from "@/components/job/feed";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import dynamic from "next/dynamic";
+import type { UploadState } from "@/components/video-upload";
 import { formatCredits } from "@/lib/format";
 import type { CatalogOption } from "@/lib/jobs";
 import { cn } from "@/lib/utils";
 
-export function CreateForm({ items, balance, intro }: { items: CatalogOption[]; balance: number; intro: React.ReactNode }) {
+// Loaded only when someone picks "Upload a file", so the link flow stays light.
+const VideoUpload = dynamic(() => import("@/components/video-upload").then((m) => m.VideoUpload), {
+  loading: () => <div className="min-h-32 animate-pulse rounded-lg border border-dashed border-input bg-panel-raised motion-reduce:animate-none" />,
+});
+
+export function CreateForm({ items, balance, intro, maxUploadMb }: { items: CatalogOption[]; balance: number; intro: React.ReactNode; maxUploadMb: number }) {
   const [slug, setSlug] = useState(items[0].slug);
   const item = items.find((i) => i.slug === slug) ?? items[0];
   const [url, setUrl] = useState("");
+  const [sourceChoice, setSource] = useState<"url" | "upload">("url");
+  const [upload, setUpload] = useState<UploadState>({ kind: "idle" });
   const [fields, setFields] = useState<Record<string, string>>({});
   const [durationSec, setDurationSec] = useState(item.durations.includes(60) ? 60 : item.durations[0]);
   const [state, formAction, pending] = useActionState(createJobAction, { error: null });
   const error = state.error;
   const uid = useId();
 
+  const source = item.uploads ? sourceChoice : "url";
+  const uploadBusy = source === "upload" && upload.kind !== "done";
   const price = item.prices[String(durationSec)] ?? 0;
   const short = price - balance;
   const playerName = fields.playerName?.trim();
   const visibleFields = item.fields.filter((f) => !f.advanced && f.type !== "range");
 
   const errorFor = (name: string) => (error?.field === name ? error.message : null);
-  const general = error && !["url", "durationSec", ...item.fields.map((f) => f.name)].includes(error.field ?? "") ? error.message : null;
+  const general = error && !["url", "upload", "durationSec", ...item.fields.map((f) => f.name)].includes(error.field ?? "") ? error.message : null;
+  const uploadError = upload.kind === "error" ? upload.message : errorFor("upload");
 
   return (
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start xl:gap-16">
@@ -56,21 +68,52 @@ export function CreateForm({ items, balance, intro }: { items: CatalogOption[]; 
           </fieldset>
         )}
 
-        <Field id={`${uid}-url`} label="YouTube link" error={errorFor("url")} help="Your full match recording, public or unlisted">
-          <Input
-            id={`${uid}-url`}
-            name="url"
-            type="url"
-            inputMode="url"
-            autoComplete="off"
-            placeholder="https://youtube.com/watch?v=…"
-            required
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            aria-invalid={!!errorFor("url")}
-            aria-describedby={`${uid}-url-help`}
-          />
-        </Field>
+        <input type="hidden" name="source" value={source} />
+        {item.uploads && (
+          <div className="grid grid-cols-2 gap-1 rounded-xl border bg-panel p-1" role="radiogroup" aria-label="Where's your match?">
+            {(["url", "upload"] as const).map((s) => (
+              <label
+                key={s}
+                className="flex h-11 cursor-pointer items-center justify-center rounded-lg text-sm text-muted-foreground transition-colors hover:text-foreground has-checked:bg-panel-raised has-checked:text-foreground has-checked:shadow-[inset_0_0_0_1px_var(--input)] has-focus-visible:ring-3 has-focus-visible:ring-ring/50 sm:h-10"
+              >
+                <input type="radio" name="sourceChoice" value={s} checked={source === s} onChange={() => setSource(s)} className="sr-only" />
+                {s === "url" ? "YouTube link" : "Upload a file"}
+              </label>
+            ))}
+          </div>
+        )}
+
+        {source === "url" ? (
+          <Field id={`${uid}-url`} label="YouTube link" error={errorFor("url")} help="Your full match recording, public or unlisted">
+            <Input
+              id={`${uid}-url`}
+              name="url"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              placeholder="https://youtube.com/watch?v=…"
+              required
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              aria-invalid={!!errorFor("url")}
+              aria-describedby={`${uid}-url-help`}
+            />
+          </Field>
+        ) : (
+          <div className="grid gap-2">
+            <Label htmlFor={`${uid}-file`}>Match recording</Label>
+            <VideoUpload id={`${uid}-file`} maxUploadMb={maxUploadMb} state={upload} onChange={setUpload} describedBy={`${uid}-file-help`} />
+            <p id={`${uid}-file-help`} className={cn("text-sm", uploadError ? "text-danger" : "text-muted-foreground")} role={uploadError ? "alert" : undefined}>
+              {uploadError ?? "Faster than a link: we skip the download and start editing straight away."}
+            </p>
+            {upload.kind === "done" && (
+              <>
+                <input type="hidden" name="uploadKey" value={upload.key} />
+                <input type="hidden" name="uploadName" value={upload.name} />
+              </>
+            )}
+          </div>
+        )}
 
         {visibleFields.map((f) => (
           <Field key={f.name} id={`${uid}-${f.name}`} label={f.label} error={errorFor(f.name)} help={f.help}>
@@ -118,9 +161,9 @@ export function CreateForm({ items, balance, intro }: { items: CatalogOption[]; 
             <span className="font-mono text-foreground tabular">{formatCredits(balance)}</span>
             {short > 0 && <span className="text-danger"> · you need {formatCredits(short)} more</span>}
           </p>
-          <Button type="submit" size="lg" disabled={pending || short > 0} className="w-full sm:w-auto sm:self-start">
+          <Button type="submit" size="lg" disabled={pending || short > 0 || uploadBusy} className="w-full sm:w-auto sm:self-start">
             {pending && <Loader2 className="animate-spin" aria-hidden />}
-            {pending ? "Starting…" : "Make my montage"}
+            {pending ? "Starting…" : upload.kind === "uploading" && source === "upload" ? "Uploading…" : "Make my montage"}
           </Button>
         </div>
       </form>

@@ -1,4 +1,5 @@
 import "server-only";
+import { env } from "@/config/env";
 import { EngineXError, type EngineXClient, type Run, type RunStep } from "./types";
 
 // ENGINEX_MODE=mock. Stateless so web and worker processes agree: the run id encodes the
@@ -80,7 +81,8 @@ export const mockClient: EngineXClient = {
     return Object.fromEntries(keys.map((k) => [k, "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"]));
   },
   async createUploadUrl(filename) {
-    return { url: "http://localhost:3000/__mock_upload", key: `mock/uploads/${Date.now()}-${filename}` };
+    // Accepted and discarded by /api/mock-upload (mock mode only).
+    return { url: new URL("/api/mock-upload", env.APP_URL).toString(), key: `mock/uploads/${Date.now()}-${filename.replace(/[^\w.-]/g, "_")}` };
   },
   async getPipeline(templateId) {
     // Test hooks: ids containing "missing" don't exist, "draft" were never published.
@@ -95,8 +97,10 @@ export const mockClient: EngineXClient = {
       // Mirrors the real pipelines: the Lyrical template also takes the song inputs.
       inputs: (templateId === "tpl_fgi2j31DHK_M" || templateId.includes("lyric")
         ? ["youtubeUrl", "playerName", "songUrl", "songStart", "songEnd", "lyricsLrc"]
-        : ["youtubeUrl", "playerName", "durationSec"]
-      ).map((name) => ({ name, type: "text", required: name !== "lyricsLrc" })),
+        : templateId === "tpl_24XhRunrxRjQ" || templateId.includes("upload")
+          ? ["video", "videoTitle", "playerName", "durationSec"]
+          : ["youtubeUrl", "playerName", "durationSec"]
+      ).map((name) => ({ name, type: "text", required: name !== "lyricsLrc" && name !== "videoTitle" })),
       outputs: ["montage", "clips", "totalKills", "title"],
       issues: [],
       raw: { graph: { nodes: STEPS.map((st) => ({ id: st.step, kind: "engine", engine: st.engine })) } },

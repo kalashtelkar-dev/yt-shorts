@@ -152,6 +152,7 @@ function catalogFromForm(form: FormData): { input?: Record<string, unknown>; err
       title: String(form.get("title") ?? ""),
       description: String(form.get("description") ?? ""),
       templateId: String(form.get("templateId") ?? ""),
+      uploadTemplateId: String(form.get("uploadTemplateId") ?? "").trim() || null,
       enabled: form.get("enabled") === "on",
       beta: form.get("beta") === "on",
       sortOrder: Number(form.get("sortOrder") || 0),

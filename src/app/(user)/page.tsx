@@ -19,15 +19,17 @@ export default async function CreatePage() {
         durations: catalogItems.durations,
         prices: catalogItems.prices,
         fields: catalogItems.fields,
+        uploadTemplateId: catalogItems.uploadTemplateId,
       })
       .from(catalogItems)
       .where(eq(catalogItems.enabled, true))
       .orderBy(asc(catalogItems.sortOrder)),
   ]);
-  const balance = viewer ? await getBalance(viewer.id) : (await getSettings()).starterCredits;
+  const settings = await getSettings();
+  const balance = viewer ? await getBalance(viewer.id) : settings.starterCredits;
   // Only lengths that have a price can be picked.
   const items: CatalogOption[] = rows
-    .map((r) => ({ ...r, durations: r.durations.filter((d) => (r.prices[String(d)] ?? 0) > 0) }))
+    .map(({ uploadTemplateId, ...r }) => ({ ...r, uploads: !!uploadTemplateId, durations: r.durations.filter((d) => (r.prices[String(d)] ?? 0) > 0) }))
     .filter((r) => r.durations.length > 0);
 
   const intro = (
@@ -38,7 +40,7 @@ export default async function CreatePage() {
   );
 
   return items.length ? (
-    <CreateForm items={items} balance={balance} intro={intro} />
+    <CreateForm items={items} balance={balance} intro={intro} maxUploadMb={settings.maxUploadMb} />
   ) : (
     <div className="flex max-w-lg flex-col gap-8">
       {intro}

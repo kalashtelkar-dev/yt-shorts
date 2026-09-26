@@ -187,3 +187,23 @@ In mock mode a player name containing "fail" fails at the kill-feed step, and "t
 - **Incidents:** opened after 2 failing checks in a row (dated from the first), resolved after 2 good checks, severity only escalates; one open incident per service enforced by the DB. Ongoing incidents show as a banner on the health page and a status chip on the admin Overview; 30-day history with durations. Resolved incidents are kept 90 days.
 
 **Manual check:** `docker compose stop redis`, wait a minute → incident banner and a red Redis node; `docker compose start redis`, wait a minute → the incident shows as resolved with its duration.
+
+## Pipeline v6 + file uploads (2026-09-26)
+
+**Pipelines (Engine X, via `pnpm enginex:pipeline`):**
+- Kill Montage v6 imported as a new pipeline **`tpl_uKbQwmdYcij7`** and published: length input (30/60/90) with a hard ffmpeg cap, tighter clips (3.5 s before / 1.5 s after), OCR-tolerant name matching, clearer kill rules, rendering skipped when no kills. The catalog now points at it (validated live, audited).
+- Upload variant **`tpl_24XhRunrxRjQ`** ("gamer-montage-v6-upload"): same edit, but takes a `video` file key (and optional `videoTitle`) instead of downloading from YouTube. **Needs publishing in the dashboard**, then set it as Kill Montage's upload template in the admin catalog (Validate checks it).
+- The run key can import new pipelines but can't overwrite existing ones; that's why v6 is a new pipeline.
+
+**App:**
+- Create page: "YouTube link | Upload a file" switch (shown when the style has an upload template). Files go straight from the browser to Engine X storage with a presigned PUT and a progress bar; the upload widget loads only when chosen.
+- Server issues upload URLs after checking type (MP4/MOV/MKV/WebM), size (`maxUploadMb`) and a per-user hourly limit, and remembers which user each key belongs to; jobs refuse keys issued to someone else.
+- Catalog: optional upload template per style; one input map serves both sources (`$source.url` vs `$source.key` / `$source.name`, empty values dropped). Validate/save check both templates. Stage map entries can be limited to one source (`only`).
+- Automatic retry of transient step failures, "x of y scanned" progress, and a clear refunded message when no kills are found.
+
+**Numbers:** 87 unit tests pass. `/` 135 KB, `/jobs/[id]` 134 KB.
+
+**Manual checks**
+1. Upload an MP4 on the Create page → progress bar, then "uploaded"; make the montage → no download stage, "x of y scanned" appears.
+2. Try a .exe or an over-size file → friendly refusal before anything uploads.
+3. A name that isn't in the video → "We didn't find any kills by …", credits refunded.

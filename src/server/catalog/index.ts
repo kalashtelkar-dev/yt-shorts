@@ -4,6 +4,9 @@ import type { RunStep } from "@/server/enginex/types";
 
 export type MapContext = {
   sourceUrl: string;
+  /** Storage key and original file name when the source is an upload. */
+  uploadKey?: string;
+  uploadName?: string;
   durationSec: number;
   fields: Record<string, unknown>;
 };
@@ -12,10 +15,11 @@ export class MapInputError extends Error {}
 
 /**
  * Builds the pipeline input from a catalog inputMap (PLAN.md §5.2). Supports only
- * `$source.url`, `$durationSec`, `$fields.<name>` and `$fields.<name>.<sub>`; anything else
+ * `$source.url`, `$source.key`, `$source.name`, `$durationSec`, `$fields.<name>` and `$fields.<name>.<sub>`; anything else
  * starting with `$` is rejected. No eval, ever.
  * Values are sent as strings because every current pipeline input is `type: text`.
- * Empty values are left out so optional pipeline inputs use their own defaults.
+ * Empty values are left out so optional pipeline inputs use their own defaults. That is also how one
+ * inputMap serves both sources: `$source.url` is empty for uploads and `$source.key` for links.
  */
 export function mapInput(inputMap: InputMap, ctx: MapContext): Record<string, string> {
   const out: Record<string, string> = {};
@@ -28,17 +32,24 @@ export function mapInput(inputMap: InputMap, ctx: MapContext): Record<string, st
   return out;
 }
 
+const SOURCE_EXPRS = ["$source.url", "$source.key", "$source.name"];
+/** Which source an expression belongs to, so validation can ignore the other source's inputs. */
+export const sourceOf = (expr: unknown): "url" | "upload" | null =>
+  expr === "$source.url" ? "url" : expr === "$source.key" || expr === "$source.name" ? "upload" : null;
+
 const FIELD_EXPR = /^\$fields\.([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?$/;
 
 /** Null when `expr` is a literal or a supported expression; otherwise why it isn't. */
 export function checkExpression(expr: unknown): string | null {
   if (typeof expr !== "string" || !expr.startsWith("$")) return null;
-  if (expr === "$source.url" || expr === "$durationSec" || FIELD_EXPR.test(expr)) return null;
-  return `"${expr}" isn't supported. Use $source.url, $durationSec, $fields.name or $fields.name.sub`;
+  if (SOURCE_EXPRS.includes(expr) || expr === "$durationSec" || FIELD_EXPR.test(expr)) return null;
+  return `"${expr}" isn't supported. Use $source.url, $source.key, $source.name, $durationSec, $fields.name or $fields.name.sub`;
 }
 
 function resolve(expr: string, ctx: MapContext): unknown {
   if (expr === "$source.url") return ctx.sourceUrl;
+  if (expr === "$source.key") return ctx.uploadKey;
+  if (expr === "$source.name") return ctx.uploadName;
   if (expr === "$durationSec") return ctx.durationSec;
   const m = FIELD_EXPR.exec(expr);
   if (!m) throw new MapInputError(`Unsupported mapping expression: ${expr}`);

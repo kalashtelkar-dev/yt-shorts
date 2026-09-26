@@ -50,6 +50,13 @@
       "when": 1790421263522,
       "tag": "0006_stage_detail_retries",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790425989211,
+      "tag": "0007_upload_template",
+      "breakpoints": true
     }
   ]
 }

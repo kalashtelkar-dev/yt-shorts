@@ -13,6 +13,7 @@ export type CatalogFormValues = {
   title: string;
   description: string;
   templateId: string;
+  uploadTemplateId: string | null;
   enabled: boolean;
   beta: boolean;
   sortOrder: number;
@@ -74,6 +75,9 @@ export function CatalogForm({ initial }: { initial: CatalogFormValues }) {
           </L>
           <L label="Output field with the video" hint="Usually montage">
             <Input name="outputKey" defaultValue={initial.outputKey} required className="font-mono" />
+          </L>
+          <L label="Upload template ID (optional)" hint="Pipeline that takes an uploaded file instead of a link. Empty = no upload option. Checked on save." className="md:col-span-2">
+            <Input name="uploadTemplateId" defaultValue={initial.uploadTemplateId ?? ""} className="font-mono" />
           </L>
         </div>
         <div className="flex flex-wrap items-center gap-3">

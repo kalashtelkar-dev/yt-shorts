@@ -8,15 +8,17 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "kill-montage",
     title: "Kill Montage",
     description: "Every kill from your match, cut into one fast vertical edit.",
-    templateId: "tpl_QUL4sc1xbOWL",
+    templateId: "tpl_uKbQwmdYcij7", // v6: length input, tighter clips, OCR-tolerant name (was tpl_QUL4sc1xbOWL)
+    uploadTemplateId: "tpl_24XhRunrxRjQ", // v6 for uploaded files: no download step
     enabled: true,
     beta: false,
     sortOrder: 1,
     durations: [30, 60, 90],
     fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32, help: "Exactly as it shows in the kill feed" }],
-    inputMap: { youtubeUrl: "$source.url", playerName: "$fields.playerName", durationSec: "$durationSec" },
+    // One map for both sources: the link template gets youtubeUrl, the upload template video + videoTitle.
+    inputMap: { youtubeUrl: "$source.url", video: "$source.key", videoTitle: "$source.name", playerName: "$fields.playerName", durationSec: "$durationSec" },
     stageMap: [
-      { match: "download", label: "Downloading your video" },
+      { match: "download", label: "Downloading your video", only: "url" },
       { match: "stamp_font", label: "Reading the kill feed" },
       { match: "kill_feed", label: "Reading the kill feed" },
       { match: "feed_frames", label: "Reading the kill feed" },

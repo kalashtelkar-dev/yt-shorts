@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { adminAuditLog, catalogItems, catalogRevisions, jobs, users } from "@/db/schema";
 import type { ActionResult } from "@/lib/jobs";
-import { checkExpression } from "@/server/catalog";
+import { checkExpression, sourceOf } from "@/server/catalog";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError } from "@/server/enginex/types";
 import type { Admin } from "./guard";
@@ -39,6 +39,7 @@ export const catalogInput = z
     title: z.string().trim().min(1).max(80),
     description: z.string().trim().max(300),
     templateId: z.string().trim().min(1).max(100),
+    uploadTemplateId: z.string().trim().max(100).nullish().transform((v) => v || null),
     enabled: z.boolean(),
     beta: z.boolean(),
     sortOrder: z.number().int().min(0).max(1000),
@@ -46,7 +47,7 @@ export const catalogInput = z
     prices: z.record(z.string().regex(/^\d+$/), z.number().int().min(1).max(1_000_000)),
     fields: z.array(fieldSchema).max(10),
     inputMap: inputMapSchema,
-    stageMap: z.array(z.strictObject({ match: z.string().min(1).max(64), label: z.string().min(1).max(60), itemSeconds: z.number().int().min(1).max(3600).optional() })).max(40),
+    stageMap: z.array(z.strictObject({ match: z.string().min(1).max(64), label: z.string().min(1).max(60), itemSeconds: z.number().int().min(1).max(3600).optional(), only: z.enum(["url", "upload"]).optional() })).max(40),
     outputKey: ident,
   })
   .superRefine((v, ctx) => {
@@ -67,8 +68,12 @@ export type ValidationReport = {
   pipeline: { name: string; version: number | null; publishedVersion: number | null; inputs: { name: string; required: boolean }[]; outputs: string[] } | null;
 };
 
-/** Checks a template against Engine X and against the item's inputMap / outputKey. */
-export async function validateTemplate(templateId: string, inputMap: Record<string, unknown>, outputKey: string): Promise<ValidationReport> {
+/**
+ * Checks a template against Engine X and against the item's inputMap / outputKey. With `source`, the
+ * other source's entries ($source.url vs $source.key/name) are ignored: they're empty for this template.
+ */
+export async function validateTemplate(templateId: string, inputMap: Record<string, unknown>, outputKey: string, source?: "url" | "upload"): Promise<ValidationReport> {
+  if (source) inputMap = Object.fromEntries(Object.entries(inputMap).filter(([, expr]) => { const s = sourceOf(expr); return !s || s === source; }));
   let p;
   try {
     p = await enginex().getPipeline(templateId);
@@ -120,10 +125,14 @@ export async function saveCatalogItem(admin: Admin, id: string | null, raw: unkn
   const [before] = id ? await db.select().from(catalogItems).where(eq(catalogItems.id, id)) : [];
   if (id && !before) return { ok: false, error: { code: "not_found", message: "That catalog item doesn't exist any more." } };
 
-  const needsCheck =
-    !before || before.templateId !== input.templateId || JSON.stringify(before.inputMap) !== JSON.stringify(input.inputMap) || before.outputKey !== input.outputKey;
-  const report = needsCheck ? await validateTemplate(input.templateId, input.inputMap, input.outputKey) : null;
+  const mapChanged = !before || JSON.stringify(before.inputMap) !== JSON.stringify(input.inputMap) || before.outputKey !== input.outputKey;
+  const report = mapChanged || before?.templateId !== input.templateId ? await validateTemplate(input.templateId, input.inputMap, input.outputKey, "url") : null;
   if (report && !report.ok) return { ok: false, error: { code: "validation", message: report.errors.join(" ") } };
+  if (input.uploadTemplateId && (mapChanged || before?.uploadTemplateId !== input.uploadTemplateId)) {
+    const up = await validateTemplate(input.uploadTemplateId, input.inputMap, input.outputKey, "upload");
+    if (!up.ok) return { ok: false, error: { code: "validation", message: `Upload template: ${up.errors.join(" ")}` } };
+    report?.warnings.push(...up.warnings.map((w) => `Upload template: ${w}`));
+  }
 
   try {
     const saved = await db.transaction(async (tx) => {

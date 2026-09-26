@@ -17,6 +17,7 @@ export default async function NewCatalogItem() {
           title: "",
           description: "",
           templateId: "",
+          uploadTemplateId: null,
           enabled: false,
           beta: true,
           sortOrder: 10,

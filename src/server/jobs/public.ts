@@ -35,7 +35,7 @@ export async function getPublicJob(jobId: string, userId: string): Promise<Publi
     status,
     stage: job.currentStage,
     stageDetail: status === "running" ? job.stageDetail : null,
-    stages: [...new Set(row.stageMap.map((s) => s.label))],
+    stages: [...new Set(row.stageMap.filter((s) => !s.only || s.only === job.source).map((s) => s.label))],
     progress: status === "succeeded" ? 1 : job.stepsTotal ? job.stepsDone / job.stepsTotal : 0,
     events: events.map((e) => ({ ...e, at: e.at.toISOString() })),
     createdAt: job.createdAt.toISOString(),

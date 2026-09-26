@@ -36,6 +36,8 @@ export type LibraryItem = {
 
 export type CatalogOption = {
   slug: string;
+  /** This style also takes uploaded files. */
+  uploads: boolean;
   title: string;
   description: string;
   beta: boolean;

@@ -8,6 +8,7 @@ import { chargeForJob, InsufficientCreditsError } from "@/server/credits";
 import { enqueueStart } from "@/server/queue";
 import { underLimit } from "@/server/redis";
 import { getSettings } from "@/server/settings";
+import { cleanFileName, ownsUpload } from "@/server/uploads";
 import type { SessionUser } from "@/server/auth";
 import type { ActionResult } from "@/lib/jobs";
 
@@ -31,7 +32,9 @@ export const youtubeUrl = z
 
 export const createJobInput = z.strictObject({
   catalogSlug: z.string().min(1).max(64),
-  url: youtubeUrl,
+  source: z.enum(["url", "upload"]).default("url"),
+  url: z.string().max(500).optional(),
+  upload: z.strictObject({ key: z.string().min(1).max(300), name: z.string().max(300) }).optional(),
   durationSec: z.coerce.number().int(),
   fields: z.record(z.string().max(64), z.unknown()).default({}),
 });
@@ -56,6 +59,14 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
     return fail("invalid", issue.message, String(issue.path[0] ?? ""));
   }
   const input = parsed.data;
+  let sourceUrl: string | null = null;
+  if (input.source === "url") {
+    const u = youtubeUrl.safeParse(input.url ?? "");
+    if (!u.success) return fail("invalid", u.error.issues[0].message, "url");
+    sourceUrl = u.data;
+  } else if (!input.upload) {
+    return fail("invalid", "Choose a video file to upload.", "upload");
+  }
 
   // Read from the DB: the session cookie cache can be up to 5 minutes old.
   const [fresh] = await db.select({ suspendedAt: users.suspendedAt }).from(users).where(eq(users.id, user.id));
@@ -64,6 +75,12 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   const [item] = await db.select().from(catalogItems).where(and(eq(catalogItems.slug, input.catalogSlug), eq(catalogItems.enabled, true)));
   if (!item) return fail("unavailable", "That style isn't available right now. Pick another one.");
   if (!item.durations.includes(input.durationSec)) return fail("invalid", "Pick one of the lengths shown.", "durationSec");
+  if (input.source === "upload") {
+    if (!item.uploadTemplateId) return fail("unavailable", "This style doesn't take uploads yet. Paste a YouTube link instead.", "upload");
+    if (!(await ownsUpload(user.id, input.upload!.key))) return fail("invalid", "That upload has expired. Choose the file again.", "upload");
+  }
+  const templateId = input.source === "upload" ? item.uploadTemplateId! : item.templateId;
+  const uploadName = input.upload ? cleanFileName(input.upload.name).replace(/\.[^.]+$/, "") : undefined;
   const price = item.prices[String(input.durationSec)];
   if (!Number.isInteger(price) || price <= 0) return fail("unavailable", "This length isn't available right now. Pick another one.");
 
@@ -76,7 +93,7 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
 
   let pipelineInput: Record<string, string>;
   try {
-    pipelineInput = mapInput(item.inputMap, { sourceUrl: input.url, durationSec: input.durationSec, fields });
+    pipelineInput = mapInput(item.inputMap, { sourceUrl: sourceUrl ?? "", uploadKey: input.upload?.key, uploadName, durationSec: input.durationSec, fields });
   } catch (e) {
     if (e instanceof MapInputError) return fail("config", "This style is misconfigured. We've been told; try again later.");
     throw e;
@@ -103,10 +120,11 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
           userId: user.id,
           catalogItemId: item.id,
           catalogSlug: item.slug,
-          templateId: item.templateId, // snapshot: later catalog edits don't touch this job
+          templateId, // snapshot: later catalog edits don't touch this job
           input: pipelineInput,
-          source: "url",
-          sourceUrl: input.url,
+          source: input.source,
+          sourceUrl,
+          uploadKey: input.upload?.key ?? null,
           durationSec: input.durationSec,
           chargedCredits: price,
         })

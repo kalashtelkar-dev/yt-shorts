@@ -59,6 +59,8 @@ export interface EngineXClient {
   runPipeline(templateId: string, input: Record<string, unknown>, idempotencyKey: string): Promise<{ runId: string }>;
   getRun(runId: string): Promise<Run>;
   cancelRun(runId: string): Promise<void>;
+  /** Re-runs only the failed steps of a run (same run id). */
+  retryRun(runId: string): Promise<void>;
   signOutput(keys: string[], expiresSec: number): Promise<Record<string, string>>;
   createUploadUrl(filename: string, expirySec?: number): Promise<UploadTarget>;
   getPipeline(templateId: string): Promise<Pipeline>;

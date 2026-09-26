@@ -27,7 +27,7 @@ export function FeedRow({ tone, children }: { tone: Tone; children: React.ReactN
 }
 
 /** Stages as kill-feed rows: finished ones dim, the current one marked. */
-export function StageFeed({ stages, stage, status }: { stages: string[]; stage: string | null; status: "queued" | "running" | "succeeded" | "failed" }) {
+export function StageFeed({ stages, stage, status, detail }: { stages: string[]; stage: string | null; status: "queued" | "running" | "succeeded" | "failed"; detail?: string | null }) {
   if (status === "queued" || (status === "running" && !stage)) {
     return (
       <FeedRow tone="active">
@@ -46,6 +46,7 @@ export function StageFeed({ stages, stage, status }: { stages: string[]; stage: 
           <FeedRow key={label} tone={tone}>
             {isCurrent ? status === "failed" ? <X className="size-3.5 shrink-0" aria-hidden /> : <Pulse /> : <Check className="size-3.5 shrink-0" aria-hidden />}
             <span className="truncate">{label}</span>
+            {isCurrent && detail && status === "running" && <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular">{detail}</span>}
           </FeedRow>
         );
       })}

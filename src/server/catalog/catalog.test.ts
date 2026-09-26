@@ -65,3 +65,13 @@ describe("stageFor", () => {
     expect(stageFor([step("clip_count", "running")], map, "Downloading")).toBe("Downloading");
   });
 });
+
+describe("stageDetail", () => {
+  it("turns fan-out items into video time scanned", async () => {
+    const { stageDetail } = await import(".");
+    const map = [{ match: "read_feed", label: "Reading the kill feed", itemSeconds: 10 }];
+    const steps = [step("read_feed", "running", { total: 144, done: 25, failed: 0 })];
+    expect(stageDetail(steps, map, "Reading the kill feed")).toBe("4:10 of 24:00 scanned");
+    expect(stageDetail(steps, map, "Rendering")).toBeNull();
+  });
+});

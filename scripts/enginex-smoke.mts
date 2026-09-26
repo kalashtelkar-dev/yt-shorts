@@ -23,7 +23,7 @@ try {
 for (const item of catalogSeed) {
   try {
     const p = await client.getPipeline(item.templateId);
-    writeFileSync(`.smoke/${item.slug}.json`, JSON.stringify(p.raw, null, 2));
+    if (process.env.ENGINEX_MODE !== "mock") writeFileSync(`.smoke/${item.slug}.json`, JSON.stringify(p.raw, null, 2)); // don't overwrite real dumps with mock data
     console.log(`\n✓ ${item.slug} (${item.templateId}) "${p.name}" head=v${p.version} published=v${p.publishedVersion ?? "none"} compiles=${p.compiles}`);
     if (p.version !== p.publishedVersion) console.log("  ⚠ head is an unpublished draft; runs use the published version");
     console.log(`  inputs: ${p.inputs.map((i) => `${i.name}${i.required ? "*" : ""}:${i.type}`).join(", ")}  outputs: ${p.outputs.join(", ")}`);

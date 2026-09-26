@@ -17,6 +17,15 @@ const BY_CODE: Record<string, string> = {
   no_workers: `Our editing servers are busy right now. Try again in a few minutes. ${REFUND}`,
 };
 
+export const noKillsMessage = (name: string) =>
+  `We didn't find any kills by "${name}" in this video. Check the name matches the kill feed exactly, including capitals, and that the video is a Valorant or CS2 match. ${REFUND}`;
+
+/** Failures worth one automatic retry: infrastructure blips, not problems with the video or the edit. */
+export function isTransientFailure(engine: string | null, error: string | null): boolean {
+  if (/exit(ed)?( with)? code 137|out of memory|oom|timed? ?out|timeout|econn|connection|unavailable|503|502|worker (lost|died|restarted)/i.test(error ?? "")) return true;
+  return engine === "ocr" || engine === "vllm";
+}
+
 export const TIMEOUT_MESSAGE = `This video took too long to edit, so we stopped. Try a shorter recording. ${REFUND}`;
 
 export function publicErrorFor(engine: string | null, code?: string): string {

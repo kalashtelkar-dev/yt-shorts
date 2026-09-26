@@ -64,6 +64,21 @@ export function progressOf(steps: RunStep[]): { done: number; total: number } {
 }
 
 /**
+ * Extra progress for the current stage, e.g. "4:10 of 24:00 scanned", when its stageMap entry says
+ * how many seconds of video each fan-out item covers.
+ */
+export function stageDetail(steps: RunStep[], stageMap: StageMapEntry[], stage: string | null): string | null {
+  for (const e of stageMap) {
+    if (e.label !== stage || !e.itemSeconds) continue;
+    const s = steps.find((x) => x.step.startsWith(e.match) && x.items && x.items.total > 0);
+    if (!s?.items) continue;
+    const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+    return `${clock((s.items.done + s.items.failed) * e.itemSeconds)} of ${clock(s.items.total * e.itemSeconds)} scanned`;
+  }
+  return null;
+}
+
+/**
  * Friendly stage label. Among running steps that match a stageMap prefix, the one listed
  * earliest in the stageMap wins (parallel branches show the earlier phase). If nothing
  * matching is running, the previous stage stays.

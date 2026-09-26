@@ -20,8 +20,8 @@ const base = () => ({
   durations: [30, 60],
   prices: { "30": 300, "60": 450 },
   fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32 }],
-  inputMap: { youtubeUrl: "$source.url", playerName: "$fields.playerName" },
-  stageMap: [{ match: "download", label: "Downloading" }],
+  inputMap: { youtubeUrl: "$source.url", playerName: "$fields.playerName", durationSec: "$durationSec" },
+  stageMap: [{ match: "download", label: "Downloading" }, { match: "read_feed", label: "Reading", itemSeconds: 10 }],
   outputKey: "montage",
 });
 
@@ -34,7 +34,7 @@ beforeEach(async () => {
 
 describe("validateTemplate (mock Engine X)", () => {
   it("passes a published template whose required inputs are mapped", async () => {
-    expect(await validateTemplate("tpl_ok", { youtubeUrl: "$source.url", playerName: "x" }, "montage")).toMatchObject({ ok: true, errors: [] });
+    expect(await validateTemplate("tpl_ok", { youtubeUrl: "$source.url", playerName: "x", durationSec: "$durationSec" }, "montage")).toMatchObject({ ok: true, errors: [] });
   });
 
   it("rejects unknown and unpublished templates", async () => {

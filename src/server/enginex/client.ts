@@ -72,6 +72,10 @@ export function createClient(
       await request("DELETE", `/v1/runs/${encodeURIComponent(runId)}`);
     },
 
+    async retryRun(runId) {
+      await request("POST", `/v1/runs/${encodeURIComponent(runId)}/retry`, { retry: false });
+    },
+
     async signOutput(keys, expiresSec) {
       const data = await request("POST", "/v1/outputs/sign", { body: { keys, expiresSec: Math.min(expiresSec, 3600) } });
       return normaliseSigned(keys, data);

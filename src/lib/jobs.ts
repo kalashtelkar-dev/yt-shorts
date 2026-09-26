@@ -9,6 +9,8 @@ export type PublicJob = {
   title: string;
   status: PublicStatus;
   stage: string | null;
+  /** e.g. "4:10 of 24:00 scanned" */
+  stageDetail: string | null;
   stages: string[];
   progress: number; // 0..1
   events: { at: string; message: string; level: "info" | "warn" | "error" }[];

@@ -66,12 +66,16 @@ describe("job lifecycle (mock Engine X)", () => {
     expect(await getBalance(userId)).toBe(600 - 120);
   });
 
-  it("refunds and stores a friendly error when a step fails", async () => {
+  it("retries a transient failure once, then refunds with a friendly error", async () => {
     const job = await newJob("fail");
     await startJob(job.id, T0);
     at(60_000);
-    await pollJob(await load(job.id), await getSettings(), stageMap, "montage", T0 + 60_000);
-    const row = await load(job.id);
+    const settings = await getSettings();
+    await pollJob(await load(job.id), settings, stageMap, "montage", T0 + 60_000); // OCR out of memory → retry
+    let row = await load(job.id);
+    expect(row).toMatchObject({ status: "running", retries: 1 });
+    await pollJob(row, settings, stageMap, "montage", T0 + 65_000); // still failing → give up
+    row = await load(job.id);
     expect(row.status).toBe("failed");
     expect(row.errorPublic).toMatch(/kill feed/);
     expect(row.errorRaw).toMatch(/137/);

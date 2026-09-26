@@ -2,13 +2,13 @@ import "server-only";
 import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import { catalogItems, jobEvents, jobs } from "@/db/schema";
-import { progressOf, stageFor } from "@/server/catalog";
+import { progressOf, stageDetail, stageFor } from "@/server/catalog";
 import { refundJob } from "@/server/credits";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError, type Run } from "@/server/enginex/types";
 import { redis } from "@/server/redis";
 import { getSettings, type Settings } from "@/server/settings";
-import { publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
+import { isTransientFailure, noKillsMessage, publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
 
 // Everything that moves a job through its life. Runs in the worker only (CLAUDE.md §7).
 // Every transition is a conditional UPDATE, so overlapping sweeps or two workers can't double-act.
@@ -16,6 +16,7 @@ import { publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
 type Job = typeof jobs.$inferSelect;
 
 const STALE_START_MS = 2 * 60_000;
+const MAX_RETRIES = 1;
 const FAST_POLL_FOR_MS = 5 * 60_000;
 const SLOW_POLL_MS = 10_000;
 
@@ -77,6 +78,18 @@ export async function pollJob(job: Job, settings: Settings, stageMap: { match: s
   if (run.status === "succeeded") return finishSucceeded(job, run, outputField, settings, now);
   if (run.status === "failed" || run.status === "canceled") {
     const failed = run.steps.find((s) => s.status === "failed");
+    // One automatic retry of the failed steps for infrastructure blips (same run, so no double charge).
+    if (run.status === "failed" && job.retries < MAX_RETRIES && isTransientFailure(failed?.engine ?? null, failed?.error ?? run.error)) {
+      try {
+        await enginex().retryRun(job.runId!);
+        await db.update(jobs).set({ retries: job.retries + 1 }).where(and(eq(jobs.id, job.id), eq(jobs.status, "running")));
+        await event(job.id, "A step failed on our side, so we're running it again", "warn");
+        await notify(job.id);
+        return;
+      } catch {
+        // Retry refused: fall through and finish as failed.
+      }
+    }
     return finishFailed(
       job,
       {
@@ -98,8 +111,12 @@ export async function pollJob(job: Job, settings: Settings, stageMap: { match: s
 
   const { done, total } = progressOf(run.steps);
   const stage = stageFor(run.steps, stageMap, job.currentStage);
-  if (done === job.stepsDone && total === job.stepsTotal && stage === job.currentStage) return;
-  await db.update(jobs).set({ stepsDone: done, stepsTotal: total, currentStage: stage }).where(and(eq(jobs.id, job.id), eq(jobs.status, "running")));
+  const detail = stageDetail(run.steps, stageMap, stage);
+  if (done === job.stepsDone && total === job.stepsTotal && stage === job.currentStage && detail === job.stageDetail) return;
+  await db
+    .update(jobs)
+    .set({ stepsDone: done, stepsTotal: total, currentStage: stage, stageDetail: detail })
+    .where(and(eq(jobs.id, job.id), eq(jobs.status, "running")));
   if (stage && stage !== job.currentStage) await event(job.id, stage);
   await notify(job.id);
 }
@@ -111,7 +128,14 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
   const outputKey = typeof output[outputField] === "string" ? (output[outputField] as string) : null;
   const runMs = run.runMs ?? elapsed(job, now);
   if (!outputKey) {
-    return finishFailed(job, { errorRaw: `succeeded without output field "${outputField}"`, errorPublic: publicErrorFor(null), runMs }, settings);
+    // The pipeline skips rendering when it finds no kills: tell the user that, not "something went wrong".
+    const noKills = Number(output.totalKills) === 0 || (Array.isArray(output.clips) && output.clips.length === 0);
+    const name = String((job.input as Record<string, unknown>).playerName ?? "your name");
+    return finishFailed(
+      job,
+      { errorRaw: noKills ? "no kills found" : `succeeded without output field "${outputField}"`, errorPublic: noKills ? noKillsMessage(name) : publicErrorFor(null), runMs },
+      settings,
+    );
   }
   const totalKills = Number(output.totalKills) || 0;
   const clips = Array.isArray(output.clips) ? output.clips.length : null;
@@ -127,6 +151,7 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
         computeCostPaise: costPaise(runMs, settings),
         stepsDone: job.stepsTotal || job.stepsDone,
         currentStage: "Done",
+        stageDetail: null,
         finishedAt: new Date(now),
       })
       .where(and(eq(jobs.id, job.id), eq(jobs.status, "running")))

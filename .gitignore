@@ -44,3 +44,4 @@ next-env.d.ts
 .remember/
 .smoke/
 .playwright-mcp/
+.pipelines/

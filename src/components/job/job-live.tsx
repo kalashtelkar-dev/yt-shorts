@@ -54,7 +54,7 @@ export function JobLive({ initial, initialVideoUrl }: { initial: PublicJob; init
         ) : (
           <>
             <div className="absolute top-4 right-4 left-4 flex flex-col items-end gap-1.5">
-              <StageFeed stages={job.stages} stage={job.stage} status={job.status} />
+              <StageFeed stages={job.stages} stage={job.stage} status={job.status} detail={job.stageDetail} />
             </div>
             {job.status !== "failed" && (
               <p className="absolute inset-0 flex items-center justify-center font-mono text-5xl font-medium text-foreground/90 tabular" aria-hidden>
@@ -77,7 +77,7 @@ export function JobLive({ initial, initialVideoUrl }: { initial: PublicJob; init
             {job.status === "succeeded" ? "Your montage is ready" : job.status === "failed" ? "We couldn't finish this montage" : "Making your montage"}
           </h1>
           <p className="sr-only" aria-live="polite">
-            {job.status === "running" || job.status === "queued" ? `${job.stage ?? "Waiting"}, ${pct} percent` : ""}
+            {job.status === "running" || job.status === "queued" ? `${job.stage ?? "Waiting"}${job.stageDetail ? `, ${job.stageDetail}` : ""}, ${pct} percent` : ""}
           </p>
 
           {job.status === "failed" ? (

@@ -74,6 +74,7 @@ export const mockClient: EngineXClient = {
     return mockRunAt(runId, Date.now());
   },
   async cancelRun() {},
+  async retryRun() {}, // the mock's failure is permanent, so a retried run fails again
   async signOutput(keys) {
     // A public sample clip so the result page has something to play in dev.
     return Object.fromEntries(keys.map((k) => [k, "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"]));
@@ -94,7 +95,7 @@ export const mockClient: EngineXClient = {
       // Mirrors the real pipelines: the Lyrical template also takes the song inputs.
       inputs: (templateId === "tpl_fgi2j31DHK_M" || templateId.includes("lyric")
         ? ["youtubeUrl", "playerName", "songUrl", "songStart", "songEnd", "lyricsLrc"]
-        : ["youtubeUrl", "playerName"]
+        : ["youtubeUrl", "playerName", "durationSec"]
       ).map((name) => ({ name, type: "text", required: name !== "lyricsLrc" })),
       outputs: ["montage", "clips", "totalKills", "title"],
       issues: [],

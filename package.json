@@ -16,7 +16,8 @@
     "enginex:smoke": "tsx --conditions=react-server --env-file-if-exists=.env scripts/enginex-smoke.mts",
     "worker:dev": "tsx watch --conditions=react-server --env-file-if-exists=.env src/worker/index.mts",
     "worker": "tsx --conditions=react-server --env-file-if-exists=.env src/worker/index.mts",
-    "admin:create": "tsx --conditions=react-server --env-file-if-exists=.env scripts/admin-create.mts"
+    "admin:create": "tsx --conditions=react-server --env-file-if-exists=.env scripts/admin-create.mts",
+    "enginex:pipeline": "tsx --env-file-if-exists=.env scripts/enginex-pipeline.mts"
   },
   "dependencies": {
     "@xyflow/react": "^12.12.0",

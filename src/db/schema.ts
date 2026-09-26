@@ -103,7 +103,8 @@ export type CatalogField = {
   help?: string;
 };
 export type InputMap = Record<string, string | number | boolean>;
-export type StageMapEntry = { match: string; label: string };
+/** `itemSeconds`: for fan-out steps, seconds of video per item, so progress can say "4:10 of 24:00 scanned". */
+export type StageMapEntry = { match: string; label: string; itemSeconds?: number };
 
 export const catalogItems = pgTable("catalog_items", {
   id: uuid().primaryKey().defaultRandom(),
@@ -169,6 +170,8 @@ export const jobs = pgTable(
     stepsTotal: integer().notNull().default(0),
     stepsDone: integer().notNull().default(0),
     currentStage: text(),
+    stageDetail: text(),
+    retries: integer().notNull().default(0),
     outputKey: text(),
     outputMeta: jsonb(),
     errorPublic: text(),

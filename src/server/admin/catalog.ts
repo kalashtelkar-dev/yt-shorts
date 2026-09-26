@@ -46,7 +46,7 @@ export const catalogInput = z
     prices: z.record(z.string().regex(/^\d+$/), z.number().int().min(1).max(1_000_000)),
     fields: z.array(fieldSchema).max(10),
     inputMap: inputMapSchema,
-    stageMap: z.array(z.strictObject({ match: z.string().min(1).max(64), label: z.string().min(1).max(60) })).max(40),
+    stageMap: z.array(z.strictObject({ match: z.string().min(1).max(64), label: z.string().min(1).max(60), itemSeconds: z.number().int().min(1).max(3600).optional() })).max(40),
     outputKey: ident,
   })
   .superRefine((v, ctx) => {

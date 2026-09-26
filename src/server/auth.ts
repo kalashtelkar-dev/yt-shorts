@@ -2,13 +2,20 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { anonymous } from "better-auth/plugins";
+import { anonymous, emailOTP } from "better-auth/plugins";
 import { and, eq } from "drizzle-orm";
 import { env } from "@/config/env";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { mergeGuest } from "./account";
+import { sendOtpEmail } from "./email";
 
-// AUTH_MODE=anonymous for now. Google, email+password and email OTP arrive in milestone 10.
+// AUTH_MODE=anonymous: every visitor is a guest (anonymous user); only admins have passwords.
+// AUTH_MODE=full: email + password sign-up verified by an emailed code, and password reset codes.
+// Every flow runs through server actions (src/app/(auth)/actions.ts), which add our rate limits;
+// the HTTP endpoints stay closed except sign-out (api/auth/[...all]).
+const full = env.AUTH_MODE === "full";
+
 export const auth = betterAuth({
   appName: "MontageAI",
   baseURL: env.APP_URL,
@@ -26,9 +33,9 @@ export const auth = betterAuth({
     cookieCache: { enabled: true, maxAge: 5 * 60 },
   },
   advanced: { database: { generateId: () => crypto.randomUUID() } },
-  // Admins sign in with email + password. Public sign-up arrives with AUTH_MODE=full (milestone 10);
-  // until then admin accounts are created with `pnpm admin:create`.
-  emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 8 },
+  // In anonymous mode admin accounts come from `pnpm admin:create` (already verified).
+  emailAndPassword: { enabled: true, disableSignUp: !full, requireEmailVerification: true, minPasswordLength: 8, revokeSessionsOnPasswordReset: true },
+  emailVerification: { autoSignInAfterVerification: true },
   databaseHooks: {
     session: {
       create: {
@@ -44,9 +51,25 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    emailOTP({
+      otpLength: 6,
+      expiresIn: 10 * 60,
+      allowedAttempts: 5, // then the code is deleted and a new one is needed
+      storeOTP: "hashed",
+      disableSignUp: true, // codes verify accounts and reset passwords; they never create accounts
+      overrideDefaultEmailVerification: true,
+      // Not awaited, so response time doesn't reveal whether an account exists.
+      sendVerificationOTP: async ({ email, otp, type }) => {
+        void sendOtpEmail(email, otp, type).catch((e) => console.error("[email] send failed:", e instanceof Error ? e.message : e));
+      },
+    }),
     anonymous({
       emailDomainName: "anon.montage.local",
-      // ponytail: linking is milestone 10; until then keep the anonymous row so ledger FKs never break.
+      // A guest who signs up or signs in keeps their videos and credits.
+      onLinkAccount: async ({ anonymousUser, newUser }) => {
+        if (!newUser.user.isAnonymous) await mergeGuest(anonymousUser.user.id, newUser.user.id);
+      },
+      // The guest row stays: its ledger rows reference it (the ledger is append-only).
       disableDeleteAnonymousUser: true,
     }),
     nextCookies(), // must stay last

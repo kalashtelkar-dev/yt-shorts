@@ -5,6 +5,7 @@ import { formatWhen } from "@/lib/format";
 import type { LibraryItem, PublicStatus } from "@/lib/jobs";
 import { cn } from "@/lib/utils";
 import { listJobs } from "@/server/jobs/public";
+import { env } from "@/config/env";
 import { getViewer } from "@/server/session";
 
 export const metadata: Metadata = { title: "My videos" };
@@ -19,6 +20,7 @@ const STATUS: Record<PublicStatus, { label: string; className: string }> = {
 export default async function LibraryPage() {
   const viewer = await getViewer();
   const items: LibraryItem[] = viewer ? await listJobs(viewer.id) : [];
+  const signedOut = env.AUTH_MODE === "full" && (!viewer || !!viewer.isAnonymous);
 
   return (
     <div className="flex flex-col gap-6">
@@ -26,9 +28,15 @@ export default async function LibraryPage() {
       {items.length === 0 ? (
         <div className="flex max-w-lg flex-col items-start gap-4 rounded-xl border bg-panel p-6">
           <p className="text-muted-foreground">Montages you make show up here, with a download link when they&apos;re ready.</p>
-          <Link href="/" className={buttonVariants({ size: "lg" })}>
-            Make your first montage
-          </Link>
+          {signedOut ? (
+            <Link href="/sign-in" className={buttonVariants({ size: "lg" })}>
+              Sign in to see your videos
+            </Link>
+          ) : (
+            <Link href="/" className={buttonVariants({ size: "lg" })}>
+              Make your first montage
+            </Link>
+          )}
         </div>
       ) : (
         <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-panel">

@@ -5,7 +5,7 @@ import type { ActionResult } from "@/lib/jobs";
 import { createJob, type CreateJobInput } from "@/server/jobs/create";
 import { signedVideoUrl } from "@/server/jobs/public";
 import { issueUpload } from "@/server/uploads";
-import { ensureUser, getViewer, RateLimitedError } from "@/server/session";
+import { ensureUser, getViewer, RateLimitedError, SignInRequiredError } from "@/server/session";
 
 const serverError = { ok: false as const, error: { code: "server", message: "Something went wrong on our side. Try again in a moment." } };
 
@@ -36,6 +36,7 @@ export async function createJobAction(_prev: CreateState, form: FormData): Promi
     jobId = result.data.jobId;
   } catch (e) {
     if (e instanceof RateLimitedError) return { error: { code: "rate_limited", message: e.message } };
+    if (e instanceof SignInRequiredError) return { error: { code: "sign_in", message: e.message } };
     console.error("[createJob]", e instanceof Error ? e.message : e);
     return { error: serverError.error };
   }
@@ -49,7 +50,7 @@ export async function startUploadAction(file: { name: string; size: number; type
     if (user.suspendedAt) return { ok: false, error: { code: "suspended", message: "Your account is paused, so you can't upload videos." } };
     return await issueUpload(user, file);
   } catch (e) {
-    if (e instanceof RateLimitedError) return { ok: false, error: { code: "rate_limited", message: e.message } };
+    if (e instanceof RateLimitedError || e instanceof SignInRequiredError) return { ok: false, error: { code: e instanceof RateLimitedError ? "rate_limited" : "sign_in", message: e.message } };
     console.error("[startUpload]", e instanceof Error ? e.message : e);
     return serverError;
   }

@@ -13,3 +13,15 @@ export async function underLimit(key: string, limit: number, windowSec: number):
   const [[, count]] = (await redis.multi().incr(k).expire(k, windowSec, "NX").exec()) as [[unknown, number]];
   return count <= limit;
 }
+
+/**
+ * Failure counters: check with `failuresUnder` before an attempt, `recordFailure` only when it fails,
+ * so someone typing a victim's email can't lock them out while they keep signing in successfully.
+ */
+export async function failuresUnder(key: string, limit: number): Promise<boolean> {
+  return Number((await redis.get(`rl:${key}`)) ?? 0) < limit;
+}
+
+export async function recordFailure(key: string, windowSec: number): Promise<void> {
+  await underLimit(key, Number.MAX_SAFE_INTEGER, windowSec);
+}

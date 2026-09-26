@@ -4,10 +4,11 @@ import { Loader2 } from "lucide-react";
 import { useActionState, useId, useState } from "react";
 import { createJobAction } from "@/app/(user)/actions";
 import { Frame, KillRow } from "@/components/job/feed";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { UploadState } from "@/components/video-upload";
 import { formatCredits } from "@/lib/format";
 import type { CatalogOption } from "@/lib/jobs";
@@ -18,7 +19,20 @@ const VideoUpload = dynamic(() => import("@/components/video-upload").then((m) =
   loading: () => <div className="min-h-32 animate-pulse rounded-lg border border-dashed border-input bg-panel-raised motion-reduce:animate-none" />,
 });
 
-export function CreateForm({ items, balance, intro, maxUploadMb }: { items: CatalogOption[]; balance: number; intro: React.ReactNode; maxUploadMb: number }) {
+export function CreateForm({
+  items,
+  balance,
+  intro,
+  maxUploadMb,
+  needsAccount = false,
+}: {
+  items: CatalogOption[];
+  balance: number;
+  intro: React.ReactNode;
+  maxUploadMb: number;
+  /** AUTH_MODE=full and nobody is signed in: the form shows the price, and the button goes to sign-up. */
+  needsAccount?: boolean;
+}) {
   const [slug, setSlug] = useState(items[0].slug);
   const item = items.find((i) => i.slug === slug) ?? items[0];
   const [url, setUrl] = useState("");
@@ -30,7 +44,8 @@ export function CreateForm({ items, balance, intro, maxUploadMb }: { items: Cata
   const error = state.error;
   const uid = useId();
 
-  const source = item.uploads ? sourceChoice : "url";
+  // Uploads need a user to own the file, so visitors without an account see the link flow only.
+  const source = item.uploads && !needsAccount ? sourceChoice : "url";
   const uploadBusy = source === "upload" && upload.kind !== "done";
   const price = item.prices[String(durationSec)] ?? 0;
   const short = price - balance;
@@ -69,7 +84,7 @@ export function CreateForm({ items, balance, intro, maxUploadMb }: { items: Cata
         )}
 
         <input type="hidden" name="source" value={source} />
-        {item.uploads && (
+        {item.uploads && !needsAccount && (
           <div className="grid grid-cols-2 gap-1 rounded-xl border bg-panel p-1" role="radiogroup" aria-label="Where's your match?">
             {(["url", "upload"] as const).map((s) => (
               <label
@@ -156,15 +171,34 @@ export function CreateForm({ items, balance, intro, maxUploadMb }: { items: Cata
               {general}
             </p>
           )}
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            Costs <span className="font-mono text-foreground tabular">{formatCredits(price)}</span> credits · you have{" "}
-            <span className="font-mono text-foreground tabular">{formatCredits(balance)}</span>
-            {short > 0 && <span className="text-danger"> · you need {formatCredits(short)} more</span>}
-          </p>
-          <Button type="submit" size="lg" disabled={pending || short > 0 || uploadBusy} className="w-full sm:w-auto sm:self-start">
-            {pending && <Loader2 className="animate-spin" aria-hidden />}
-            {pending ? "Starting…" : upload.kind === "uploading" && source === "upload" ? "Uploading…" : "Make my montage"}
-          </Button>
+          {needsAccount ? (
+            <>
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                Costs <span className="font-mono text-foreground tabular">{formatCredits(price)}</span> credits · new accounts start with{" "}
+                <span className="font-mono text-foreground tabular">{formatCredits(balance)}</span>
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto")}>
+                  Create a free account
+                </Link>
+                <Link href="/sign-in" className="self-center rounded text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+                  I have an account
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                Costs <span className="font-mono text-foreground tabular">{formatCredits(price)}</span> credits · you have{" "}
+                <span className="font-mono text-foreground tabular">{formatCredits(balance)}</span>
+                {short > 0 && <span className="text-danger"> · you need {formatCredits(short)} more</span>}
+              </p>
+              <Button type="submit" size="lg" disabled={pending || short > 0 || uploadBusy} className="w-full sm:w-auto sm:self-start">
+                {pending && <Loader2 className="animate-spin" aria-hidden />}
+                {pending ? "Starting…" : upload.kind === "uploading" && source === "upload" ? "Uploading…" : "Make my montage"}
+              </Button>
+            </>
+          )}
         </div>
       </form>
       </div>

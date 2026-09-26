@@ -219,6 +219,7 @@ export const ledgerKind = pgEnum("ledger_kind", [
   "charge",
   "purchase",
   "refund",
+  "transfer", // a guest's balance moving to the account they signed up with (a pair of rows, − and +)
 ]);
 
 // Append-only: a trigger in the migrations rejects UPDATE and DELETE.

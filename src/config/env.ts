@@ -28,9 +28,6 @@ const schema = z
     ENGINEX_API_KEY: z.string().min(1).optional(),
     ENGINEX_STORAGE_URL: z.url().optional(), // Engine X object store (MinIO), for the health check only
 
-    GOOGLE_CLIENT_ID: z.string().optional(),
-    GOOGLE_CLIENT_SECRET: z.string().optional(),
-
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().default(587),
     SMTP_USER: z.string().optional(),
@@ -49,12 +46,17 @@ const schema = z
     if (e.NODE_ENV === "production" && !e.BETTER_AUTH_SECRET) {
       ctx.addIssue({ code: "custom", message: "BETTER_AUTH_SECRET is required in production" });
     }
+    if (e.NODE_ENV === "production" && e.AUTH_MODE === "full" && !e.SMTP_HOST) {
+      ctx.addIssue({ code: "custom", message: "SMTP_HOST is required when AUTH_MODE=full (sign-up codes go by email)" });
+    }
   });
 
 export type Env = z.infer<typeof schema>;
 
 export function parseEnv(source: Record<string, string | undefined>): Env {
-  const result = schema.safeParse(source);
+  // Empty values count as unset; SMTP_PASSWORD is accepted as another name for SMTP_PASS.
+  const clean = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== ""));
+  const result = schema.safeParse({ ...clean, SMTP_PASS: clean.SMTP_PASS ?? clean.SMTP_PASSWORD });
   if (!result.success) {
     // Only print variable names and messages, never values.
     const issues = result.error.issues.map((i) => `${i.path.join(".") || "env"}: ${i.message}`);

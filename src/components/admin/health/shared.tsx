@@ -18,6 +18,7 @@ export const TIER_LABEL: Record<string, string> = {
   app: "App",
   data: "Data",
   queue: "Queue",
+  email: "Email",
   engine: "Gateway",
   storage: "Storage",
   workers: "Engine worker",

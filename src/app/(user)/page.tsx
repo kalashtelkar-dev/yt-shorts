@@ -3,8 +3,8 @@ import { CreateForm } from "@/components/create-form";
 import { db } from "@/db";
 import { catalogItems } from "@/db/schema";
 import type { CatalogOption } from "@/lib/jobs";
-import { getBalance } from "@/server/credits";
-import { getViewer } from "@/server/session";
+import { env } from "@/config/env";
+import { getViewer, viewerBalance } from "@/server/session";
 import { getSettings } from "@/server/settings";
 
 export default async function CreatePage() {
@@ -25,8 +25,8 @@ export default async function CreatePage() {
       .where(eq(catalogItems.enabled, true))
       .orderBy(asc(catalogItems.sortOrder)),
   ]);
-  const settings = await getSettings();
-  const balance = viewer ? await getBalance(viewer.id) : settings.starterCredits;
+  const [settings, balance] = await Promise.all([getSettings(), viewerBalance(viewer)]);
+  const needsAccount = env.AUTH_MODE === "full" && (!viewer || !!viewer.isAnonymous);
   // Only lengths that have a price can be picked.
   const items: CatalogOption[] = rows
     .map(({ uploadTemplateId, ...r }) => ({ ...r, uploads: !!uploadTemplateId, durations: r.durations.filter((d) => (r.prices[String(d)] ?? 0) > 0) }))
@@ -40,7 +40,7 @@ export default async function CreatePage() {
   );
 
   return items.length ? (
-    <CreateForm items={items} balance={balance} intro={intro} maxUploadMb={settings.maxUploadMb} />
+    <CreateForm items={items} balance={balance} intro={intro} maxUploadMb={settings.maxUploadMb} needsAccount={needsAccount} />
   ) : (
     <div className="flex max-w-lg flex-col gap-8">
       {intro}

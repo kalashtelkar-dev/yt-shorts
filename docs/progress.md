@@ -207,3 +207,35 @@ In mock mode a player name containing "fail" fails at the kill-feed step, and "t
 1. Upload an MP4 on the Create page → progress bar, then "uploaded"; make the montage → no download stage, "x of y scanned" appears.
 2. Try a .exe or an over-size file → friendly refusal before anything uploads.
 3. A name that isn't in the video → "We didn't find any kills by …", credits refunded.
+
+## Milestone 10: Full auth (done 2026-09-26)
+
+Built and tested with `AUTH_MODE=full`; ships with `AUTH_MODE=anonymous`, where nothing changes for visitors.
+
+- **Pages:** `/sign-up`, `/sign-in`, `/verify`, `/forgot-password` (404 unless `AUTH_MODE=full`; signed-in accounts are sent home). Header shows "Sign in" or "Account" in full mode only.
+- **Account page (`/account`):** email, credits, member since; change password (needs the current one; other devices are signed out within 5 minutes, the session cookie cache); sign out; sign out on every device.
+- **Email + password:** sign-up sends a 6-digit code (10 min, 5 tries, hashed, single use); verifying signs you in. Password sign-in before verifying sends a fresh code. 60 s resend cooldown, hourly caps per email and per network, sign-in and sign-up rate limits.
+- **Password reset:** code by email, then a new password; other sessions are signed out.
+- **No Google:** dropped at the user's request; email + password is the only sign-in.
+- **Accounts required in full mode:** visitors see the price and "Create a free account"; uploads need an account.
+- **Guests keep their stuff:** a guest session from before the switch that signs up or signs in moves its videos and credits to the account (`transfer` ledger rows; refunds of moved jobs go to the account).
+- **Starter credits:** an account that has never had credits gets them once on its first action (same per-network daily cap as guests).
+- **No account takeover by pre-registration:** the sign-up password is held server-side (tied to that browser) and only becomes the account's password after the code checks out, so an earlier, unverified sign-up of the same email can't keep its password. A repeat sign-up on an unfinished account gets a fresh code.
+- **Abuse limits:** starter credits once per inbox (`me+x@gmail.com` and `m.e@gmail.com` count as one), once per account even after a guest spent down to 0, and within the per-network daily cap; codes capped at 6/hour and 12/day per email; sign-in lockout counts failures only (user and admin), so typing someone's email can't lock them out.
+- **No account enumeration:** sign-up, forgot-password and verify answer the same whether or not an account exists.
+- **Email:** Nodemailer + React Email template. `SMTP_PASSWORD` is accepted as `SMTP_PASS`. New non-critical "Email (SMTP)" health check (full mode only; logs in, sends nothing).
+
+**Numbers:** 102 unit tests pass (OTP rules, reset, change password, pre-registration takeover, guest merge incl. zero balance, starter-once, inbox key, env). `/` 135 KB, auth and account pages 132 KB.
+
+**Before switching production to full**
+1. Make sure SMTP works (the "Email (SMTP)" health check shows up once full mode is on).
+2. Set `AUTH_MODE=full` and restart web and worker.
+
+**Manual checks (`AUTH_MODE=full`)**
+1. Signed out: Create page shows "Create a free account"; `/library` offers sign-in.
+2. Sign up → code email arrives → enter it → signed in, header shows the starter credits → make a montage (credits charged).
+3. Wrong code 5 times → "Too many wrong tries"; "Send a new code" twice → "Wait a minute".
+4. Sign out, sign in with a wrong password (email stays filled), then "Forgot your password?" → code → new password → sign in.
+5. Account page: wrong current password → error; right one → "Password changed"; "Sign out on every device" → back at sign-in.
+6. In anonymous mode make a montage as a guest, switch to full, sign up in the same browser → the guest's video and credits are in the account.
+7. `AUTH_MODE=anonymous`: `/sign-in` is 404 and the site behaves as before; admin sign-in still works.

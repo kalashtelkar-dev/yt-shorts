@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { env } from "@/config/env";
 import { db } from "@/db";
 import { catalogItems, incidents, probeDaily, probeResults } from "@/db/schema";
 import type { ProbeStatus } from "@/lib/uptime";
@@ -11,13 +12,23 @@ import { enginexProbe } from "./probes/enginex";
 import { postgresProbe } from "./probes/postgres";
 import { queueProbe } from "./probes/queue";
 import { redisProbe } from "./probes/redis";
+import { smtpProbe } from "./probes/smtp";
 import { storageProbe } from "./probes/storage";
 import { webProbe } from "./probes/web";
 import { workerProbe } from "./probes/worker";
 import type { Probe, ProbeResult, SweepContext } from "./types";
 
-// Only what the app actually uses (SMTP and Razorpay join with milestones 10 and 12).
-const STATIC_PROBES: Probe[] = [webProbe, workerProbe, postgresProbe, redisProbe, queueProbe, enginexProbe, storageProbe];
+// Only what the app actually uses: email only sends codes with AUTH_MODE=full (Razorpay joins with M12).
+const STATIC_PROBES: Probe[] = [
+  webProbe,
+  workerProbe,
+  postgresProbe,
+  redisProbe,
+  queueProbe,
+  ...(env.AUTH_MODE === "full" ? [smtpProbe] : []),
+  enginexProbe,
+  storageProbe,
+];
 
 const TIMEOUT_MS = 5000;
 const ENGINE_CACHE_MS = 10 * 60_000;

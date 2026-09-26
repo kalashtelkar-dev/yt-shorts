@@ -11,7 +11,7 @@ You are building a Next.js web app that turns gameplay videos into edited vertic
 
 ## 2. Stack (don't swap without asking)
 
-Next.js 15 App Router · TypeScript `strict` · Tailwind v4 · shadcn/ui · Drizzle ORM + PostgreSQL · Better Auth (anonymous, Google, email+password, email OTP) · BullMQ + Redis · Nodemailer (SMTP) + React Email · zod · @xyflow/react · Vitest · pnpm. (No automated e2e; the user tests flows manually.)
+Next.js 15 App Router · TypeScript `strict` · Tailwind v4 · shadcn/ui · Drizzle ORM + PostgreSQL · Better Auth (anonymous, email+password, email OTP) · BullMQ + Redis · Nodemailer (SMTP) + React Email · zod · @xyflow/react · Vitest · pnpm. (No automated e2e; the user tests flows manually.)
 
 ## 3. Commands
 
@@ -60,6 +60,8 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - Every admin mutation writes `admin_audit_log` (who, what, target, before, after).
 - Suspended users can't start jobs; show a friendly message.
 - Rate-limit through Redis: anonymous user creation per IP, job starts per user, OTP sends per email and IP, and admin login attempts.
+- Every auth flow is a server action (`src/app/(auth)/actions.ts`, admin sign-in in `src/app/admin/actions.ts`) that applies these limits, then calls `auth.api.*`. The Better Auth HTTP endpoints stay closed except `POST /sign-out`; don't open more. (Google sign-in was dropped by the user on 2026-09-26: email + password only.)
+- The worker runs under `tsx`, which compiles JSX the classic way; keep `.tsx` files (e.g. email templates) off its import path, or load them with `await import()` only where they're used.
 
 ## 7. Server code conventions
 
@@ -151,15 +153,11 @@ ENGINEX_BASE_URL=https://enginex.run
 ENGINEX_API_KEY=               # ek_live_... never expose to the client
 ENGINEX_STORAGE_URL=           # Engine X object store (MinIO), used by the health check
 
-# Google OAuth (used when AUTH_MODE=full)
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-
 # SMTP (OTP + notifications)
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=
-SMTP_PASS=
+SMTP_PASS=                     # SMTP_PASSWORD also accepted
 SMTP_FROM="MontageAI <no-reply@example.com>"
 
 # Payments (later)

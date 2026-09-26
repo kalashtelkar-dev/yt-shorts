@@ -16,7 +16,7 @@ import { deleteCatalogItem, saveCatalogItem, validateTemplate, type ValidationRe
 import { updateSettings } from "@/server/admin/billing";
 import { auth } from "@/server/auth";
 import { clientIp } from "@/server/ip";
-import { underLimit } from "@/server/redis";
+import { failuresUnder, recordFailure, underLimit } from "@/server/redis";
 
 // Every admin action checks currentAdmin() itself (CLAUDE.md §6); the layout check is not enough.
 
@@ -31,7 +31,9 @@ export async function signInAction(_prev: FormState, form: FormData): Promise<Fo
   const email = parsed.data.email.toLowerCase();
   const h = await headers();
   const ip = clientIp(h, env.TRUSTED_PROXY_HOPS);
-  if (!(await underLimit(`admin-login:ip:${ip}`, 20, 900)) || !(await underLimit(`admin-login:email:${email}`, 5, 900))) {
+  // Only failures count per email, so nobody can lock an admin out by typing their address.
+  const failKey = `admin-login-fail:${email}`;
+  if (!(await underLimit(`admin-login:ip:${ip}`, 20, 900)) || !(await failuresUnder(failKey, 5))) {
     return { ok: false, message: "Too many attempts. Wait 15 minutes, then try again." };
   }
   const wrong: FormState = { ok: false, message: "That email and password don't match an admin account." };
@@ -41,6 +43,7 @@ export async function signInAction(_prev: FormState, form: FormData): Promise<Fo
     ({ user: { id: userId } } = await auth.api.signInEmail({ body: { email, password: parsed.data.password }, headers: h }));
   } catch (e) {
     if (e instanceof APIError) {
+      await recordFailure(failKey, 900);
       console.warn("[admin sign-in] refused:", e.status, (e.body as { code?: string } | undefined)?.code ?? e.message);
       return wrong;
     }
@@ -49,6 +52,7 @@ export async function signInAction(_prev: FormState, form: FormData): Promise<Fo
   // The request still carries the old cookie, so check the signed-in user directly.
   const [row] = await db.select({ role: users.role, isAnonymous: users.isAnonymous, suspendedAt: users.suspendedAt }).from(users).where(eq(users.id, userId));
   if (!isAdmin(row)) {
+    await recordFailure(failKey, 900);
     console.warn("[admin sign-in] not an admin account:", userId);
     const cookieHeader = (await cookies()).toString();
     await auth.api.signOut({ headers: new Headers({ cookie: cookieHeader }) }).catch(() => {});

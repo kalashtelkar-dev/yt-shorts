@@ -33,4 +33,16 @@ describe("parseEnv", () => {
   it("requires an auth secret in production", () => {
     expect(() => parseEnv({ ...live, NODE_ENV: "production" })).toThrow(/BETTER_AUTH_SECRET/);
   });
+
+  it("accepts SMTP_PASSWORD for SMTP_PASS and treats empty values as unset", () => {
+    expect(parseEnv({ ...live, SMTP_PASSWORD: "p" }).SMTP_PASS).toBe("p");
+    expect(parseEnv({ ...live, SMTP_PASS: "a", SMTP_PASSWORD: "b" }).SMTP_PASS).toBe("a");
+    expect(parseEnv({ ...live, SMTP_HOST: "" }).SMTP_HOST).toBeUndefined();
+  });
+
+  it("needs SMTP for full auth in production", () => {
+    const prod = { ...live, NODE_ENV: "production", BETTER_AUTH_SECRET: "s", AUTH_MODE: "full" };
+    expect(() => parseEnv(prod)).toThrow(/SMTP_HOST/);
+    expect(parseEnv({ ...prod, SMTP_HOST: "smtp.example.com" }).AUTH_MODE).toBe("full");
+  });
 });

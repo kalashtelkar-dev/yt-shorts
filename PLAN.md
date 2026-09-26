@@ -82,7 +82,7 @@ Payments checkout, teams, custom branding per user, and editing pipelines from t
 | Framework | **Next.js 15 (App Router) + TypeScript (strict)** | Requested. Server actions and route handlers keep secrets server-side. |
 | UI | **Tailwind CSS v4 + shadcn/ui** | Fast and consistent; easy to match the dark look in the screenshot. |
 | DB | **PostgreSQL + Drizzle ORM** | Postgres is already in the stack. Drizzle is typed and its migrations are simple. |
-| Auth | **Better Auth** | Has Google OAuth, email+password, an **email OTP** plugin, and an **anonymous** plugin, so guests can later link to a real account with their history and credits intact. |
+| Auth | **Better Auth** | Has email+password, an **email OTP** plugin, and an **anonymous** plugin, so guests can later link to a real account with their history and credits intact. |
 | Jobs / queue | **BullMQ on Redis** | Redis is already running. A separate worker process polls Engine X runs. |
 | Email | **Nodemailer over SMTP + React Email templates** | SMTP is already in the stack. |
 | Storage | Engine X object store (`create_upload_url`, `sign_output`) | Nothing needs to be stored in this app. |
@@ -99,7 +99,7 @@ Payments checkout, teams, custom branding per user, and editing pipelines from t
 ```
 Browser ──► Next.js (web)
              ├─ Server Actions / Route Handlers (zod-validated)
-             ├─ Better Auth (anonymous now; Google / email+password / OTP ready)
+             ├─ Better Auth (anonymous now; email+password / OTP ready)
              ├─ SSE endpoint /api/jobs/:id/events  ◄── Redis pub/sub
              └─ Postgres (Drizzle)
                    ▲
@@ -247,7 +247,6 @@ Support a small, explicit set of mapping expressions only: `$source.url`, `$fiel
 
 - `AUTH_MODE=anonymous` (now): every visitor silently gets a Better Auth **anonymous** user through a cookie session. Credits and jobs attach to that user.
 - `AUTH_MODE=full` (later) turns on:
-  - Google sign-in and sign-up;
   - email + password sign-up with **email OTP verification** (a 6-digit code over SMTP, 10-minute expiry, 5 attempts, resend cooldown of 60 s);
   - email + password sign-in and a password reset OTP.
   - On sign-up or sign-in from an anonymous session, **link** the account (the anonymous plugin's `onLinkAccount`) so jobs and credits move over.
@@ -335,7 +334,7 @@ Each milestone ends with passing tests and a short demo note in `docs/progress.m
 7. **Admin (part 1):** admin guard, Users, Credits (adjust with reason), Jobs (refund and retry), audit log.
 8. **Admin (part 2):** Catalog CRUD with Validate and revisions; Billing settings and cost report.
 9. **Service health:** probes, sweep, uptime aggregation, the React Flow page.
-10. **Full auth ready:** Google, email+password, email OTP, reset, account linking. Tested manually with `AUTH_MODE=full` and shipped with `AUTH_MODE=anonymous`.
+10. **Full auth ready:** email+password, email OTP, reset, account linking. Tested manually with `AUTH_MODE=full` and shipped with `AUTH_MODE=anonymous`.
 11. **Hardening:** rate limits, error pages, empty states, mobile layout, basic analytics events, backup notes.
 12. **Payments hook (later):** Razorpay order, webhook and credit purchase behind `PAYMENTS_ENABLED`.
 
@@ -351,7 +350,7 @@ Each milestone ends with passing tests and a short demo note in `docs/progress.m
 - [ ] An admin can add or remove credits with a reason, and it shows up in the ledger and audit log.
 - [ ] The health page shows every probe with status and latency, and 24 h / 7 d / 90 d uptime. A missing Razorpay key shows "Not configured", not Down.
 - [ ] `ENGINEX_API_KEY` never appears in client bundles, logs or API responses (checked by a test that greps the build output).
-- [ ] With `AUTH_MODE=full`, Google, email+password and OTP sign-up all work (manual test), and an anonymous user's jobs and credits move to the new account.
+- [ ] With `AUTH_MODE=full`, email+password and OTP sign-up all work (manual test), and an anonymous user's jobs and credits move to the new account.
 
 ---
 

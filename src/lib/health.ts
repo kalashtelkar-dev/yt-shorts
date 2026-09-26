@@ -1,7 +1,7 @@
 // Health view types shared by server and client. No server imports here.
 import type { BucketStatus, Counts, ProbeStatus, Range } from "./uptime";
 
-export type HealthTier = "app" | "data" | "queue" | "engine" | "storage" | "workers";
+export type HealthTier = "app" | "data" | "queue" | "email" | "engine" | "storage" | "workers";
 
 export type ProbeView = {
   id: string;

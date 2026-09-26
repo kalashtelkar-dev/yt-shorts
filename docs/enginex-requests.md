@@ -42,3 +42,11 @@ The run key can't save over an existing pipeline (authoring needs an admin key),
 - Example range → `"123.00-139.00"`.
 
 Full text: `.pipelines/instruction-v3.txt` (local). Validated: compiles, no errors. The upload variant `tpl_24XhRunrxRjQ` has the same short windows and was left unchanged on purpose.
+
+## 5. Kill Montage v8 (`tpl_PsnN7fGHnApj`): 8 s clips (2026-09-26)
+
+**Status:** imported as a new pipeline (the run key can't save over v7); waiting to be published, then Kill Montage switches to it.
+
+**Why:** v7's 16 s clips (K−10…K+6) always caught the kill but left room for only 1–2 kills in a 30 s montage. The user picked K−5…K+3.
+
+**Change from v7 (instruction node only):** window K−5…K+3 ("always keep the full 5 seconds before K"), minimum clip 8 s, example range `"123.00-131.00"`. Everything else is identical to v7. Validated: compiles, no errors.

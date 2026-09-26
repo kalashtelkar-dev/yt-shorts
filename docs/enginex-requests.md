@@ -32,7 +32,7 @@ The run key can't save over an existing pipeline (authoring needs an admin key),
 
 ## 4. Kill Montage v6 (`tpl_uKbQwmdYcij7`): clips too short (2026-09-26)
 
-**Status:** ready, needs pasting in the dashboard (the run key can't save: "authoring a pipeline needs an admin key or a dashboard session"). Approved by the user to save and publish.
+**Status:** imported as a new pipeline **`tpl_ERjJTGvMAUeS`** ("gamer-montage-v7") on 2026-09-26, because the run key can't save over `tpl_uKbQwmdYcij7` ("authoring a pipeline needs an admin key or a dashboard session") and the dashboard import didn't work for the user. Waiting to be published; then point Kill Montage's template at it in the admin catalog (Validate, then Save). `tpl_uKbQwmdYcij7` itself is unchanged.
 
 **Why:** v6 runs cut each kill to K−3.5…K+1.5 s. With the kill feed sampled once per second, K lands a second or two late, so clips started ~1 s before the kill or missed it; real outputs had 2.5–5.5 s clips and even a 0.5 s one (`573.00-573.50`). The old pipeline (v5) used K−10…K+6 and every clip was 12–14 s with the kill in it.
 

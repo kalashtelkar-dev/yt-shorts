@@ -8,6 +8,8 @@
 //   pnpm enginex:pipeline validate <file>              → compile check, issues or plan
 //   pnpm enginex:pipeline save <templateId> <file>     → replace the draft (needs the etag from `get`; 409 if it moved)
 //   pnpm enginex:pipeline publish <templateId> [etag]  → make the draft the version /v1/run executes
+//   pnpm enginex:pipeline runs [templateId]            → .pipelines/runs.json (recent runs, read-only)
+//   pnpm enginex:pipeline run <runId>                  → .pipelines/run-<runId>.json (steps and outputs, read-only)
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const base = process.env.ENGINEX_BASE_URL;
@@ -68,6 +70,16 @@ if (cmd === "get" && a) {
   show(await call("PUT", `/v1/pipelines/${encodeURIComponent(a)}`, { graph: file.graph, etag: file.etag }, { "If-Match": file.etag }));
 } else if (cmd === "publish" && a) {
   show(await call("POST", `/v1/pipelines/${encodeURIComponent(a)}/publish`, b ? { etag: b } : {}, b ? { "If-Match": b } : {}));
+} else if (cmd === "runs") {
+  const r = await call("GET", `/v1/runs${a ? `?templateId=${encodeURIComponent(a)}` : ""}`);
+  mkdirSync(".pipelines", { recursive: true });
+  writeFileSync(".pipelines/runs.json", JSON.stringify(r.data, null, 2));
+  console.log(`HTTP ${r.status}, saved .pipelines/runs.json`);
+} else if (cmd === "run" && a) {
+  const r = await call("GET", `/v1/runs/${encodeURIComponent(a)}`);
+  mkdirSync(".pipelines", { recursive: true });
+  writeFileSync(`.pipelines/run-${a}.json`, JSON.stringify(r.data, null, 2));
+  console.log(`HTTP ${r.status}, saved .pipelines/run-${a}.json`);
 } else {
   console.error("Usage: pnpm enginex:pipeline get|validate|save|publish …  (see the top of scripts/enginex-pipeline.mts)");
   process.exit(1);

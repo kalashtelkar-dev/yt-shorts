@@ -90,7 +90,11 @@ export function JobLive({ initial, initialVideoUrl }: { initial: PublicJob; init
             </p>
           ) : (
             <p className="text-muted-foreground">
-              <span className="font-mono text-foreground tabular">{formatClock(elapsed)}</span> elapsed. You can close this tab; we&apos;ll keep working and your
+              {/* A live clock: the server's render is a second behind the browser's, by design. */}
+              <span className="font-mono text-foreground tabular" suppressHydrationWarning>
+                {formatClock(elapsed)}
+              </span>{" "}
+              elapsed. You can close this tab; we&apos;ll keep working and your
               montage will be in <Link href="/library" className="text-foreground underline underline-offset-4">My videos</Link>.
             </p>
           )}

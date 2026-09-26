@@ -50,3 +50,14 @@ Full text: `.pipelines/instruction-v3.txt` (local). Validated: compiles, no erro
 **Why:** v7's 16 s clips (K−10…K+6) always caught the kill but left room for only 1–2 kills in a 30 s montage. The user picked K−5…K+3.
 
 **Change from v7 (instruction node only):** window K−5…K+3 ("always keep the full 5 seconds before K"), minimum clip 8 s, example range `"123.00-131.00"`. Everything else is identical to v7. Validated: compiles, no errors.
+
+## 6. Upload version of v8 and faster downloads (2026-09-26)
+
+**Status:** both imported as new pipelines, waiting to be published; then Kill Montage switches to them (template and upload template).
+
+- **`tpl_7fumxOvggmKG`** ("gamer-montage-v8-upload"): the upload pipeline (`tpl_24XhRunrxRjQ`) with v8's instruction (8 s clips). Its only difference from before is the instruction text. Note: `tpl_24XhRunrxRjQ` was never published, so upload jobs would have failed until this replaces it.
+- **`tpl_WexN4yE_mfh1`** ("gamer-montage-v9"): v8 plus `concurrentFragments: 8` on the yt-dlp download.
+
+**Why the download was slow:** app and dashboard jobs send identical download settings and start without queueing (`waitMs` ≈ 15 ms). The same 1.35 GB 1080p file took 45 s on one download pod and 152 s on another, and 480–530 s when two ran at once. Speed is YouTube throughput per pod, fetched one fragment at a time. Parallel fragments are yt-dlp's standard fix; the 1080p quality (needed for kill-feed OCR) stays. If it's still slow, the next lever is `height<=720` (about half the size), at some risk to OCR accuracy.
+
+Both validated: compile, no errors.

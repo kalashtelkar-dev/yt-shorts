@@ -10,6 +10,7 @@
 //   pnpm enginex:pipeline publish <templateId> [etag]  → make the draft the version /v1/run executes
 //   pnpm enginex:pipeline runs [templateId]            → .pipelines/runs.json (recent runs, read-only)
 //   pnpm enginex:pipeline run <runId>                  → .pipelines/run-<runId>.json (steps and outputs, read-only)
+//   pnpm enginex:pipeline job <jobId>                  → .pipelines/job-<jobId>.json (one step's engine job, read-only)
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const base = process.env.ENGINEX_BASE_URL;
@@ -80,6 +81,11 @@ if (cmd === "get" && a) {
   mkdirSync(".pipelines", { recursive: true });
   writeFileSync(`.pipelines/run-${a}.json`, JSON.stringify(r.data, null, 2));
   console.log(`HTTP ${r.status}, saved .pipelines/run-${a}.json`);
+} else if (cmd === "job" && a) {
+  const r = await call("GET", `/v1/jobs/${encodeURIComponent(a)}`);
+  mkdirSync(".pipelines", { recursive: true });
+  writeFileSync(`.pipelines/job-${a}.json`, JSON.stringify(r.data, null, 2));
+  console.log(`HTTP ${r.status}, saved .pipelines/job-${a}.json`);
 } else {
   console.error("Usage: pnpm enginex:pipeline get|validate|save|publish …  (see the top of scripts/enginex-pipeline.mts)");
   process.exit(1);

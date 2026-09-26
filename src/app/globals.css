@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Design tokens (CLAUDE.md §8). Components use these, never raw hex.
+  Contrast on --background: muted 5.7:1, accent 5.1:1, success 5.8:1, warning 9.7:1.
+  White on --accent is only 3.9:1, so filled buttons use --accent-strong (4.9:1).
+*/
+:root {
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --panel: #111111;
+  --panel-raised: #171717;
+  --border: #1f1f1f;
+  --input: #2e2e2e;
+  --muted-foreground: #8a8a8a;
+
+  --accent-red: #e5484d;
+  --accent-strong: #d13438;
+  --accent-strong-hover: #b92d31;
+  --success: #2f9e44;
+  --warning: #f5a524;
+
+  /* shadcn aliases */
+  --card: var(--panel);
+  --card-foreground: var(--foreground);
+  --popover: var(--panel-raised);
+  --popover-foreground: var(--foreground);
+  --primary: var(--accent-strong);
+  --primary-foreground: #ffffff;
+  --secondary: var(--panel-raised);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--panel-raised);
+  --accent: var(--panel-raised);
+  --accent-foreground: var(--foreground);
+  --destructive: var(--accent-red);
+  --ring: var(--accent-red);
+  --radius: 0.625rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--accent-strong-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-danger: var(--accent-red);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-inter);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  /* 16px minimum stops iOS Safari zooming into focused fields. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

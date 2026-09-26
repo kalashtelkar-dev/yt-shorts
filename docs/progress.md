@@ -20,7 +20,6 @@
 **Manual checks:** open `/` at 360 px and at desktop width; there should be no horizontal scroll and the heading should wrap cleanly.
 
 **Open issues**
-- Docker isn't installed on this machine, so Postgres and Redis aren't running. Needed from M3 (install Docker Desktop / OrbStack, or `brew install postgresql@17 redis`).
 - Engine X transport (REST or MCP) is unconfirmed. M2 starts with `pnpm enginex:smoke`.
 
 ## Milestone 2: Engine X adapter (code done; live check pending)
@@ -36,7 +35,7 @@
 - The OpenAPI spec doesn't type success bodies, so response parsing is lenient. Run `pnpm enginex:smoke` (live) and tighten `normalise*` from the real output.
 - Confirm step names so `stageMap` prefixes match, and whether Kill Montage accepts `durationSec` (PLAN §5.2).
 
-## Milestone 3: DB and seed (code done; not yet run)
+## Milestone 3: DB and seed (done)
 
 **Done**
 - `src/db/schema.ts`: Better Auth tables (`users` with `isAnonymous`, `role`, `suspendedAt`), catalog + revisions, jobs + events, credit ledger + balances, settings (single row), admin audit log. Payments and probe tables come with M12 and M9.
@@ -46,5 +45,19 @@
 **Demo:** `docker compose up -d && pnpm db:migrate && pnpm db:seed`
 
 **Open issues**
-- Docker Desktop fails to start on this machine ("Docker Desktop is unable to start"), so migrations haven't run yet.
 - Better Auth's anonymous plugin deletes the anonymous user after linking; ledger rows reference users, so M10 must move rows in `onLinkAccount` first.
+
+## Milestone 4: Anonymous sessions and credits core (done 2026-09-26)
+
+**Done**
+- Better Auth (`src/server/auth.ts`) with the Drizzle adapter on our tables and the anonymous plugin. Route at `/api/auth/*`.
+- `ensureUser()` creates an anonymous user lazily, on the visitor's first action (server actions only), so page views and bots create nothing. Limits via Redis: 10 new anonymous users per IP per hour, starter credits for at most 3 per IP per day. The public `/sign-in/anonymous` route is closed so it can't bypass these.
+- `src/server/credits`: `grant`, `reserve` (inside the job-creation transaction), `settle` (release + charge by actual `runMs`, rounded up), `release`. Each locks the balance row with `SELECT … FOR UPDATE`; job-scoped entries are idempotent.
+- Tests (real Postgres, `montage_test`): full lifecycle, double settle, double release, insufficient balance, concurrent reservations, negative-balance rule, DB refusal of ledger edits.
+
+**Numbers:** 23 unit tests pass. Tests need `docker compose up -d`.
+
+**Manual checks:** none yet (no UI); anonymous sign-in was checked live against `/api/auth`.
+
+**Open issues**
+- `disableDeleteAnonymousUser` is on until M10 moves jobs and ledger rows in `onLinkAccount`.

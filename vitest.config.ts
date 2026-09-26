@@ -11,6 +11,11 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts"],
-    env: { ENGINEX_MODE: "mock" },
+    globalSetup: ["./vitest.setup-db.ts"],
+    env: {
+      ENGINEX_MODE: "mock",
+      DATABASE_URL: "postgres://montage:montage@localhost:5432/montage_test",
+      REDIS_URL: "redis://localhost:6379/1",
+    },
   },
 });

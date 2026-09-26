@@ -15,7 +15,8 @@
     "db:seed": "tsx --conditions=react-server --env-file-if-exists=.env src/db/seed.mts",
     "enginex:smoke": "tsx --conditions=react-server --env-file-if-exists=.env scripts/enginex-smoke.mts",
     "worker:dev": "tsx watch --conditions=react-server --env-file-if-exists=.env src/worker/index.mts",
-    "worker": "tsx --conditions=react-server --env-file-if-exists=.env src/worker/index.mts"
+    "worker": "tsx --conditions=react-server --env-file-if-exists=.env src/worker/index.mts",
+    "admin:create": "tsx --conditions=react-server --env-file-if-exists=.env scripts/admin-create.mts"
   },
   "dependencies": {
     "better-auth": "^1.7.6",

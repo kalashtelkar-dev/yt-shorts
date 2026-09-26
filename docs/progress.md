@@ -116,3 +116,29 @@ In mock mode a player name containing "fail" fails at the kill-feed step, and "t
 **Open issues**
 - With `ENGINEX_MODE=live`, confirm the run, sign and upload response bodies on the first real run.
 - Deploy skew: a tab left open across a deploy gets "Server Action not found". Handle in M11 (stable action encryption key / reload prompt).
+
+## Milestone 7: Admin part 1 (done 2026-09-26)
+
+**Done**
+- Admin sign-in at `/admin/sign-in` (email + password, Redis-limited per IP and per email). Public sign-up stays off until M10; create admins with `pnpm admin:create you@example.com` (prints a generated password once). Verified accounts listed in `ADMIN_EMAILS` are promoted on sign-in.
+- `requireAdmin()` in the panel layout **and** every page; `currentAdmin()` in every admin action. Both re-read the user row, so demotion or suspension applies immediately (the session cookie cache can be 5 minutes old). `createJob` also re-reads suspension.
+- Better Auth POST routes are closed except `/sign-out`; sign-in runs only through rate-limited server actions.
+- **Overview:** jobs today, success rate, average run time, credits used, compute cost (₹), today (IST) and 7 days; recent failures with raw errors.
+- **Users:** search by email/name/ID, accounts vs guests; user page with balance, ledger, jobs, credit adjustment, suspend, role. Admins can't suspend or demote themselves; guests can't be admins.
+- **Credits:** add/remove by email or ID with a required reason; recent grants, adjustments and refunds.
+- **Jobs:** filter by status and style; job page with template snapshot, run ID, live Engine X steps, input/output, raw and public errors, events, credit movements. Refund (once, for finished jobs) and retry (new free job, same input, current template).
+- **Audit log:** every admin mutation, written in the same transaction, with before/after.
+
+**Numbers:** 55 unit tests pass. Admin pages 128–131 KB first-load JS. No horizontal scroll at 360 px on any admin page.
+
+**Demo:** `pnpm admin:create you@example.com`, then sign in at `/admin/sign-in`.
+
+**Manual checks**
+1. `/admin` while signed out → redirected to sign-in. Wrong password → one generic message.
+2. Adjust credits (+ and −) with a reason → balance, ledger and audit log all show it; removing more than the balance is refused.
+3. Refund a succeeded job → credits back once; a second refund is refused.
+4. Retry a failed job → a new free job starts on the current template.
+5. Suspend a user → they can't start a montage (friendly message); unsuspend works.
+
+**Open issues**
+- No password reset yet (M10); re-run `pnpm admin:create` to reset an admin's password.

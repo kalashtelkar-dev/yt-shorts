@@ -5,9 +5,12 @@ const handler = toNextJsHandler(auth);
 
 export const GET = handler.GET;
 
-// Anonymous users are created only through ensureUser() (server-side, rate-limited per IP),
-// never by calling this route directly.
+// Sign-in (anonymous and admin) runs through server actions, which apply our Redis rate limits.
+// Only these POST endpoints are reachable directly; milestone 10 adds the full-auth ones.
+const PUBLIC_POSTS = ["/sign-out"];
+
 export async function POST(req: Request) {
-  if (new URL(req.url).pathname.endsWith("/sign-in/anonymous")) return new Response("Not found", { status: 404 });
+  const path = new URL(req.url).pathname.replace(/^\/api\/auth/, "");
+  if (!PUBLIC_POSTS.includes(path)) return new Response("Not found", { status: 404 });
   return handler.POST(req);
 }

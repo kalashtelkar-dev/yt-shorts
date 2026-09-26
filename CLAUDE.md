@@ -23,6 +23,7 @@ pnpm db:migrate
 pnpm db:seed        # catalog items + settings defaults
 pnpm lint && pnpm typecheck && pnpm test   # must pass before you say a task is done
 pnpm enginex:smoke  # checks Engine X connectivity and prints pipeline inputs
+pnpm admin:create you@example.com   # create/reset an admin account (prints a generated password once)
 ```
 
 Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, and fix the failures you caused before moving on.

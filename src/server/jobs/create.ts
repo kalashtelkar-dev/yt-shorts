@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { catalogItems, jobEvents, jobs, type CatalogField } from "@/db/schema";
+import { catalogItems, jobEvents, jobs, users, type CatalogField } from "@/db/schema";
 import { MapInputError, mapInput } from "@/server/catalog";
 import { chargeForJob, InsufficientCreditsError } from "@/server/credits";
 import { enqueueStart } from "@/server/queue";
@@ -57,7 +57,9 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   }
   const input = parsed.data;
 
-  if (user.suspendedAt) return fail("suspended", "Your account is paused, so you can't make new montages. Contact support if this looks wrong.");
+  // Read from the DB: the session cookie cache can be up to 5 minutes old.
+  const [fresh] = await db.select({ suspendedAt: users.suspendedAt }).from(users).where(eq(users.id, user.id));
+  if (fresh?.suspendedAt ?? user.suspendedAt) return fail("suspended", "Your account is paused, so you can't make new montages. Contact support if this looks wrong.");
 
   const [item] = await db.select().from(catalogItems).where(and(eq(catalogItems.slug, input.catalogSlug), eq(catalogItems.enabled, true)));
   if (!item) return fail("unavailable", "That style isn't available right now. Pick another one.");

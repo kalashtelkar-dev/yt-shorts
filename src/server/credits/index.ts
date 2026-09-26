@@ -63,12 +63,22 @@ export async function chargeForJob(tx: Tx, userId: string, jobId: string, amount
   await apply(tx, { userId, delta: -amount, kind: "charge", jobId, reason: "Montage" });
 }
 
-/** On failure, cancel or timeout: return the full price. Idempotent. */
-export async function refundJob(jobId: string, reason = "Job did not finish", tx?: Tx) {
+/**
+ * Return the job's full price: automatically on failure/cancel/timeout, or by an admin.
+ * Idempotent: returns false if the job was already refunded (or cost nothing).
+ */
+export async function refundJob(jobId: string, reason = "Job did not finish", tx?: Tx, adminId?: string): Promise<boolean> {
   const run = async (t: Tx) => {
     const [job] = await t.select({ userId: jobs.userId, chargedCredits: jobs.chargedCredits }).from(jobs).where(eq(jobs.id, jobId));
     if (!job) throw new Error(`Job ${jobId} not found`);
-    if (job.chargedCredits > 0) await apply(t, { userId: job.userId, delta: job.chargedCredits, kind: "refund", jobId, reason });
+    if (job.chargedCredits <= 0) return false;
+    return apply(t, { userId: job.userId, delta: job.chargedCredits, kind: "refund", jobId, adminId, reason });
   };
   return tx ? run(tx) : db.transaction(run);
+}
+
+/** Admin adjustment with a required reason. Removing more than the balance is refused. */
+export async function adjustCredits(tx: Tx, adminId: string, userId: string, delta: number, reason: string) {
+  if (!Number.isInteger(delta) || delta === 0) throw new Error("Adjustment must be a non-zero whole number");
+  await apply(tx, { userId, delta, kind: delta > 0 ? "admin_add" : "admin_remove", adminId, reason });
 }

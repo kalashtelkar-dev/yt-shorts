@@ -33,7 +33,7 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 2. Never import `src/server/**` from a client component. Put `import 'server-only'` at the top of every file in `src/server/`.
 3. Never log secrets, full signed URLs, or request headers. Redact before logging.
 4. **All Engine X calls go through `src/server/enginex/client.ts`**, with typed methods only: `runPipeline`, `getRun`, `cancelRun`, `signOutput`, `createUploadUrl`, `getPipeline`, `fleetStatus`. No `fetch` to Engine X anywhere else. The API is REST at `ENGINEX_BASE_URL` (`https://enginex.run`; the reference is `/v1/api.md`, and `/v1/openapi.json` needs no auth). `enginex.fapi.run` is its MinIO object store, not the API. `runPipeline` sends the job id as `Idempotency-Key`, and timeouts and cancels call `cancelRun` so compute stops.
-5. The client wraps every call with a timeout (default 30 s), up to 3 retries with exponential backoff on network or 5xx errors (never retry `runPipeline` automatically), and typed errors (`EngineXError { code, message, retryable }`).
+5. The client wraps every call with a timeout (default 30 s), up to 3 retries with exponential backoff on network or 5xx errors (the client never retries `runPipeline`), and typed errors (`EngineXError { code, message, retryable }`). Only the worker may re-send `runPipeline`, only after a network/5xx error, and only with the same `Idempotency-Key` (the job id), so Engine X returns the existing run instead of starting a second one.
 6. **Never hardcode template IDs** in app code. They live in `catalog_items.templateId` (seeded in `src/db/seed.ts`). The app resolves the template ID from the catalog **at job start** and snapshots it on the job row.
 7. Never store signed URLs. Call `signOutput` whenever a download or preview is requested (expiry ≤ 1 h).
 8. Engine X step names, raw errors and pipeline internals are **admin-only**. Users see friendly stage labels from `stageMap` and a friendly error.
@@ -42,12 +42,12 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 ## 5. Money, credits and time
 
 - Money is an **integer number of paise** (`amountPaise`). Time is an **integer number of milliseconds** (`runMs`). No floats for money or credits, ever.
-- Credits are integers. 1 credit = `settings.msPerCredit` ms of processing (default 1000). Always round up.
+- Credits are integers. Each catalog item has a **fixed price per length** (`catalog_items.prices`, e.g. `{"30": 300, "60": 450}`), set by admins. Users always see the exact price before they start.
 - `credit_ledger` is **append-only**. Never `UPDATE` or `DELETE` ledger rows. Corrections are new rows.
 - Change balances only through `src/server/credits/*`, which, in **one DB transaction**, locks the user's balance row (`SELECT … FOR UPDATE`), inserts the ledger row, and updates `user_balances`.
-- The job lifecycle is **reserve at start → settle on success (release + charge by actual `runMs`) → release on failure, cancel or timeout**. Each step must be idempotent: check for an existing ledger row with the same `jobId` and `kind` first.
+- The job lifecycle is **charge the fixed price when the job is created → keep it on success → refund it in full on failure, cancel or timeout**. Each step must be idempotent: check for an existing ledger row with the same `jobId` and `kind` first (a unique index backs this up).
 - Every job stores `computeCostPaise = ceil(runMs/1000) × settings.costPaisePerSecond` (default 30 = ₹0.30/s), even when it fails.
-- Unit tests for credits are required: the full lifecycle, double-settle protection, concurrent reserves, and the negative-balance rule.
+- Unit tests for credits are required: charge and refund, double-refund protection, concurrent charges, and refusal when the balance is too low.
 
 ## 6. Auth and access
 

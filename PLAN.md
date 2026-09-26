@@ -41,7 +41,7 @@ These Engine X operations are used, all server-side:
 3. **Options** (they change with the chosen card, driven by the catalog's `fields` definition):
    - Kill Montage: output length **30 / 60 / 90 s** and in-game player name.
    - Lyrical Kill Montage: player name, song URL, song start and end (a range slider capped at 30/60/90 s), and optional LRC lyrics behind an "Advanced" toggle.
-4. **Cost preview:** "Estimated: ~N credits · you have M". The button is disabled if the balance is too low.
+4. **Price:** "Costs N credits · you have M" (fixed per style and length). The button is disabled if the balance is too low.
 5. **Generate** button.
 
 **State B: Progress**
@@ -104,10 +104,10 @@ Browser ──► Next.js (web)
              └─ Postgres (Drizzle)
                    ▲
 Worker (Node) ─────┘
-  ├─ queue "job.start"   → resolve catalog → reserve credits → run_pipeline
+  ├─ queue "job.start"   → (job row + charge created by web) → run_pipeline
   ├─ queue "job.poll"    → get_run every 5–10 s → update steps/progress → publish event
-  ├─ on success          → settle credits by runMs → store output key
-  ├─ on failure          → release reservation → store raw error → friendly message
+  ├─ on success          → store output key and compute cost
+  ├─ on failure          → refund the price → store raw error → friendly message
   └─ cron "health.sweep" every 30 s → run probes → store probe_results
 ```
 
@@ -148,7 +148,7 @@ jobs
   runId, stepsTotal, stepsDone, currentStage,
   outputKey, outputMeta jsonb   -- totalKills, title, clips…
   errorPublic text, errorRaw text,
-  runMs int, reservedCredits int, chargedCredits int, computeCostPaise int,
+  runMs int, chargedCredits int, computeCostPaise int,
   createdAt, startedAt, finishedAt
 
 job_events                   -- the user-visible log
@@ -162,7 +162,6 @@ user_balances                -- cached balance, updated in the SAME transaction 
 
 settings                     -- single row or key/value
   costPaisePerSecond int  default 30      -- your Engine X cost (₹0.30/s)
-  msPerCredit int        default 1000     -- 1 credit = 1 s of processing
   sellPaisePerCredit int  default null     -- for later checkout
   starterCredits int     default e.g. 600
   maxUploadMb int, maxConcurrentJobsPerUser int
@@ -185,7 +184,7 @@ admin_audit_log              -- every admin mutation: adminId, action, target, b
    - the catalog item is enabled and `durationSec` is in `durations`;
    - the user has fewer than `maxConcurrentJobsPerUser` active jobs;
    - the balance covers the estimate.
-3. **Reserve credits** (one transaction): insert a ledger row `reserve -estimate`, update `user_balances`, and insert the job with `status='queued'` and a snapshot of `catalogSlug` and `templateId`.
+3. **Charge credits** (one transaction): insert the job with `status='queued'` and a snapshot of `catalogSlug` and `templateId`, insert a ledger row `charge -price`, and update `user_balances`.
 4. Enqueue `job.start`. Return `jobId` and redirect to `/jobs/:id`.
 5. The worker builds the pipeline input from `inputMap`, calls `run_pipeline`, stores `runId`, sets `running`, and enqueues `job.poll`.
 
@@ -234,13 +233,13 @@ Support a small, explicit set of mapping expressions only: `$source.url`, `$fiel
 
 ### 5.4 Credits and pricing
 
-- **Unit:** 1 credit = 1 second of Engine X processing time (`runMs`, rounded up to whole seconds).
-- **Your cost:** `computeCostPaise = ceil(runMs/1000) × costPaisePerSecond` (default 30, i.e. ₹0.30/s). Store it per job.
-- **Estimate:** the median `runMs` of the last 20 successful jobs for the same catalog item and duration, × 1.2 buffer. If there's no history, use a per-item default in the catalog (e.g. 900 s).
-- **Settle** on success in one transaction: `release +reserved`, then `charge -ceil(runMs/1000)`, and update the balance. If the actual charge is more than the balance, allow the balance to go negative once and block new jobs until it's topped up; record this in the ledger.
-- **Failure or cancel:** `release +reserved`, with no charge. If the admin decides so, a failed job may still carry a cost to you. Track it in `computeCostPaise` for the cost report, but don't charge the user.
+- **Price:** fixed per catalog item and length (`catalog_items.prices`), set in the admin. Shown exactly on the Create page ("Costs 450 credits · you have 600").
+- **Charge** when the job is created, in the same transaction as the job row. The button is disabled when the balance is too low.
+- **Success:** nothing more to do; the charge stands.
+- **Failure, cancel or timeout:** refund the full price. Track `computeCostPaise` for the cost report either way.
+- **Your cost:** `computeCostPaise = ceil(runMs/1000) × costPaisePerSecond` (default 30, i.e. ₹0.30/s). Store it per job; the cost report compares it with credits charged to tune prices.
 - **Starter credits:** the first time an anonymous user is created, grant `starterCredits`. To reduce abuse, rate-limit anonymous user creation per IP and cap starter grants per IP per day.
-- Show users **credits**, not raw seconds or ₹, and display "≈ N min of processing".
+- Show users **credits**, not raw seconds or ₹.
 
 > ⚠ **Pricing reality check:** a 12 s Lyrical test run took about 31 min (~1,880 s ≈ **₹564** of compute at ₹0.30/s). Part of that was an extra run sharing the OCR workers, but OCR on the kill feed is the main cost. Before commercial launch, measure `runMs` per catalog item and length, and tune the pipelines (frame sampling every 10 s, fewer OCR calls, GPU OCR). Otherwise a 90 s edit will cost more than users will pay. The cost report in §1.2 exists to track this.
 
@@ -311,7 +310,7 @@ src/
     enginex/client.ts          # the only place that talks to Engine X
     enginex/types.ts
     catalog/                   # resolve, validate, mapInput, stageFor
-    credits/                   # reserve, settle, release, grant, adjust (all transactional)
+    credits/                   # charge, refund, grant, adjust (all transactional)
     jobs/                      # create, cancel, refund, retry
     health/probes/*.ts         # one file per probe
     auth.ts, email/, payments/ (interface + razorpay stub)
@@ -330,7 +329,7 @@ Each milestone ends with passing tests and a short demo note in `docs/progress.m
 1. **Scaffold:** Next.js, Tailwind, shadcn, Drizzle, env parsing, Docker Compose (Postgres, Redis), lint, typecheck, Vitest. Add the dark theme tokens that match the screenshot.
 2. **Engine X adapter:** typed client with the six operations, retries with backoff, and timeouts. Include a script (`pnpm enginex:smoke`) that calls `fleet_status` and `get_pipeline` for both template IDs and prints their inputs.
 3. **DB and seed:** schema, migrations, seed both catalog items with the template IDs from §0, settings defaults.
-4. **Auth (anonymous mode) and credits core:** anonymous sessions, starter grant, ledger functions with unit tests (reserve/settle/release, negative-balance rule, concurrency with `SELECT … FOR UPDATE`).
+4. **Auth (anonymous mode) and credits core:** anonymous sessions, starter grant, ledger functions with unit tests (charge/refund, concurrency with `SELECT … FOR UPDATE`).
 5. **Worker:** start and poll processors, stage mapping, events, timeouts, resume after restart.
 6. **User flow:** the Create page with the catalog-driven form, uploads, Progress with SSE, Result with sign-on-demand, and Library.
 7. **Admin (part 1):** admin guard, Users, Credits (adjust with reason), Jobs (refund and retry), audit log.
@@ -346,7 +345,7 @@ Each milestone ends with passing tests and a short demo note in `docs/progress.m
 
 - [ ] A new visitor can paste a URL, pick Kill Montage at 60 s, enter a player name, and get a downloadable 9:16 MP4 without signing in.
 - [ ] Closing the tab mid-job and coming back to `/jobs/:id` shows live progress.
-- [ ] Credits are reserved at start, charged by actual seconds on success, and fully released on failure. The ledger sums to the balance.
+- [ ] The fixed price is charged at start and fully refunded on failure. The ledger sums to the balance.
 - [ ] Changing a catalog item's template ID in the admin makes the next job use the new pipeline with no deploy. A job already running keeps its old ID.
 - [ ] Validate rejects an unknown or unpublished template ID and warns about unmapped inputs.
 - [ ] An admin can add or remove credits with a reason, and it shows up in the ledger and audit log.

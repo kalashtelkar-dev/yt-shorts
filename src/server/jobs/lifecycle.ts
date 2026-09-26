@@ -3,7 +3,7 @@ import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import { catalogItems, jobEvents, jobs } from "@/db/schema";
 import { progressOf, stageFor } from "@/server/catalog";
-import { release, settle } from "@/server/credits";
+import { refundJob } from "@/server/credits";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError, type Run } from "@/server/enginex/types";
 import { redis } from "@/server/redis";
@@ -62,7 +62,7 @@ export async function startJob(jobId: string, now = Date.now()) {
   }
 }
 
-/** One poll of a running job: progress, stage, timeout and the terminal outcome. */
+/** One poll of a running job: progress, stage, timeout and the terminal outcome. Credits were charged at creation. */
 export async function pollJob(job: Job, settings: Settings, stageMap: { match: string; label: string }[], outputField: string, now = Date.now()) {
   let run: Run;
   try {
@@ -132,8 +132,6 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
       .where(and(eq(jobs.id, job.id), eq(jobs.status, "running")))
       .returning({ id: jobs.id });
     if (!claimed) return false;
-    const charged = await settle(job.id, runMs, settings.msPerCredit, tx);
-    await tx.update(jobs).set({ chargedCredits: charged }).where(eq(jobs.id, job.id));
     await tx.insert(jobEvents).values({ jobId: job.id, message: totalKills ? `Done. Found ${totalKills} kill${totalKills === 1 ? "" : "s"}` : "Done" });
     return true;
   });
@@ -160,7 +158,7 @@ async function finishFailed(
       .where(and(eq(jobs.id, job.id), inArray(jobs.status, ["queued", "starting", "running"])))
       .returning({ id: jobs.id });
     if (!claimed) return false;
-    await release(job.id, f.status === "canceled" ? "Job canceled" : "Job did not finish", tx);
+    await refundJob(job.id, f.status === "canceled" ? "Job canceled" : "Job did not finish", tx);
     await tx.insert(jobEvents).values({ jobId: job.id, level: "error", message: f.errorPublic });
     return true;
   });

@@ -25,14 +25,15 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
       { match: "make_montage", label: "Rendering your montage" },
     ],
     outputKey: "montage",
-    defaultEstimateSec: 900,
+    // ponytail: placeholder prices; set real ones in the admin once runMs per length is measured.
+    prices: { "30": 300, "60": 450, "90": 600 },
   },
   {
     slug: "lyrical-kill-montage",
     title: "Lyrical Kill Montage",
     description: "Your kills timed to a song, with the lyrics on screen.",
     templateId: "tpl_fgi2j31DHK_M",
-    enabled: true,
+    enabled: false, // hidden for now; admins can switch it on
     beta: true,
     sortOrder: 2,
     durations: [30, 60, 90],
@@ -68,6 +69,6 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
       { match: "make_montage", label: "Rendering your montage" },
     ],
     outputKey: "montage",
-    defaultEstimateSec: 1900,
+    prices: { "30": 600, "60": 900, "90": 1200 },
   },
 ];

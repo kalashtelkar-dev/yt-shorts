@@ -118,7 +118,8 @@ export const catalogItems = pgTable("catalog_items", {
   inputMap: jsonb().$type<InputMap>().notNull().default({}),
   stageMap: jsonb().$type<StageMapEntry[]>().notNull().default([]),
   outputKey: text().notNull().default("montage"),
-  defaultEstimateSec: integer().notNull().default(900),
+  /** Fixed price in credits per length, e.g. {"30": 300, "60": 450}. Charged at start, refunded on failure. */
+  prices: jsonb().$type<Record<string, number>>().notNull().default({}),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -172,8 +173,7 @@ export const jobs = pgTable(
     errorPublic: text(),
     errorRaw: text(),
     runMs: integer(),
-    reservedCredits: integer().notNull().default(0),
-    chargedCredits: integer(),
+    chargedCredits: integer().notNull().default(0),
     computeCostPaise: integer(),
     createdAt: createdAt(),
     startedAt: timestamp({ withTimezone: true }),
@@ -182,8 +182,6 @@ export const jobs = pgTable(
   (t) => [
     index().on(t.userId, t.createdAt.desc()),
     index().on(t.status),
-    // Estimate lookup: recent successful runs per item and length.
-    index().on(t.catalogItemId, t.durationSec, t.finishedAt.desc()).where(sql`${t.status} = 'succeeded'`),
   ],
 );
 
@@ -215,6 +213,7 @@ export const ledgerKind = pgEnum("ledger_kind", [
 ]);
 
 // Append-only: a trigger in the migrations rejects UPDATE and DELETE.
+// Jobs use "charge" (at start) and "refund" (on failure); reserve/release are unused legacy kinds.
 export const creditLedger = pgTable(
   "credit_ledger",
   {
@@ -231,7 +230,7 @@ export const creditLedger = pgTable(
   },
   (t) => [
     index().on(t.userId, t.createdAt),
-    // One reserve / release / charge / refund per job: makes lifecycle steps idempotent in the DB.
+    // One charge and at most one refund per job: makes lifecycle steps idempotent in the DB.
     uniqueIndex().on(t.jobId, t.kind).where(sql`${t.jobId} is not null`),
   ],
 );
@@ -251,7 +250,6 @@ export const settings = pgTable(
   {
     id: integer().primaryKey().default(1),
     costPaisePerSecond: integer().notNull().default(30),
-    msPerCredit: integer().notNull().default(1000),
     sellPaisePerCredit: integer(),
     starterCredits: integer().notNull().default(600),
     maxUploadMb: integer().notNull().default(2048),

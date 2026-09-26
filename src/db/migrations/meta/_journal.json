@@ -15,6 +15,20 @@
       "when": 1790412493274,
       "tag": "0001_ledger_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790414148017,
+      "tag": "0002_drop_estimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790414148297,
+      "tag": "0003_fixed_prices",
+      "breakpoints": true
     }
   ]
 }

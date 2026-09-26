@@ -45,7 +45,7 @@ Full text: `.pipelines/instruction-v3.txt` (local). Validated: compiles, no erro
 
 ## 5. Kill Montage v8 (`tpl_PsnN7fGHnApj`): 8 s clips (2026-09-26)
 
-**Status:** imported as a new pipeline (the run key can't save over v7); waiting to be published, then Kill Montage switches to it.
+**Status:** published by the user; Kill Montage switched to it on 2026-09-26 through the audited catalog save (validated live, no errors or warnings). Imported as a new pipeline because the run key can't save over v7.
 
 **Why:** v7's 16 s clips (K−10…K+6) always caught the kill but left room for only 1–2 kills in a 30 s montage. The user picked K−5…K+3.
 

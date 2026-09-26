@@ -3,3 +3,4 @@ allowBuilds:
   esbuild: true
   sharp: true
   "@tailwindcss/oxide": true
+  msgpackr-extract: false

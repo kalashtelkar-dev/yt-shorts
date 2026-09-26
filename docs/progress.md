@@ -61,3 +61,21 @@
 
 **Open issues**
 - `disableDeleteAnonymousUser` is on until M10 moves jobs and ledger rows in `onLinkAccount`.
+
+## Milestone 5: Worker (done 2026-09-26)
+
+**Done**
+- `src/worker/index.mts` (`pnpm worker:dev`): BullMQ worker. A scheduled sweep every 5 s starts queued jobs and polls running ones (10 s after 5 min). Web can also enqueue `start` for an instant start (`src/server/queue.ts`). Heartbeat `worker:heartbeat` (60 s TTL).
+- `src/server/jobs/lifecycle.ts`: start → poll → finish. Every transition is a conditional `UPDATE`, so overlapping sweeps or two workers can't double-start or double-settle. Restart-safe by design: the sweep picks up everything from the DB.
+- `runPipeline` uses the job id as `Idempotency-Key`. On a network/5xx error at start the job stays `starting` and the sweep re-sends after 2 min with the same key, which returns the existing run instead of creating one.
+- Success: output key, kills, title stored; credits settled by actual `runMs`; `computeCostPaise` stored. Failure/cancel: credits released, raw error kept for admin, friendly message by failing engine (`src/server/jobs/errors.ts`). Timeout (`maxRunMinutes`): run canceled on Engine X, credits released.
+- `src/server/catalog`: `mapInput` (strict expression grammar, no eval), `progressOf` (fan-out items count individually), `stageFor`.
+- Catalog `stageMap` now uses the real pipeline step ids; the mock uses the same names.
+
+**Numbers:** 40 unit tests pass (credits, lifecycle with mock Engine X, catalog helpers, adapter, env, IP).
+
+**Demo:** `ENGINEX_MODE=mock pnpm worker:dev` (jobs arrive with milestone 6's Create page).
+
+**Open issues**
+- Kill Montage has no length input yet: see `docs/enginex-requests.md`.
+- Run/sign/upload response bodies are still parsed leniently; confirm on the first real run.

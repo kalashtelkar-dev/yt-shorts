@@ -5,7 +5,8 @@ import { EngineXError, type EngineXClient, type Pipeline, type Run, type RunStat
 
 // The only place that talks to Engine X (CLAUDE.md §4). REST, documented at <base>/v1/openapi.json.
 // The OpenAPI spec does not type success bodies, so the normalisers below read them leniently.
-// ponytail: field names are best guesses until `pnpm enginex:smoke` shows the real bodies; tighten then.
+// Pipeline and engines shapes are confirmed (smoke, 2026-09-26). Run, sign and upload bodies are still
+// read leniently: ponytail: tighten them from the first real run.
 
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 3;
@@ -195,11 +196,11 @@ export function normalisePipeline(id: string, data: Json): Pipeline {
   const issues = Array.isArray(data.issues) ? (data.issues as unknown[]) : [];
   const graph = (data.graph as Json | undefined) ?? {};
   const nodes = Array.isArray(graph.nodes) ? (graph.nodes as Json[]) : [];
-  // ponytail: input-node detection is a heuristic until the node shape is confirmed by the smoke dump.
   const inputs = nodes
-    .filter((n) => /input|request|param/i.test(String(n.type ?? n.op ?? n.kind ?? "")))
-    .map((n) => str((n.data as Json | undefined)?.field) ?? str((n.data as Json | undefined)?.name) ?? str(n.name) ?? str(n.id))
-    .filter((x): x is string => !!x);
+    .filter((n) => n.kind === "input" && str(n.name))
+    .map((n) => ({ name: n.name as string, type: str(n.type) ?? "text", required: n.required === true }));
+  const outNode = nodes.find((n) => n.kind === "output");
+  const outputs = Array.isArray(outNode?.fields) ? (outNode.fields as unknown[]).filter((f): f is string => typeof f === "string") : [];
   return {
     id: str(data.id) ?? id,
     name: str(data.name) ?? id,
@@ -208,6 +209,7 @@ export function normalisePipeline(id: string, data: Json): Pipeline {
     publishedVersion: num(data.currentVersion) ?? null,
     compiles: typeof data.compiles === "boolean" ? data.compiles : issues.length === 0,
     inputs,
+    outputs,
     issues,
     raw: data,
   };

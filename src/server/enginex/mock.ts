@@ -5,13 +5,14 @@ import { EngineXError, type EngineXClient, type Run, type RunStep } from "./type
 // start time and scenario, and progress is derived from elapsed time.
 // Scenario from the input's playerName: contains "fail" → fails at OCR, "timeout" → never finishes.
 
+// Same step names as the real Kill Montage pipeline.
 const STEPS: { step: string; engine: string; ms: number; items?: number }[] = [
   { step: "download", engine: "ytdlp", ms: 3000 },
-  { step: "frames", engine: "ffmpeg", ms: 2000 },
+  { step: "kill_feed", engine: "ffmpeg", ms: 2000 },
+  { step: "feed_frames", engine: "ffmpeg", ms: 1000 },
   { step: "read_feed", engine: "ocr", ms: 6000, items: 12 },
-  { step: "find_kills", engine: "vllm", ms: 2000 },
-  { step: "plan_edit", engine: "vllm", ms: 2000 },
-  { step: "render", engine: "ffmpeg", ms: 4000 },
+  { step: "find_kills", engine: "vllm", ms: 3000 },
+  { step: "make_montage", engine: "ffmpeg", ms: 4000 },
 ];
 const TOTAL_MS = STEPS.reduce((a, s) => a + s.ms, 0);
 
@@ -88,7 +89,8 @@ export const mockClient: EngineXClient = {
       version: 1,
       publishedVersion: 1,
       compiles: true,
-      inputs: ["youtubeUrl", "playerName", "durationSec", "songUrl", "songStart", "songEnd", "lyricsLrc"],
+      inputs: ["youtubeUrl", "playerName", "songUrl", "songStart", "songEnd", "lyricsLrc"].map((name) => ({ name, type: "text", required: name !== "lyricsLrc" })),
+      outputs: ["montage", "clips", "totalKills", "title"],
       issues: [],
       raw: {},
     };

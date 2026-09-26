@@ -1,7 +1,8 @@
 import type { catalogItems } from "./schema";
 
 // Initial catalog (PLAN.md §0). After seeding, the admin Catalog page owns these rows.
-// ponytail: stageMap prefixes are provisional until `pnpm enginex:smoke` shows the real step names.
+// stageMap matches the pipelines' engine step ids (smoke, 2026-09-26). Order = order in the pipeline;
+// while several steps run in parallel, the earliest stage listed wins.
 export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
   {
     slug: "kill-montage",
@@ -16,10 +17,12 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     inputMap: { youtubeUrl: "$source.url", playerName: "$fields.playerName" },
     stageMap: [
       { match: "download", label: "Downloading your video" },
+      { match: "stamp_font", label: "Reading the kill feed" },
+      { match: "kill_feed", label: "Reading the kill feed" },
+      { match: "feed_frames", label: "Reading the kill feed" },
       { match: "read_feed", label: "Reading the kill feed" },
-      { match: "find", label: "Finding your kills" },
-      { match: "plan", label: "Planning the edit" },
-      { match: "render", label: "Rendering" },
+      { match: "find_kills", label: "Finding your kills" },
+      { match: "make_montage", label: "Rendering your montage" },
     ],
     outputKey: "montage",
     defaultEstimateSec: 900,
@@ -49,11 +52,20 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     },
     stageMap: [
       { match: "download", label: "Downloading your video and song" },
+      { match: "song_dl", label: "Downloading your video and song" },
+      { match: "stamp_font", label: "Reading the kill feed" },
+      { match: "kill_feed", label: "Reading the kill feed" },
+      { match: "feed_frames", label: "Reading the kill feed" },
       { match: "read_feed", label: "Reading the kill feed" },
-      { match: "find", label: "Finding your kills" },
-      { match: "whisper", label: "Syncing the lyrics" },
-      { match: "plan", label: "Planning the edit" },
-      { match: "render", label: "Rendering" },
+      { match: "song_cut", label: "Finding the beat" },
+      { match: "bass_level", label: "Finding the beat" },
+      { match: "lrc_to_lines", label: "Syncing the lyrics" },
+      { match: "vox_filter", label: "Syncing the lyrics" },
+      { match: "auto_lyrics", label: "Syncing the lyrics" },
+      { match: "align_lyrics", label: "Syncing the lyrics" },
+      { match: "plan_edit", label: "Planning the edit" },
+      { match: "title_font", label: "Rendering your montage" },
+      { match: "make_montage", label: "Rendering your montage" },
     ],
     outputKey: "montage",
     defaultEstimateSec: 1900,

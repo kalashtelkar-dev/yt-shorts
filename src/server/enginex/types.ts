@@ -29,7 +29,10 @@ export type Pipeline = {
   /** Published version that /v1/run executes; null = never published. */
   publishedVersion: number | null;
   compiles: boolean;
-  inputs: string[];
+  /** Request fields the pipeline declares (its `kind: "input"` nodes). */
+  inputs: { name: string; type: string; required: boolean }[];
+  /** Fields of the output node, e.g. montage, clips, totalKills, title. */
+  outputs: string[];
   issues: unknown[];
   raw: unknown;
 };

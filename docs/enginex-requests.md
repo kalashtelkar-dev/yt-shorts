@@ -29,3 +29,16 @@ The run key can't save over an existing pipeline (authoring needs an admin key),
 - No kills → rendering is skipped (gate on clip count) and the run returns totalKills 0; the app shows "we didn't find any kills by <name>" and refunds.
 
 **After publishing:** in the admin catalog, set Kill Montage's template to `tpl_uKbQwmdYcij7`, add `"durationSec": "$durationSec"` to its input map, and `"itemSeconds": 10` on its `read_feed` stage (all three are already in the seed). Validate, then save. Running jobs keep the old template.
+
+## 4. Kill Montage v6 (`tpl_uKbQwmdYcij7`): clips too short (2026-09-26)
+
+**Status:** ready, needs pasting in the dashboard (the run key can't save: "authoring a pipeline needs an admin key or a dashboard session"). Approved by the user to save and publish.
+
+**Why:** v6 runs cut each kill to K−3.5…K+1.5 s. With the kill feed sampled once per second, K lands a second or two late, so clips started ~1 s before the kill or missed it; real outputs had 2.5–5.5 s clips and even a 0.5 s one (`573.00-573.50`). The old pipeline (v5) used K−10…K+6 and every clip was 12–14 s with the kill in it.
+
+**Change (instruction node only; built on draft v2, whose only edits were sample values):**
+- Step 2 → "For each K make a window from K-10 to K+6 seconds (never below 0). The feed is sampled once per second, so K can be a second or two after the real kill: always keep the full 10 seconds before K for the build-up."
+- Step 3 → "Merge windows that overlap or are less than 1 second apart, so a multi-kill becomes one clip. Never shorten a window: every clip is at least 16 seconds long unless it starts at 0. A clip's kills is the number of kill moments inside it."
+- Example range → `"123.00-139.00"`.
+
+Full text: `.pipelines/instruction-v3.txt` (local). Validated: compiles, no errors. The upload variant `tpl_24XhRunrxRjQ` has the same short windows and was left unchanged on purpose.

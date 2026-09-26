@@ -98,7 +98,7 @@ export const mockClient: EngineXClient = {
       ).map((name) => ({ name, type: "text", required: name !== "lyricsLrc" })),
       outputs: ["montage", "clips", "totalKills", "title"],
       issues: [],
-      raw: {},
+      raw: { graph: { nodes: STEPS.map((st) => ({ id: st.step, kind: "engine", engine: st.engine })) } },
     };
   },
   async fleetStatus() {

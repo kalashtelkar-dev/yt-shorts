@@ -102,6 +102,7 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - Put each probe in its own file in `src/server/health/probes/`, exporting `{ id, name, tier, critical, run(): Promise<ProbeResult> }`.
 - A probe must finish within 5 s (a timeout means `down`) and must not send real emails, create real payments or start pipelines.
 - A missing configuration returns `not_configured`, not `down`. Fleet uptime is worst-of across `critical` probes only.
+- Only probe what the app uses. Engine worker probes come from the engines in enabled catalog pipelines (read from their graphs). Add SMTP and Razorpay probes when those features ship (M10, M12).
 - The worker runs the sweep every 30 s and keeps a heartbeat key in Redis (`worker:heartbeat`, 60 s TTL).
 
 ## 10. Testing
@@ -148,6 +149,7 @@ TRUSTED_PROXY_HOPS=1           # proxies in front of the app; client IP = Nth en
 ENGINEX_MODE=live              # live | mock
 ENGINEX_BASE_URL=https://enginex.run
 ENGINEX_API_KEY=               # ek_live_... never expose to the client
+ENGINEX_STORAGE_URL=           # Engine X object store (MinIO), used by the health check
 
 # Google OAuth (used when AUTH_MODE=full)
 GOOGLE_CLIENT_ID=

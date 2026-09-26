@@ -19,6 +19,7 @@
     "admin:create": "tsx --conditions=react-server --env-file-if-exists=.env scripts/admin-create.mts"
   },
   "dependencies": {
+    "@xyflow/react": "^12.12.0",
     "better-auth": "^1.7.6",
     "bullmq": "^6.3.8",
     "class-variance-authority": "^0.7.1",

@@ -26,6 +26,7 @@ const schema = z
     ENGINEX_MODE: z.enum(["live", "mock"]).default("live"),
     ENGINEX_BASE_URL: z.url().optional(),
     ENGINEX_API_KEY: z.string().min(1).optional(),
+    ENGINEX_STORAGE_URL: z.url().optional(), // Engine X object store (MinIO), for the health check only
 
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),

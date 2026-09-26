@@ -162,3 +162,20 @@ In mock mode a player name containing "fail" fails at the kill-feed step, and "t
 
 **Open issues**
 - When Engine X adds `durationSec` to Kill Montage: add `"durationSec": "$durationSec"` to its input map in the catalog editor.
+
+## Milestone 9: Service health (done 2026-09-26)
+
+**Done**
+- One probe per file in `src/server/health/probes/`: web (`/api/health`), worker (Redis heartbeat), PostgreSQL, Redis, job queue (BullMQ counts; degraded above 20 waiting), Engine X gateway (authenticated `fleetStatus`), object storage (MinIO `/minio/health/live`, needs `ENGINEX_STORAGE_URL`), and one probe per engine worker.
+- Only what the app uses: engine probes are derived from the graphs of enabled catalog pipelines (today ytdlp, ffmpeg, OCR, vLLM; WhisperX appears if Lyrical is switched on). SMTP and Razorpay are left out until they're used.
+- Worker runs the sweep every 30 s (5 s timeout per probe, slow = degraded, errors redacted). Raw results kept 8 days; daily rollups kept 90 days.
+- Uptime: 24 h = 96 × 15 min, 7 d = 84 × 2 h, 90 d = 90 × 1 day buckets; a bucket is up when ≥ 99% of checks were available. Fleet uptime is the worst of the critical probes.
+- `/admin/health`: fleet uptime card with bucket strip, React Flow service map (admin-only chunk; hidden on phones), side panel with summary or a service's last 50 checks, uptime list per service, 24 h / 7 d / 90 d toggle, auto-refresh every 30 s, banner when the worker has stopped.
+
+**Numbers:** 76 unit tests pass. `/admin/health` 134 KB first-load JS (React Flow loads after, on this page only).
+
+**Manual checks**
+1. With `pnpm worker:dev` running, `/admin/health` shows every check operational within 30 s.
+2. Stop the worker → within a minute the page says checks are paused.
+3. Stop Redis (`docker compose stop redis`) → Redis goes down (red, dashed edge), fleet uptime drops. Start it again.
+4. Click a node → its recent checks appear in the side panel.

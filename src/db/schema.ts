@@ -7,6 +7,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -276,4 +277,36 @@ export const adminAuditLog = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index().on(t.createdAt.desc())],
+);
+
+// ── Service health (PLAN.md §6) ──
+
+export const probeStatus = pgEnum("probe_status", ["up", "degraded", "down", "not_configured"]);
+
+// Raw checks, kept 8 days (enough for the 24 h and 7 d views).
+export const probeResults = pgTable(
+  "probe_results",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    probeId: text().notNull(),
+    status: probeStatus().notNull(),
+    latencyMs: integer(),
+    message: text(),
+    checkedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index().on(t.probeId, t.checkedAt.desc()), index().on(t.checkedAt)],
+);
+
+// Daily rollup, updated on every check and kept 90 days (the 90 d view).
+export const probeDaily = pgTable(
+  "probe_daily",
+  {
+    probeId: text().notNull(),
+    day: text().notNull(), // YYYY-MM-DD (UTC)
+    checks: integer().notNull().default(0),
+    up: integer().notNull().default(0),
+    degraded: integer().notNull().default(0),
+    down: integer().notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.probeId, t.day] })],
 );

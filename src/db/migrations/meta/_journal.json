@@ -29,6 +29,13 @@
       "when": 1790414148297,
       "tag": "0003_fixed_prices",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790418272822,
+      "tag": "0004_health",
+      "breakpoints": true
     }
   ]
 }

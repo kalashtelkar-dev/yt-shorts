@@ -141,6 +141,7 @@ ADMIN_EMAILS=you@example.com
 BETTER_AUTH_SECRET=
 DATABASE_URL=postgres://...
 REDIS_URL=redis://...
+TRUSTED_PROXY_HOPS=1           # proxies in front of the app; client IP = Nth entry from the right of X-Forwarded-For
 
 # Engine X (server-only)
 ENGINEX_MODE=live              # live | mock

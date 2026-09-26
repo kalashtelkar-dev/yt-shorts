@@ -1,16 +1,14 @@
 import "server-only";
 import { headers } from "next/headers";
 import { auth, type SessionUser } from "./auth";
+import { env } from "@/config/env";
 import { grant } from "./credits";
+import { clientIp } from "./ip";
 import { underLimit } from "./redis";
 import { getSettings } from "./settings";
 
 const ANON_PER_IP_PER_HOUR = 10;
 const STARTER_GRANTS_PER_IP_PER_DAY = 3;
-
-export function clientIp(h: Headers): string {
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
-}
 
 /** The signed-in (or anonymous) user, or null for a first-time visitor. Read-only: safe in Server Components. */
 export async function getViewer(): Promise<SessionUser | null> {
@@ -30,7 +28,7 @@ export async function ensureUser(): Promise<SessionUser> {
   const existing = await auth.api.getSession({ headers: h });
   if (existing) return existing.user;
 
-  const ip = clientIp(h);
+  const ip = clientIp(h, env.TRUSTED_PROXY_HOPS);
   if (!(await underLimit(`anon:${ip}`, ANON_PER_IP_PER_HOUR, 3600))) {
     throw new RateLimitedError("Too many new sessions from this network. Try again in an hour.");
   }

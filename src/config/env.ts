@@ -21,6 +21,7 @@ const schema = z
     BETTER_AUTH_SECRET: z.string().optional(),
     DATABASE_URL: z.string().default("postgres://montage:montage@localhost:5432/montage"),
     REDIS_URL: z.string().default("redis://localhost:6379"),
+    TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
 
     ENGINEX_MODE: z.enum(["live", "mock"]).default("live"),
     ENGINEX_BASE_URL: z.url().optional(),

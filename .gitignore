@@ -45,3 +45,4 @@ next-env.d.ts
 .smoke/
 .playwright-mcp/
 .pipelines/
+.claude/scheduled_tasks.lock

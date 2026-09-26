@@ -176,7 +176,18 @@ export async function validateTemplateAction(_prev: ValidateState, form: FormDat
   if (!templateId) return { report: null, message: "Enter a template ID first." };
   const map = jsonField(form, "inputMap", "Input map");
   if (map.error) return { report: null, message: map.error };
-  return { report: await validateTemplate(templateId, (map.value ?? {}) as Record<string, unknown>, String(form.get("outputKey") ?? "montage").trim()), message: null };
+  const inputMap = (map.value ?? {}) as Record<string, unknown>;
+  const outputKey = String(form.get("outputKey") ?? "montage").trim();
+  // Same checks as Save: each template only against the inputs its source fills in.
+  const report = await validateTemplate(templateId, inputMap, outputKey, "url");
+  const uploadTemplateId = String(form.get("uploadTemplateId") ?? "").trim();
+  if (uploadTemplateId) {
+    const up = await validateTemplate(uploadTemplateId, inputMap, outputKey, "upload");
+    report.ok &&= up.ok;
+    report.errors.push(...up.errors.map((e) => `Upload template: ${e}`));
+    report.warnings.push(...up.warnings.map((w) => `Upload template: ${w}`));
+  }
+  return { report, message: null };
 }
 
 export async function saveCatalogAction(_prev: FormState, form: FormData): Promise<FormState> {

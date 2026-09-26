@@ -8,7 +8,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "kill-montage",
     title: "Kill Montage",
     description: "Every kill from your match, cut into one fast vertical edit.",
-    templateId: "tpl_uKbQwmdYcij7", // v6: length input, tighter clips, OCR-tolerant name (was tpl_QUL4sc1xbOWL)
+    templateId: "tpl_ERjJTGvMAUeS", // v7: length input, OCR-tolerant name, 16 s clips (10 s before each kill, 6 s after)
     uploadTemplateId: "tpl_24XhRunrxRjQ", // v6 for uploaded files: no download step
     enabled: true,
     beta: false,

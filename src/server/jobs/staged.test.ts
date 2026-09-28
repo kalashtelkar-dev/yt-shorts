@@ -168,8 +168,8 @@ describe("staged styles (mock Engine X)", () => {
     expect(kill).not.toHaveProperty("words");
     expect(kill).not.toHaveProperty("lyricLook");
     expect(kill).toMatchObject({ maxDurationSec: "60", variation: "slow last", gameDurationSec: "1800", kills: JSON.stringify(g.kills) });
-    expect(styleInput(job, g, s, null)).toMatchObject({ lyricLook: "7", lines: expect.stringContaining('{"start":1,"end":1.3,"l1":"so","l2":"","p":') });
+    expect(styleInput(job, g, s, null)).toMatchObject({ lyricLook: "7", lines: expect.stringContaining('{"s":1,"e":1.3,"t":"so","r":0,"n":2,"p":') });
     const seg = { ...s, segments: [{ start: 1, end: 2, words: [{ word: "so", start: 1, end: 1.3 }, { word: "cool", start: 1.4, end: 2 }] }] };
-    expect(JSON.parse(styleInput(job, g, seg, ["lines"]).lines)).toMatchObject([{ start: 1, end: 2, l1: "so cool", l2: "" }, { l1: "" }]); // + the no-text line
+    expect(JSON.parse(styleInput(job, g, seg, ["lines"]).lines)).toMatchObject([{ s: 1, e: 1.4, t: "so" }, { s: 1.4, e: 2, t: "so cool" }, { t: "" }]); // + the no-text item
   });
 });

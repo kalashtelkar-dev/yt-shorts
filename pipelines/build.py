@@ -170,30 +170,33 @@ def hold_table():
 
 # Lyric looks, one picked per job by the app's lyricLook digit (0-9). Heavy fonts, outline + hard shadow. The size fits a
 # 16-character row across ~720 px, so the words sit on the gameplay without covering it (the app cuts lyric lines into
-# rows of at most 16, src/server/jobs/lyrics.ts).
+# rows of at most 16, src/server/jobs/lyrics.ts). The last number is the font's average letter width at size 100
+# (measured over lyric text), so a row's width can be estimated from its length.
 FONT_BASE = "https://github.com/google/fonts/raw/main/"
 LOOKS = [
-    ("ofl/anton/Anton-Regular.ttf", 96, "fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85"),
-    ("ofl/archivoblack/ArchivoBlack-Regular.ttf", 61, "fontcolor=white:borderw=5:bordercolor=black:shadowx=0:shadowy=8:shadowcolor=black@0.75"),
-    ("ofl/bungee/Bungee-Regular.ttf", 69, "fontcolor=0xFFD83D:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black"),
-    ("apache/luckiestguy/LuckiestGuy-Regular.ttf", 78, "fontcolor=white:borderw=6:bordercolor=0x141414:shadowx=6:shadowy=6:shadowcolor=0xE5484D"),
-    ("ofl/titanone/TitanOne-Regular.ttf", 67, "fontcolor=white:borderw=5:bordercolor=0x5B21B6:shadowx=6:shadowy=6:shadowcolor=black@0.8"),
-    ("ofl/blackopsone/BlackOpsOne-Regular.ttf", 68, "fontcolor=0xF4F4F4:borderw=4:bordercolor=black:shadowx=7:shadowy=7:shadowcolor=black@0.7"),
-    ("ofl/russoone/RussoOne-Regular.ttf", 67, "fontcolor=0x3DE8FF:borderw=4:bordercolor=0x03141A:shadowx=6:shadowy=6:shadowcolor=black@0.85"),
-    ("ofl/bowlbyone/BowlbyOne-Regular.ttf", 61, "fontcolor=white:borderw=5:bordercolor=black:shadowx=4:shadowy=7:shadowcolor=0xFF3B30"),
-    ("ofl/rubikmonoone/RubikMonoOne-Regular.ttf", 53, "fontcolor=white:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.8"),
-    ("ofl/passionone/PassionOne-Black.ttf", 80, "fontcolor=0xFFE14D:borderw=5:bordercolor=0x1A1200:shadowx=6:shadowy=6:shadowcolor=black@0.85"),
+    ("ofl/anton/Anton-Regular.ttf", 96, "fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85", 42.6),
+    ("ofl/archivoblack/ArchivoBlack-Regular.ttf", 61, "fontcolor=white:borderw=5:bordercolor=black:shadowx=0:shadowy=8:shadowcolor=black@0.75", 58.8),
+    ("ofl/bungee/Bungee-Regular.ttf", 69, "fontcolor=0xFFD83D:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black", 64.1),
+    ("apache/luckiestguy/LuckiestGuy-Regular.ttf", 78, "fontcolor=white:borderw=6:bordercolor=0x141414:shadowx=6:shadowy=6:shadowcolor=0xE5484D", 53.5),
+    ("ofl/titanone/TitanOne-Regular.ttf", 67, "fontcolor=white:borderw=5:bordercolor=0x5B21B6:shadowx=6:shadowy=6:shadowcolor=black@0.8", 57.3),
+    ("ofl/blackopsone/BlackOpsOne-Regular.ttf", 68, "fontcolor=0xF4F4F4:borderw=4:bordercolor=black:shadowx=7:shadowy=7:shadowcolor=black@0.7", 57.6),
+    ("ofl/russoone/RussoOne-Regular.ttf", 67, "fontcolor=0x3DE8FF:borderw=4:bordercolor=0x03141A:shadowx=6:shadowy=6:shadowcolor=black@0.85", 54.8),
+    ("ofl/bowlbyone/BowlbyOne-Regular.ttf", 61, "fontcolor=white:borderw=5:bordercolor=black:shadowx=4:shadowy=7:shadowcolor=0xFF3B30", 65.1),
+    ("ofl/rubikmonoone/RubikMonoOne-Regular.ttf", 53, "fontcolor=white:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.8", 85.0),
+    ("ofl/passionone/PassionOne-Black.ttf", 80, "fontcolor=0xFFE14D:borderw=5:bordercolor=0x1A1200:shadowx=6:shadowy=6:shadowcolor=black@0.85", 47.0),
 ]
 assert len(LOOKS) == 10  # the app sends one digit
 
 # Where a lyric line sits: the app gives every line a random spot "p" (0-5, never the same twice in a row); never the
-# centre (the crosshair). x for each row, y of the line's middle. The gameplay band is y 431-1489; its top HUD ends ~540
+# centre (the crosshair). y is the line's middle. The gameplay band is y 431-1489; its top HUD ends ~540
 # and the weapon/health HUD starts ~1360.
-SPOTS = [(x, y) for y in ("h*0.34", "h*0.64") for x in ("70", "(w-text_w)/2", "w-text_w-70")]
+# x = x0 - k * (row length) * (letter width): the left edge of the full row, so a row building word by word never shifts.
+SPOTS = [(x0, k, y) for y in ("h*0.34", "h*0.64") for x0, k in (("70", "0"), ("w/2", "0.5"), ("w-70", "1"))]
 
 def look_table():
-    # rows "\n<digit>;<font input>;<style>"; "default" (look 0) catches anything else
-    rows = [(str(i), f"{{in{i}}}", f"fontsize={size}:{st}") for i, (_, size, st) in enumerate(LOOKS)]
+    # rows "\n<digit>;<font input>;<style>;<letter width in px>"; "default" (look 0) catches anything else. The width is
+    # 5% generous, so a right-aligned row never runs off the frame.
+    rows = [(str(i), f"{{in{i}}}", f"fontsize={size}:{st}", f"{size * w / 100 * 1.05:.1f}") for i, (_, size, st, w) in enumerate(LOOKS)]
     return "".join(f"\n{';'.join(r)}" for r in rows + [("default",) + rows[0][1:]])
 
 def style(lyrical):
@@ -302,48 +305,51 @@ def style(lyrical):
         g.edge("caption_font", "file", "make_montage", "input")
         # this job's look: its font is copied out of the ten downloaded ones, its style goes into the drawtext templates
         g.util("look_table", "text", {"value": look_table()})
-        g.util("look_pattern", "template", {"template": r"^[\s\S]*?\n(?:{{a}}|default);([^;\n]*);([^\n]*)[\s\S]*$"})
+        g.util("look_pattern", "template", {"template": r"^[\s\S]*?\n(?:{{a}}|default);([^;\n]*);([^;\n]*);([^\n]*)[\s\S]*$"})
         g.edge("look_in", "value", "look_pattern", "a")
-        for i, nid in enumerate(("look_font", "look_style"), 1):
+        for i, nid in enumerate(("look_font", "look_style", "look_cw"), 1):
             g.util(nid, "regex", {"replace": f"${i}"}).edge("look_table", "value", nid, "text").edge("look_pattern", "value", nid, "pattern")
-        g.N["caption_font"]["params"] = {"tier": "gpu", "input": [FONT_BASE + f for f, _, _ in LOOKS], "outputs": [{"name": "caption.ttf", "contentType": "font/ttf"}]}
+        g.N["caption_font"]["params"] = {"tier": "gpu", "input": [FONT_BASE + f for f, *_ in LOOKS], "outputs": [{"name": "caption.ttf", "contentType": "font/ttf"}]}
         g.util("font_args", "template", {"template": json.dumps(["-y", "-f", "data", "-i", "{{a}}", "-map", "0", "-c", "copy", "-f", "data", "{out}"])})
         g.util("font_args_json", "json-parse", {"fenced": False}).util("font_args_list", "merge", {})
         g.edge("look_font", "text", "font_args", "a").edge("font_args", "value", "font_args_json", "text").edge("font_args_json", "value", "font_args_list", "a")
         g.edge("font_args_list", "value", "caption_font", "args")
-        # lyric lines from the app (aligned segments cut into 3-5 words, one or two rows): the ones that start before the end,
-        # rebuilt into one text, then each drawn centred with a 0.08 s fade-in, from its first word's start to its last word's end
+        # lyrics, karaoke-style (src/server/jobs/lyrics.ts): one item per step of a line building word by word ("t", shown from
+        # "s" to "e"), with its row "r", the full row's length "n" and the line's spot "p". The items that start before the
+        # end are rebuilt into one text; spots and rows become x0/k/y/dy; then each item is one drawtext.
         g.util("end_text", "template", {"template": "{{a}}"}).edge("end_time", "value", "end_text", "a")
         g.util("lines_json", "json-parse", {"fenced": False}).edge("lines_in", "value", "lines_json", "text")
-        g.util("lines_before", "json-filter", {"path": "start", "op": "less-or-equal"})
+        g.util("lines_before", "json-filter", {"path": "s", "op": "less-or-equal"})
         g.edge("lines_json", "value", "lines_before", "value").edge("end_text", "value", "lines_before", "compareTo")
         g.util("line_item", "json-stringify", {"indent": 0}).edge("lines_before", "items", "line_item", "value")
         g.util("lines_joined", "join", {"separator": ""}).edge("line_item", "value", "lines_joined", "value")
         prev = ("lines_joined", "value")
-        for i, (x, y) in enumerate(SPOTS):
-            g.util(f"spot_{i}", "regex", {"flags": "g", "pattern": f'"p":"?{i}"?(?=[,}}])', "replace": f'"x":"{x}","y":"{y}"'}).edge(*prev, f"spot_{i}", "text")
-            prev = (f"spot_{i}", "text")
-        x, y = SPOTS[4]  # a line without a spot: lower middle
-        g.util("spot_default", "regex", {"flags": "g", "pattern": '\\{(?![^}]*"x":)', "replace": f'{{"x":"{x}","y":"{y}",'}).edge(*prev, "spot_default", "text")
-        head = '\\{(?=[^}]*"start":' + NUM + ')(?=[^}]*"end":' + NUM + ')(?=[^}]*"l1":"([^"]+)")'
-        at = '(?=[^}]*"x":"([^"]+)")(?=[^}]*"y":"([^"]+)")[^}]*\\}'
-        draw = "drawtext=fontfile='{in2}':text='ROW':{{a}}:x=X:y=Y:alpha='min(1,(t-$1)/0.08)':enable='between(t,$1,$2)',"
-        g.util("two_rows", "regex", {"flags": "g", "pattern": head + '(?=[^}]*"l2":"([^"]+)")' + at})  # $4 row 2, $5 x, $6 y
-        g.util("one_row", "regex", {"flags": "g", "pattern": head + '(?=[^}]*"l2":"")' + at})  # $4 x, $5 y
-        g.util("two_rows_draw", "template", {"template": "§" + draw.replace("ROW", "$3").replace("X", "$5").replace("Y", "$6-lh-8")
-                                                          + draw.replace("ROW", "$4").replace("X", "$5").replace("Y", "$6+8") + "§"})
-        g.util("one_row_draw", "template", {"template": "§" + draw.replace("ROW", "$3").replace("X", "$4").replace("Y", "$5-lh/2") + "§"})
-        for t in ("two_rows_draw", "one_row_draw"): g.edge("look_style", "text", t, "a")
-        g.edge("spot_default", "text", "two_rows", "text").edge("two_rows_draw", "value", "two_rows", "replace")
-        g.edge("two_rows", "text", "one_row", "text").edge("one_row_draw", "value", "one_row", "replace")
-        g.edge("one_row", "text", "caption_keep", "text")
-        g.edge("caption_keep", "text", "ffmpeg_args", "g")
+        def rewrite(nid, pattern, replace):
+            nonlocal prev
+            g.util(nid, "regex", {"flags": "g", "pattern": pattern, "replace": replace}).edge(*prev, nid, "text")
+            prev = (nid, "text")
+        for i, (x0, k, y) in enumerate(SPOTS):
+            rewrite(f"spot_{i}", f'"p":"?{i}"?(?=[,}}])', f'"x0":"{x0}","k":"{k}","y":"{y}"')
+        x0, k, y = SPOTS[4]  # no spot: lower middle
+        rewrite("spot_default", '\\{(?![^}]*"x0":)', f'{{"x0":"{x0}","k":"{k}","y":"{y}",')
+        for r, dy in (("0", "-lh/2"), ("1", "-lh-8"), ("2", "+8")):  # one row centred on y; two rows either side of it
+            rewrite(f"row_{r}", f'"r":"?{r}"?(?=[,}}])', f'"dy":"{dy}"')
+        rewrite("row_default", '\\{(?![^}]*"dy":)', '{"dy":"-lh/2",')
+        cap = '(?=[^}]*"KEY":"([^"]+)")'
+        pattern = ('\\{(?=[^}]*"s":' + NUM + ')(?=[^}]*"e":' + NUM + ')' + cap.replace("KEY", "t") + cap.replace("KEY", "x0") + cap.replace("KEY", "k")
+                   + '(?=[^}]*"n":' + NUM + ')' + cap.replace("KEY", "y") + cap.replace("KEY", "dy") + '[^}]*\\}')  # $1 s $2 e $3 t $4 x0 $5 k $6 n $7 y $8 dy
+        g.util("draw_items", "regex", {"flags": "g", "pattern": pattern}).edge(*prev, "draw_items", "text")
+        g.util("draw_item", "template", {"template": "§drawtext=fontfile='{in2}':text='$3':{{a}}:x=$4-$5*$6*@cw:y=$7$8:enable='gte(t,$1)*lt(t,$2)',§"})
+        g.edge("look_style", "text", "draw_item", "a").edge("draw_item", "value", "draw_items", "replace")
+        g.edge("draw_items", "text", "caption_keep", "text")
+        g.util("cw_fill", "regex", {"flags": "g", "pattern": "@cw"}).edge("caption_keep", "text", "cw_fill", "text").edge("look_cw", "text", "cw_fill", "replace")
+        g.edge("cw_fill", "text", "ffmpeg_args", "g")
     g.node("out", kind="output", fields=["montage", "plan"])
     g.edge("make_montage", "file", "out", "montage").edge("plan", "json", "out", "plan")
     name = "style-lyrical-kill-montage" if lyrical else "style-kill-montage"
     return g.doc(name, ("Lyrical kill montage (docs/edit-styles/lyrical-kill-montage.md)" if lyrical else "Kill montage (docs/edit-styles/kill-montage.md)")
                  + " from a gameplay-index and a song-index: intro flex, normal and 0.5x kill clips placed by a per-run variation, each kill held a minimum time that grows with the length, beat-synced, 9:16 blurred layout, flash + zoom, song from its start"
-                 + (", the lyrics as force-aligned lines of 3-5 words, centred, in one of ten looks per job." if lyrical else ", no text."))
+                 + (", the lyrics karaoke-style (force-aligned lines of 3-5 words building word by word) in a random spot per line and one of ten looks per job." if lyrical else ", no text."))
 
 if __name__ == "__main__":
     for fname, d in (("style-kill-montage", style(False)), ("style-lyrical-kill-montage", style(True))):

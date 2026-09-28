@@ -45,10 +45,11 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
 ## Lyrics on screen
 
 - **Source (song-index):** `transcribe/separate` gives the vocals stem. `transcribe/transcribe` (large-v3, English, its own alignment off) gives the segments. `transcribe/align`, the forced aligner, then times every word in each segment on the vocals.
-- **Lines (the app, `src/server/jobs/lyrics.ts`):**
+- **Lines, karaoke-style (the app, `src/server/jobs/lyrics.ts`; the user's choice, 2026-09-28):**
   - **Cutting:** each segment becomes lines of 3–5 words, cut evenly (7 words → 4 + 3). A line never mixes two segments.
-  - **Timing:** a line shows from its first word's start to its last word's end, and holds until the next line when the gap is under 0.3 s.
-  - **Rows:** a line longer than 16 characters is split into two rows, with the longer row as short as possible.
+  - **Build-up:** a line builds up word by word, each word appearing when it's sung. The line stays until its last word ends (or until the next line when the gap is under 0.3 s), then vanishes and the next line starts. Only one line is on screen at a time.
+  - **Rows:** a line longer than 16 characters gets two rows. The top row stays complete while the bottom row builds.
+  - **No shifting:** every step of a row starts at the full row's left edge. That edge is estimated from the row's length and the look's average letter width, measured per font and 5% generous, so a right-aligned row stays inside the frame.
   - **Cleaning:** English letters only, curly apostrophes, no punctuation, and slurs are dropped.
 - **Where: a random spot for every line (the user's choice, 2026-09-28), never the centre:** the upper or lower third of the gameplay band, left, middle or right. It's never the same spot twice in a row, and it's repeatable per job (seeded). The spots are `SPOTS` in `pipelines/build.py`. The text is never in the blurred bands and never styled like subtitles.
 - **Look: a different one every job (the user's choice, 2026-09-28):** thick, as bold as possible, with shadows.
@@ -56,7 +57,7 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
   - **On every row:** a 4–6 px dark outline and a hard offset shadow (black, or red or purple in some looks), plus the glow (a blurred copy of the text under it).
   - **Size:** a 16-character row fills about 72% of the width, so the words sit on the gameplay without covering it (the user asked for smaller text on 2026-09-28).
   - **Replaced:** Cinzel Decorative centred one word at a time (v8); then one centred word at a time with a bigger hook word.
-- **Motion:** each line fades in over 0.08 s on its start and leaves on its end.
+- **Motion:** words appear as they're sung, and the line leaves when it ends. There's no fade, so a growing line never flickers.
 - **Sync:** the timestamps come straight from the aligner. The song plays from 0, so montage time = song time. The model never computes caption times or writes caption text.
 - **No lyrics:** if the song has no clear English vocals, no text shows and the montage still renders, which then looks the same as a Kill Montage.
 

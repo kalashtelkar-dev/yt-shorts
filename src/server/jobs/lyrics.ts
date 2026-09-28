@@ -1,21 +1,26 @@
 import "server-only";
 import { seeded } from "@/lib/seeded";
 
-// Lyric lines for the lyrical style: the song-index's aligned segments, cut into on-screen lines of 3–5 words.
-// A line never mixes two segments, runs from its first word's start to its last word's end, and is split into two
-// rows when it's too wide for one (l2 is then the second row). Times are song seconds, which equal montage seconds.
-// Each line gets a random spot p (0-5, pipelines/build.py SPOTS: upper or lower third, left, middle or right), never the
-// same as the line before; the seed makes one job's spots repeatable.
+// Lyrics for the lyrical style, karaoke-style: the song-index's aligned segments are cut into lines of 3–5 words (never
+// mixing two segments, two rows when wider than 16 characters). A line builds up word by word as each word is sung,
+// stays until its last word ends, then vanishes and the next line starts. Every line gets a random spot p (0-5,
+// pipelines/build.py SPOTS: upper or lower third, left, middle or right), never the same as the line before; the seed
+// makes one job's spots repeatable. Times are song seconds, which equal montage seconds.
+//
+// The pipeline draws one item per step: t is the row so far, shown from s to e. n is the full row's length, so every
+// step of a row starts at the same x (the row doesn't shift as words are added). r: 0 a one-row line, 1 and 2 the top
+// and bottom rows of a two-row line.
 
 type Word = { word?: unknown; start?: unknown; end?: unknown };
 type Segment = { start?: unknown; end?: unknown; words?: Word[] };
-export type LyricLine = { start: number; end: number; l1: string; l2: string; p: number };
-const SPOTS = 6;
+type Timed = { text: string; start: number; end: number };
+export type LyricItem = { s: number; e: number; t: string; r: 0 | 1 | 2; n: number; p: number };
 
 const MAX_WORDS = 5;
-const MAX_ROW = 16; // characters per row; the style's font sizes fit this across the frame
+const MAX_ROW = 16; // characters per row; the style's font sizes fit this across ~72% of the frame
 const HOLD_GAP = 0.3; // a line stays up until the next one when the gap is shorter than this
 const MIN_SHOW = 0.25;
+const SPOTS = 6;
 const SLUR = /n[i1!]gg|f[a@]gg?[o0]?t|retard/i;
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() && Number.isFinite(Number(v)) ? Number(v) : null);
@@ -32,20 +37,17 @@ function groupSizes(n: number): number[] {
   return Array.from({ length: k }, (_, i) => Math.floor(n / k) + (i < n % k ? 1 : 0));
 }
 
-/** One or two rows, split at the word boundary that keeps the longer row shortest. */
-function rows(words: string[]): [string, string] {
-  const all = words.join(" ");
-  if (all.length <= MAX_ROW || words.length < 2) return [all, ""];
-  let best: [string, string] = [all, ""];
-  for (let i = 1; i < words.length; i++) {
-    const r: [string, string] = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
-    if (best[1] === "" || Math.max(r[0].length, r[1].length) < Math.max(best[0].length, best[1].length)) best = r;
-  }
+/** Where a line breaks into two rows (0 = one row): the word boundary that keeps the longer row shortest. */
+function rowBreak(words: string[]): number {
+  if (words.join(" ").length <= MAX_ROW || words.length < 2) return 0;
+  let best = 1;
+  const longer = (i: number) => Math.max(words.slice(0, i).join(" ").length, words.slice(i).join(" ").length);
+  for (let i = 2; i < words.length; i++) if (longer(i) < longer(best)) best = i;
   return best;
 }
 
-export function lyricLines(segments: unknown, seed: string | number = 1): LyricLine[] {
-  const lines: LyricLine[] = [];
+export function lyricItems(segments: unknown, seed: string | number = 1): LyricItem[] {
+  const lines: { words: Timed[]; start: number; end: number }[] = [];
   for (const seg of Array.isArray(segments) ? (segments as Segment[]) : []) {
     const raw = (Array.isArray(seg?.words) ? seg.words : []).map((w) => ({ text: clean(w.word), start: num(w.start), end: num(w.end) }));
     // aligners leave some words (numbers, shouts) untimed: borrow the neighbours' times
@@ -53,26 +55,38 @@ export function lyricLines(segments: unknown, seed: string | number = 1): LyricL
       raw[i].start ??= raw[i - 1]?.end ?? num(seg.start);
       raw[i].end ??= raw.slice(i + 1).find((w) => w.start !== null)?.start ?? num(seg.end);
     }
-    const words = raw.filter((w) => w.text && !SLUR.test(w.text) && w.start !== null && w.end !== null) as { text: string; start: number; end: number }[];
+    const words = raw.filter((w) => w.text && !SLUR.test(w.text) && w.start !== null && w.end !== null) as Timed[];
     let at = 0;
     for (const size of groupSizes(words.length)) {
       const group = words.slice(at, (at += size));
-      const [l1, l2] = rows(group.map((w) => w.text));
-      lines.push({ start: round(group[0].start), end: round(Math.max(group.at(-1)!.end, group[0].start)), l1, l2, p: 0 });
+      lines.push({ words: group, start: group[0].start, end: Math.max(group.at(-1)!.end, group[0].start) });
     }
   }
   lines.sort((a, b) => a.start - b.start);
   for (let i = 0; i < lines.length; i++) {
     const next = lines[i + 1];
     if (next && next.start - lines[i].end < HOLD_GAP) lines[i].end = Math.max(lines[i].start, next.start); // hold, never overlap
-    if (lines[i].end - lines[i].start < MIN_SHOW) lines[i].end = round(next ? Math.min(lines[i].start + MIN_SHOW, next.start) : lines[i].start + MIN_SHOW);
+    if (lines[i].end - lines[i].start < MIN_SHOW) lines[i].end = next ? Math.min(lines[i].start + MIN_SHOW, next.start) : lines[i].start + MIN_SHOW;
   }
-  const next = seeded(seed);
-  const kept = lines.filter((l) => l.end > l.start);
-  kept.forEach((l, i) => {
-    const before = i ? kept[i - 1].p : -1;
-    l.p = Math.floor(next() * (SPOTS - (before < 0 ? 0 : 1)));
-    if (before >= 0 && l.p >= before) l.p++; // any spot but the last one
-  });
-  return kept;
+
+  const random = seeded(seed);
+  const items: LyricItem[] = [];
+  let spot = -1;
+  for (const line of lines.filter((l) => l.end > l.start)) {
+    const p = Math.floor(random() * (spot < 0 ? SPOTS : SPOTS - 1));
+    spot = spot >= 0 && p >= spot ? p + 1 : p; // any spot but the last one
+    const cut = rowBreak(line.words.map((w) => w.text));
+    const rows = cut ? [line.words.slice(0, cut), line.words.slice(cut)] : [line.words];
+    rows.forEach((row, ri) => {
+      const r = (cut ? ri + 1 : 0) as 0 | 1 | 2;
+      const n = row.map((w) => w.text).join(" ").length;
+      row.forEach((w, k) => {
+        // each step shows until the next word of this row starts; a row's last step stays until the line ends
+        const s = Math.min(Math.max(w.start, line.start), line.end);
+        const e = k < row.length - 1 ? Math.min(row[k + 1].start, line.end) : line.end;
+        if (e > s) items.push({ s: round(s), e: round(e), t: row.slice(0, k + 1).map((x) => x.text).join(" "), r, n, p: spot });
+      });
+    });
+  }
+  return items;
 }

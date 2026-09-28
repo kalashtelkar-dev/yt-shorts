@@ -10,7 +10,7 @@ import type { Settings } from "@/server/settings";
 import { publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
 import { seeded } from "@/lib/seeded";
 import { event, finishFailed, notify } from "./lifecycle";
-import { lyricLines } from "./lyrics";
+import { lyricItems } from "./lyrics";
 
 // Staged styles (docs/edit-styles/README.md): the gameplay and the song are indexed by their own pipelines,
 // in parallel, and the results are shared through media_index; then the style pipeline plans and renders.
@@ -185,7 +185,7 @@ export function shuffleKills(kills: unknown, seed: string | undefined): unknown 
 
 // Always one line that draws nothing: an empty list would make Engine X skip the text steps and leave the render without
 // its text layer (pipelines/build.py draws only lines with text).
-const NO_TEXT = { start: 0, end: 0, l1: "", l2: "" };
+const NO_TEXT = { s: 0, e: 0, t: "", r: 0, n: 0, p: 0 };
 
 /** The style pipeline's inputs, from the two indexes. Only inputs the pipeline declares are sent. */
 export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<string, unknown>, s: Record<string, unknown>, declared: string[] | null) {
@@ -203,7 +203,7 @@ export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<st
     variation: i.variation ?? "",
     lyricLook: i.lyricLook ?? "0",
     // aligned segments from song-index; an older cached result has only words, read as one segment
-    lines: JSON.stringify([...lyricLines(s.segments ?? (Array.isArray(s.words) ? [{ words: s.words }] : []), i.killSeed ?? "1"), NO_TEXT]),
+    lines: JSON.stringify([...lyricItems(s.segments ?? (Array.isArray(s.words) ? [{ words: s.words }] : []), i.killSeed ?? "1"), NO_TEXT]),
   };
   return declared ? Object.fromEntries(Object.entries(all).filter(([k]) => declared.includes(k))) : all;
 }

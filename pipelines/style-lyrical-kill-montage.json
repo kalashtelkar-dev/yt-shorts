@@ -6,7 +6,7 @@
     "version": 1
   },
   "name": "style-lyrical-kill-montage",
-  "description": "Lyrical kill montage (docs/edit-styles/lyrical-kill-montage.md) from a gameplay-index and a song-index: intro flex, normal and 0.5x kill clips placed by a per-run variation, each kill held a minimum time that grows with the length, beat-synced, 9:16 blurred layout, flash + zoom, song from its start, the lyrics as force-aligned lines of 3-5 words, centred, in one of ten looks per job.",
+  "description": "Lyrical kill montage (docs/edit-styles/lyrical-kill-montage.md) from a gameplay-index and a song-index: intro flex, normal and 0.5x kill clips placed by a per-run variation, each kill held a minimum time that grows with the length, beat-synced, 9:16 blurred layout, flash + zoom, song from its start, the lyrics karaoke-style (force-aligned lines of 3-5 words building word by word) in a random spot per line and one of ten looks per job.",
   "graph": {
     "version": 1,
     "nodes": [
@@ -1148,7 +1148,7 @@
         "engine": "util",
         "operation": "text",
         "params": {
-          "value": "\n0;{in0};fontsize=96:fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85\n1;{in1};fontsize=61:fontcolor=white:borderw=5:bordercolor=black:shadowx=0:shadowy=8:shadowcolor=black@0.75\n2;{in2};fontsize=69:fontcolor=0xFFD83D:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black\n3;{in3};fontsize=78:fontcolor=white:borderw=6:bordercolor=0x141414:shadowx=6:shadowy=6:shadowcolor=0xE5484D\n4;{in4};fontsize=67:fontcolor=white:borderw=5:bordercolor=0x5B21B6:shadowx=6:shadowy=6:shadowcolor=black@0.8\n5;{in5};fontsize=68:fontcolor=0xF4F4F4:borderw=4:bordercolor=black:shadowx=7:shadowy=7:shadowcolor=black@0.7\n6;{in6};fontsize=67:fontcolor=0x3DE8FF:borderw=4:bordercolor=0x03141A:shadowx=6:shadowy=6:shadowcolor=black@0.85\n7;{in7};fontsize=61:fontcolor=white:borderw=5:bordercolor=black:shadowx=4:shadowy=7:shadowcolor=0xFF3B30\n8;{in8};fontsize=53:fontcolor=white:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.8\n9;{in9};fontsize=80:fontcolor=0xFFE14D:borderw=5:bordercolor=0x1A1200:shadowx=6:shadowy=6:shadowcolor=black@0.85\ndefault;{in0};fontsize=96:fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85"
+          "value": "\n0;{in0};fontsize=96:fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85;42.9\n1;{in1};fontsize=61:fontcolor=white:borderw=5:bordercolor=black:shadowx=0:shadowy=8:shadowcolor=black@0.75;37.7\n2;{in2};fontsize=69:fontcolor=0xFFD83D:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black;46.4\n3;{in3};fontsize=78:fontcolor=white:borderw=6:bordercolor=0x141414:shadowx=6:shadowy=6:shadowcolor=0xE5484D;43.8\n4;{in4};fontsize=67:fontcolor=white:borderw=5:bordercolor=0x5B21B6:shadowx=6:shadowy=6:shadowcolor=black@0.8;40.3\n5;{in5};fontsize=68:fontcolor=0xF4F4F4:borderw=4:bordercolor=black:shadowx=7:shadowy=7:shadowcolor=black@0.7;41.1\n6;{in6};fontsize=67:fontcolor=0x3DE8FF:borderw=4:bordercolor=0x03141A:shadowx=6:shadowy=6:shadowcolor=black@0.85;38.6\n7;{in7};fontsize=61:fontcolor=white:borderw=5:bordercolor=black:shadowx=4:shadowy=7:shadowcolor=0xFF3B30;41.7\n8;{in8};fontsize=53:fontcolor=white:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.8;47.3\n9;{in9};fontsize=80:fontcolor=0xFFE14D:borderw=5:bordercolor=0x1A1200:shadowx=6:shadowy=6:shadowcolor=black@0.85;39.5\ndefault;{in0};fontsize=96:fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85;42.9"
         },
         "position": {
           "x": 0,
@@ -1161,7 +1161,7 @@
         "engine": "util",
         "operation": "template",
         "params": {
-          "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
+          "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
         },
         "position": {
           "x": 300,
@@ -1195,6 +1195,19 @@
         }
       },
       {
+        "id": "look_cw",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$3"
+        },
+        "position": {
+          "x": 1200,
+          "y": 2160
+        }
+      },
+      {
         "id": "font_args",
         "kind": "engine",
         "engine": "util",
@@ -1203,7 +1216,7 @@
           "template": "[\"-y\", \"-f\", \"data\", \"-i\", \"{{a}}\", \"-map\", \"0\", \"-c\", \"copy\", \"-f\", \"data\", \"{out}\"]"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 2160
         }
       },
@@ -1216,7 +1229,7 @@
           "fenced": false
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 2160
         }
       },
@@ -1227,8 +1240,8 @@
         "operation": "merge",
         "params": {},
         "position": {
-          "x": 1800,
-          "y": 2160
+          "x": 0,
+          "y": 2340
         }
       },
       {
@@ -1240,7 +1253,7 @@
           "template": "{{a}}"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 2340
         }
       },
@@ -1253,7 +1266,7 @@
           "fenced": false
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 2340
         }
       },
@@ -1263,11 +1276,11 @@
         "engine": "util",
         "operation": "json-filter",
         "params": {
-          "path": "start",
+          "path": "s",
           "op": "less-or-equal"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 2340
         }
       },
@@ -1280,7 +1293,7 @@
           "indent": 0
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 2340
         }
       },
@@ -1293,7 +1306,7 @@
           "separator": ""
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 2340
         }
       },
@@ -1305,10 +1318,10 @@
         "params": {
           "flags": "g",
           "pattern": "\"p\":\"?0\"?(?=[,}])",
-          "replace": "\"x\":\"70\",\"y\":\"h*0.34\""
+          "replace": "\"x0\":\"70\",\"k\":\"0\",\"y\":\"h*0.34\""
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 2340
         }
       },
@@ -1320,11 +1333,11 @@
         "params": {
           "flags": "g",
           "pattern": "\"p\":\"?1\"?(?=[,}])",
-          "replace": "\"x\":\"(w-text_w)/2\",\"y\":\"h*0.34\""
+          "replace": "\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.34\""
         },
         "position": {
-          "x": 1800,
-          "y": 2340
+          "x": 0,
+          "y": 2520
         }
       },
       {
@@ -1335,10 +1348,10 @@
         "params": {
           "flags": "g",
           "pattern": "\"p\":\"?2\"?(?=[,}])",
-          "replace": "\"x\":\"w-text_w-70\",\"y\":\"h*0.34\""
+          "replace": "\"x0\":\"w-70\",\"k\":\"1\",\"y\":\"h*0.34\""
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 2520
         }
       },
@@ -1350,10 +1363,10 @@
         "params": {
           "flags": "g",
           "pattern": "\"p\":\"?3\"?(?=[,}])",
-          "replace": "\"x\":\"70\",\"y\":\"h*0.64\""
+          "replace": "\"x0\":\"70\",\"k\":\"0\",\"y\":\"h*0.64\""
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 2520
         }
       },
@@ -1365,10 +1378,10 @@
         "params": {
           "flags": "g",
           "pattern": "\"p\":\"?4\"?(?=[,}])",
-          "replace": "\"x\":\"(w-text_w)/2\",\"y\":\"h*0.64\""
+          "replace": "\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.64\""
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 2520
         }
       },
@@ -1380,10 +1393,10 @@
         "params": {
           "flags": "g",
           "pattern": "\"p\":\"?5\"?(?=[,}])",
-          "replace": "\"x\":\"w-text_w-70\",\"y\":\"h*0.64\""
+          "replace": "\"x0\":\"w-70\",\"k\":\"1\",\"y\":\"h*0.64\""
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 2520
         }
       },
@@ -1394,22 +1407,8 @@
         "operation": "regex",
         "params": {
           "flags": "g",
-          "pattern": "\\{(?![^}]*\"x\":)",
-          "replace": "{\"x\":\"(w-text_w)/2\",\"y\":\"h*0.64\","
-        },
-        "position": {
-          "x": 1200,
-          "y": 2520
-        }
-      },
-      {
-        "id": "two_rows",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\\{(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"end\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"l1\":\"([^\"]+)\")(?=[^}]*\"l2\":\"([^\"]+)\")(?=[^}]*\"x\":\"([^\"]+)\")(?=[^}]*\"y\":\"([^\"]+)\")[^}]*\\}"
+          "pattern": "\\{(?![^}]*\"x0\":)",
+          "replace": "{\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.64\","
         },
         "position": {
           "x": 1500,
@@ -1417,13 +1416,14 @@
         }
       },
       {
-        "id": "one_row",
+        "id": "row_0",
         "kind": "engine",
         "engine": "util",
         "operation": "regex",
         "params": {
           "flags": "g",
-          "pattern": "\\{(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"end\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"l1\":\"([^\"]+)\")(?=[^}]*\"l2\":\"\")(?=[^}]*\"x\":\"([^\"]+)\")(?=[^}]*\"y\":\"([^\"]+)\")[^}]*\\}"
+          "pattern": "\"r\":\"?0\"?(?=[,}])",
+          "replace": "\"dy\":\"-lh/2\""
         },
         "position": {
           "x": 1800,
@@ -1431,12 +1431,14 @@
         }
       },
       {
-        "id": "two_rows_draw",
+        "id": "row_1",
         "kind": "engine",
         "engine": "util",
-        "operation": "template",
+        "operation": "regex",
         "params": {
-          "template": "\u00a7drawtext=fontfile='{in2}':text='$3':{{a}}:x=$5:y=$6-lh-8:alpha='min(1,(t-$1)/0.08)':enable='between(t,$1,$2)',drawtext=fontfile='{in2}':text='$4':{{a}}:x=$5:y=$6+8:alpha='min(1,(t-$1)/0.08)':enable='between(t,$1,$2)',\u00a7"
+          "flags": "g",
+          "pattern": "\"r\":\"?1\"?(?=[,}])",
+          "replace": "\"dy\":\"-lh-8\""
         },
         "position": {
           "x": 0,
@@ -1444,15 +1446,73 @@
         }
       },
       {
-        "id": "one_row_draw",
+        "id": "row_2",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "\"r\":\"?2\"?(?=[,}])",
+          "replace": "\"dy\":\"+8\""
+        },
+        "position": {
+          "x": 300,
+          "y": 2700
+        }
+      },
+      {
+        "id": "row_default",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "\\{(?![^}]*\"dy\":)",
+          "replace": "{\"dy\":\"-lh/2\","
+        },
+        "position": {
+          "x": 600,
+          "y": 2700
+        }
+      },
+      {
+        "id": "draw_items",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "\\{(?=[^}]*\"s\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"e\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"t\":\"([^\"]+)\")(?=[^}]*\"x0\":\"([^\"]+)\")(?=[^}]*\"k\":\"([^\"]+)\")(?=[^}]*\"n\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"y\":\"([^\"]+)\")(?=[^}]*\"dy\":\"([^\"]+)\")[^}]*\\}"
+        },
+        "position": {
+          "x": 900,
+          "y": 2700
+        }
+      },
+      {
+        "id": "draw_item",
         "kind": "engine",
         "engine": "util",
         "operation": "template",
         "params": {
-          "template": "\u00a7drawtext=fontfile='{in2}':text='$3':{{a}}:x=$4:y=$5-lh/2:alpha='min(1,(t-$1)/0.08)':enable='between(t,$1,$2)',\u00a7"
+          "template": "\u00a7drawtext=fontfile='{in2}':text='$3':{{a}}:x=$4-$5*$6*@cw:y=$7$8:enable='gte(t,$1)*lt(t,$2)',\u00a7"
         },
         "position": {
-          "x": 300,
+          "x": 1200,
+          "y": 2700
+        }
+      },
+      {
+        "id": "cw_fill",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "@cw"
+        },
+        "position": {
+          "x": 1500,
           "y": 2700
         }
       },
@@ -1464,7 +1524,7 @@
           "plan"
         ],
         "position": {
-          "x": 600,
+          "x": 1800,
           "y": 2700
         }
       }
@@ -2681,6 +2741,28 @@
         }
       },
       {
+        "id": "look_table.value->look_cw.text",
+        "from": {
+          "node": "look_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_cw",
+          "port": "text"
+        }
+      },
+      {
+        "id": "look_pattern.value->look_cw.pattern",
+        "from": {
+          "node": "look_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_cw",
+          "port": "pattern"
+        }
+      },
+      {
         "id": "look_font.text->font_args.a",
         "from": {
           "node": "look_font",
@@ -2868,75 +2950,86 @@
         }
       },
       {
-        "id": "look_style.text->two_rows_draw.a",
-        "from": {
-          "node": "look_style",
-          "port": "text"
-        },
-        "to": {
-          "node": "two_rows_draw",
-          "port": "a"
-        }
-      },
-      {
-        "id": "look_style.text->one_row_draw.a",
-        "from": {
-          "node": "look_style",
-          "port": "text"
-        },
-        "to": {
-          "node": "one_row_draw",
-          "port": "a"
-        }
-      },
-      {
-        "id": "spot_default.text->two_rows.text",
+        "id": "spot_default.text->row_0.text",
         "from": {
           "node": "spot_default",
           "port": "text"
         },
         "to": {
-          "node": "two_rows",
+          "node": "row_0",
           "port": "text"
         }
       },
       {
-        "id": "two_rows_draw.value->two_rows.replace",
+        "id": "row_0.text->row_1.text",
         "from": {
-          "node": "two_rows_draw",
+          "node": "row_0",
+          "port": "text"
+        },
+        "to": {
+          "node": "row_1",
+          "port": "text"
+        }
+      },
+      {
+        "id": "row_1.text->row_2.text",
+        "from": {
+          "node": "row_1",
+          "port": "text"
+        },
+        "to": {
+          "node": "row_2",
+          "port": "text"
+        }
+      },
+      {
+        "id": "row_2.text->row_default.text",
+        "from": {
+          "node": "row_2",
+          "port": "text"
+        },
+        "to": {
+          "node": "row_default",
+          "port": "text"
+        }
+      },
+      {
+        "id": "row_default.text->draw_items.text",
+        "from": {
+          "node": "row_default",
+          "port": "text"
+        },
+        "to": {
+          "node": "draw_items",
+          "port": "text"
+        }
+      },
+      {
+        "id": "look_style.text->draw_item.a",
+        "from": {
+          "node": "look_style",
+          "port": "text"
+        },
+        "to": {
+          "node": "draw_item",
+          "port": "a"
+        }
+      },
+      {
+        "id": "draw_item.value->draw_items.replace",
+        "from": {
+          "node": "draw_item",
           "port": "value"
         },
         "to": {
-          "node": "two_rows",
+          "node": "draw_items",
           "port": "replace"
         }
       },
       {
-        "id": "two_rows.text->one_row.text",
+        "id": "draw_items.text->caption_keep.text",
         "from": {
-          "node": "two_rows",
-          "port": "text"
-        },
-        "to": {
-          "node": "one_row",
-          "port": "text"
-        }
-      },
-      {
-        "id": "one_row_draw.value->one_row.replace",
-        "from": {
-          "node": "one_row_draw",
-          "port": "value"
-        },
-        "to": {
-          "node": "one_row",
-          "port": "replace"
-        }
-      },
-      {
-        "id": "one_row.text->caption_keep.text",
-        "from": {
-          "node": "one_row",
+          "node": "draw_items",
           "port": "text"
         },
         "to": {
@@ -2945,9 +3038,31 @@
         }
       },
       {
-        "id": "caption_keep.text->ffmpeg_args.g",
+        "id": "caption_keep.text->cw_fill.text",
         "from": {
           "node": "caption_keep",
+          "port": "text"
+        },
+        "to": {
+          "node": "cw_fill",
+          "port": "text"
+        }
+      },
+      {
+        "id": "look_cw.text->cw_fill.replace",
+        "from": {
+          "node": "look_cw",
+          "port": "text"
+        },
+        "to": {
+          "node": "cw_fill",
+          "port": "replace"
+        }
+      },
+      {
+        "id": "cw_fill.text->ffmpeg_args.g",
+        "from": {
+          "node": "cw_fill",
           "port": "text"
         },
         "to": {

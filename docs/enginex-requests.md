@@ -254,3 +254,15 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Both styles, repeated kills:** a real 30 s run planned a slow and a normal clip for every kill (53 clips for 26 kills). Now each clip names its kill (`kill` = the entry's t; a clip without one gets its own key), and `one_per_kill` (json-unique, keep first, after the start check) drops a second clip of the same kill. `kept_count` replaces the start check's count. `len_max` goes to 20 for multi-kill clips.
 - **App, close kills:** kills less than 8 s apart become one entry `{t, more: "+3 s, +7 s"}`, so two clips can't show the same moment. The planner may lengthen that clip over the `more` kills.
 - **Checked** with `check.py` (34 checks) and a local ffmpeg 7.1 render of looks 0 and 3 with lines in four spots.
+
+## 24. style-lyrical-kill-montage (2026-09-28): lyrics build word by word
+
+**Status:** imported as `tpl_mb7jFHN5iJx0`, waiting to be published. It replaces `tpl_Qc96rHG5IlPZ`. The song and Kill Montage pipelines are unchanged.
+
+- **App:** `lyricItems` sends one item per step of a line (`t` = the row so far, shown from `s` to `e`), plus its row `r` (0 = one row, 1 and 2 = top and bottom), the full row's length `n` and the line's spot `p`.
+- **Pipeline:**
+  - Spots become `x0`/`k`/`y` and rows become `dy`.
+  - Each item is one drawtext at `x = x0 - k*n*@cw`, enabled with `gte(t,s)*lt(t,e)`.
+  - `@cw` is then replaced by the look's letter width: a new column in `look_table`, the font's average advance measured over lyric text at size 100, times the size, times 1.05.
+  - No per-line fade.
+- **Checked:** `check.py` (34 checks) and a local ffmpeg 7.1 render of looks 0 and 6, showing a line building up at a fixed left edge, a two-row line, and a right-aligned spot.

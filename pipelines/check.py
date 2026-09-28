@@ -5,10 +5,13 @@ HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 from emulate import run
 
 # lyric lines as the app sends them (src/server/jobs/lyrics.ts): 3-5 words, one or two rows, song seconds
-NO_TEXT = {"start": 0, "end": 0, "l1": "", "l2": "", "p": 0}  # the app always adds it, so the text steps never see an empty list
-lines = [{"start": 0.49, "end": 1.21, "l1": "I’m so cool", "l2": "", "p": 0}, {"start": 1.21, "end": 2.69, "l1": "with my fashion", "l2": "pink lipstick", "p": 4},
-         {"start": 2.69, "end": 4.09, "l1": "and my knee", "l2": "rolls down", "p": 5}, {"start": 4.09, "end": 5.26, "l1": "All the boys say", "l2": ""},
-         {"start": 30.0, "end": 31.0, "l1": "after the end", "l2": "", "p": 1}, NO_TEXT]
+# lyrics as the app sends them (src/server/jobs/lyrics.ts): one item per step of a line building word by word
+NO_TEXT = {"s": 0, "e": 0, "t": "", "r": 0, "n": 0, "p": 0}  # the app always adds it, so the text steps never see an empty list
+lines = [{"s": 0.49, "e": 0.69, "t": "I’m", "r": 0, "n": 11, "p": 0}, {"s": 0.69, "e": 0.93, "t": "I’m so", "r": 0, "n": 11, "p": 0},
+         {"s": 0.93, "e": 1.21, "t": "I’m so cool", "r": 0, "n": 11, "p": 0},
+         {"s": 1.21, "e": 2.69, "t": "with my", "r": 1, "n": 15, "p": 4}, {"s": 1.9, "e": 2.69, "t": "pink", "r": 2, "n": 13, "p": 4},
+         {"s": 2.69, "e": 4.09, "t": "and my knee", "r": 0, "n": 11, "p": 5}, {"s": 4.09, "e": 5.26, "t": "All the boys say", "r": 0, "n": 16},
+         {"s": 30.0, "e": 31.0, "t": "after", "r": 0, "n": 5, "p": 1}, NO_TEXT]
 K = [10.75, 12.5, 18.0, 20.6, 25.0, 28.3, 34.4, 36.5, 45.8]
 kills = {"kills": [{"t": k} for k in K], "totalKills": len(K)}
 flex = {"flex": [{"start": 6.0, "what": "walking with the pistol"}]}
@@ -62,18 +65,19 @@ check("one clip per kill: a second clip of the same kill (slow + normal) is drop
 check("kill montage: no clips -> no render", build("style-kill-montage", {**plan(3), "clips": []}) is None)
 
 b = build("style-lyrical-kill-montage", plan(1.25))
-draws = re.findall(r"drawtext=[^,]*?text='([^']*)'[^,]*?:x=([^:]*):y=([^:]*):alpha='min\(1,\(t-([\d.]+)\)/0\.08\)':enable='between\(t,([\d.]+),([\d.]+)\)'", fc(b))
-check("lyrical: every line that starts before the end, in its own spot, one or two rows", [(t, x, y, float(a), float(e)) for t, x, y, a, _, e in draws] == [
-    ("I’m so cool", "70", "h*0.34-lh/2", 0.49, 1.21),                                                         # spot 0: upper left
-    ("with my fashion", "(w-text_w)/2", "h*0.64-lh-8", 1.21, 2.69), ("pink lipstick", "(w-text_w)/2", "h*0.64+8", 1.21, 2.69),  # 4: lower middle
-    ("and my knee", "w-text_w-70", "h*0.64-lh-8", 2.69, 4.09), ("rolls down", "w-text_w-70", "h*0.64+8", 2.69, 4.09),         # 5: lower right
-    ("All the boys say", "(w-text_w)/2", "h*0.64-lh/2", 4.09, 5.26)])                                         # no spot: lower middle
+draws = re.findall(r"drawtext=[^,]*?text='([^']*)'[^,]*?:x=([^:]*):y=([^:]*):enable='gte\(t,([\d.]+)\)\*lt\(t,([\d.]+)\)'", fc(b))
+check("lyrical: each step of a line from its word to the next, rows anchored at the full row's left edge, one spot per line", [(t, x, y, float(a), float(e)) for t, x, y, a, e in draws] == [
+    ("I’m", "70-0*11*42.9", "h*0.34-lh/2", 0.49, 0.69), ("I’m so", "70-0*11*42.9", "h*0.34-lh/2", 0.69, 0.93),       # spot 0: upper left
+    ("I’m so cool", "70-0*11*42.9", "h*0.34-lh/2", 0.93, 1.21),
+    ("with my", "w/2-0.5*15*42.9", "h*0.64-lh-8", 1.21, 2.69), ("pink", "w/2-0.5*13*42.9", "h*0.64+8", 1.9, 2.69),   # 4: lower middle, two rows
+    ("and my knee", "w-70-1*11*42.9", "h*0.64-lh/2", 2.69, 4.09),                                                     # 5: lower right
+    ("All the boys say", "w/2-0.5*16*42.9", "h*0.64-lh/2", 4.09, 5.26)])                                              # no spot: lower middle
 check("lyrical: never in the centre", all(not y.startswith("h*0.5") for _, _, y, *_ in draws))
 check("lyrical: never in the bottom band", "y=h*0.875" not in fc(b))
 check("lyrical: look 0 by default (Anton, a 16-character row fills ~72% of the width)", fc(b).count("fontsize=96:fontcolor=white:borderw=5") == len(draws))
 check("lyrical: outline and shadow on every row", fc(b).count("shadowx=") == fc(b).count("drawtext") == len(draws))
 b3 = build("style-lyrical-kill-montage", plan(1.25), look="3")
-check("lyrical: look 3 changes the style", "fontsize=78:fontcolor=white:borderw=6:bordercolor=0x141414" in fc(b3) and "fontsize=96" not in fc(b3))
+check("lyrical: look 3 changes the style and the letter width", "fontsize=78:fontcolor=white:borderw=6:bordercolor=0x141414" in fc(b3) and "fontsize=96" not in fc(b3) and "70-0*11*43.8" in fc(b3))
 check("lyrical: look 3 copies font input 3", run(json.load(open(os.path.join(HERE, "style-lyrical-kill-montage.json")))["graph"], {("look_in", "value"): "3"}, ("font_args_list", "value"))[4] == "{in3}")
 check("lyrical: an unknown look falls back to look 0", fc(build("style-lyrical-kill-montage", plan(1.25), look="x")) == fc(b))
 check("lyrical: ten fonts downloaded", len(next(n for n in json.load(open(os.path.join(HERE, "style-lyrical-kill-montage.json")))["graph"]["nodes"] if n["id"] == "caption_font")["params"]["input"]) == 10)

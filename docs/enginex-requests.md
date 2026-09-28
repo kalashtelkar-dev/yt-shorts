@@ -157,3 +157,14 @@ Built by `.pipelines/build-edit-studio-v5.py` (local) from v4. Validated: compil
 **Changes:** words are kept by their start time within the planner's window ± 0.15 s; lyrics are transcribed with `language: en` (non-English songs would need this changed).
 
 **Note:** captions can only show words the song actually sings; a mostly instrumental track gives one or two words at most.
+
+## 15. Edit studio v7 (`tpl_nCx2XLcZLRhg`, 2026-09-28): a lyric word at every cut
+
+**Status:** imported, waiting to be published.
+
+- The planner gives each clip a `word`: the strongest English word of the lyric sung at or just after that cut, capitals, letters only, ≤ 12, or "" when the song has no usable English lyrics.
+- Each clip with a valid word shows it big at the cut: Cinzel Decorative 150 px, centred, soft glow (its own transparent layer, blurred), for the first 0.5 s of the clip, fading out over the last 0.15 s. It's drawn inside the clip's own filter chain, so it lands exactly on the transition with no timing arithmetic. Clips without a valid word render as before.
+- The running sung-word captions move to the lower blur band at 84 px, so the two never overlap.
+- On-screen text is English letters only everywhere (lyrics transcribed with `language: en`; anything else is dropped).
+
+Built by `.pipelines/build-edit-studio-v7.py` (local) from v6. Validated: compiles; all four clip variants (normal/slow × with/without word, plus an invalid word) simulated.

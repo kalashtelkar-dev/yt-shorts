@@ -151,12 +151,37 @@ export async function pollIndexes(settings: Settings, now = Date.now()) {
 /** Everything the app can send a style pipeline (styleInput); a style may declare fewer. */
 export const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "words", "maxDurationSec", "variation", "lyricLook"];
 
+const MULTI_KILL_SEC = 3;
+/**
+ * This job's kill order: the stored kill list, shuffled with the job's seed, so the same match gives a different montage
+ * every run while one job always gets the same order. Kills less than 3 s apart stay together, in time order (a multi-kill).
+ * Items are {t} objects or bare numbers (the kill finder writes either). No seed (older jobs): unchanged.
+ */
+export function shuffleKills(kills: unknown, seed: string | undefined): unknown {
+  const list = (kills as { kills?: unknown })?.kills;
+  if (!seed || !Array.isArray(list)) return kills;
+  const t = (k: unknown) => Number(typeof k === "object" && k ? (k as { t?: unknown }).t : k);
+  const groups: unknown[][] = [];
+  for (const k of [...list].sort((a, b) => t(a) - t(b))) {
+    const last = groups.at(-1);
+    if (last && t(k) - t(last.at(-1)) < MULTI_KILL_SEC) last.push(k);
+    else groups.push([k]);
+  }
+  let x = Number(seed) >>> 0 || 1; // xorshift32: small and deterministic
+  const next = () => ((x ^= x << 13), (x ^= x >>> 17), (x ^= x << 5), (x >>> 0) / 2 ** 32);
+  for (let n = groups.length - 1; n > 0; n--) {
+    const j = Math.floor(next() * (n + 1));
+    [groups[n], groups[j]] = [groups[j], groups[n]];
+  }
+  return { ...(kills as object), kills: groups.flat() };
+}
+
 /** The style pipeline's inputs, from the two indexes. Only inputs the pipeline declares are sent. */
 export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<string, unknown>, s: Record<string, unknown>, declared: string[] | null) {
   const i = job.input as Record<string, string>;
   const all: Record<string, string> = {
     video: String(g.video ?? ""),
-    kills: JSON.stringify(g.kills ?? { kills: [], totalKills: 0 }),
+    kills: JSON.stringify(shuffleKills(g.kills ?? { kills: [], totalKills: 0 }, i.killSeed)),
     flex: JSON.stringify(g.flex ?? { flex: [] }),
     gameDurationSec: String(g.durationSec ?? ""),
     audio: String(s.audio ?? ""),

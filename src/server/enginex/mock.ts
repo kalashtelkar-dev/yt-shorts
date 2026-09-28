@@ -102,7 +102,7 @@ export function mockRunAt(runId: string, now: number): Run {
 // The staged pipelines (pipelines/README.md), so the mock answers getPipeline like Engine X would.
 const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "style" | "style-lyrical"> = {
   tpl_yYsSXHkQXJBP: "gameplay", tpl_K6Lo3rwFya4A: "gameplay-upload", tpl_sfY_wbow51wN: "song",
-  "tpl_dUktOJyZOv-K": "style", "tpl_DFhPatfbngu3": "style-lyrical",
+  "tpl_3MGEHxb-HUEM": "style", "tpl_IAAtFJul2yyM": "style-lyrical",
 };
 const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"];
 function mockInputs(templateId: string): string[] {

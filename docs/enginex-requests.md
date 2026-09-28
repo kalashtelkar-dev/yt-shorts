@@ -236,3 +236,10 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Hold after each kill:** a `hold_table` keyed by `maxDurationSec` gives 1 s at 15 s, 1.5 s at 30 s, 2 s at 60 s and 4 s at 90 s (2 s otherwise). It sets the planner's minimum clip lengths (normal = 2.5 + hold, slow = 1 + hold/2). Two regexes on the plan text then lengthen any kill clip below its minimum before the clip checks (`hold_normal`, `hold_slow`); the flex clip is excluded. `len_max` goes from 6.5 to 10.
 - **Lyric looks (lyrical):** a new input `lyricLook` (a digit 0–9, random per job from the app) picks one of ten looks from `look_table`. `caption_font` downloads the ten fonts, and its command (from `font_args`) copies the chosen one out as `caption.ttf`. The look's word and hook styles (size, colour, outline, shadow) are wired into `caption_draw` and `hook_draw` as their `replace`.
 - **Checked** with `check.py` (32 checks, including the "below N" regexes against every value from 0 to 9.99) and with a local ffmpeg 7.1 render of looks 3 and 6 on a real match.
+
+## 22. Both styles (2026-09-28): the kill order is random per job
+
+**Status:** imported as drafts, waiting to be published: style-kill-montage `tpl_3MGEHxb-HUEM` (replaces `tpl_dUktOJyZOv-K`), style-lyrical-kill-montage `tpl_IAAtFJul2yyM` (replaces `tpl_DFhPatfbngu3`).
+
+- **App:** every job stores a `killSeed`. When the render starts, `shuffleKills` (in `staged.ts`) shuffles the cached kill list with that seed. Kills less than 3 s apart stay together, in time order. The clip-start lists follow the same order, since they're built from the kill list.
+- **Prompt only:** the kills are labelled as this run's montage order, and the planner must keep that order (never sort by time or strength). Multi-kills are "kills listed next to each other" within the hold. The "strongest kill on the drop" rule is gone, because it pulled every run back to the same plan.

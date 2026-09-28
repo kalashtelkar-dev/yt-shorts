@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { catalogItems, jobs, mediaIndex, users } from "@/db/schema";
 import { chargeForJob, getBalance, grant } from "@/server/credits";
 import { startJob, sweep } from "./lifecycle";
-import { REUSE_MS, styleInput } from "./staged";
+import { REUSE_MS, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
 const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_sfY_wbow51wN" };
@@ -28,7 +28,7 @@ async function newJob(opts: { playerName?: string; musicUrl?: string; style?: st
         userId,
         catalogItemId,
         catalogSlug: "kill-montage",
-        templateId: opts.style ?? "tpl_dUktOJyZOv-K",
+        templateId: opts.style ?? "tpl_3MGEHxb-HUEM",
         indexTemplates: INDEX,
         input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
         source: "url",
@@ -55,7 +55,7 @@ beforeEach(async () => {
   await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
   const [item] = await db
     .insert(catalogItems)
-    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_dUktOJyZOv-K", indexTemplates: INDEX, stageMap })
+    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_3MGEHxb-HUEM", indexTemplates: INDEX, stageMap })
     .returning({ id: catalogItems.id });
   catalogItemId = item.id;
   await grant(userId, 2000, "test");
@@ -137,6 +137,24 @@ describe("staged styles (mock Engine X)", () => {
     expect(row.status).toBe("failed");
     expect(row.errorPublic).toMatch(/couldn't get that song/);
     expect(await getBalance(userId)).toBe(2000);
+  });
+
+  it("shuffles the kill order per seed, keeping multi-kills together in time order", () => {
+    const kills = { kills: [{ t: 10 }, { t: 11.5 }, { t: 40 }, { t: 90 }, { t: 130 }, { t: 131 }, { t: 200 }, { t: 260 }], totalKills: 8 };
+    const orders = new Set<string>();
+    for (let seed = 1; seed <= 30; seed++) {
+      const out = shuffleKills(kills, String(seed)) as typeof kills;
+      expect(out.totalKills).toBe(8);
+      expect(out.kills.map((k) => k.t).sort((a, b) => a - b)).toEqual(kills.kills.map((k) => k.t)); // same kills
+      const at = (t: number) => out.kills.findIndex((k) => k.t === t);
+      expect(at(11.5)).toBe(at(10) + 1); // multi-kills stay together
+      expect(at(131)).toBe(at(130) + 1);
+      expect(shuffleKills(kills, String(seed))).toEqual(out); // one job, one order
+      orders.add(out.kills.map((k) => k.t).join());
+    }
+    expect(orders.size).toBeGreaterThan(20); // different jobs, different orders
+    expect((shuffleKills({ kills: [67, 176, 177], totalKills: 3 }, "5") as { kills: number[] }).kills).toHaveLength(3); // bare numbers
+    expect(shuffleKills(kills, undefined)).toBe(kills); // older jobs: unchanged
   });
 
   it("sends a style only the inputs it declares", () => {

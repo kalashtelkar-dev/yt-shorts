@@ -112,7 +112,7 @@ def clip_pat(speed):
 
 PLAN_HEAD = """You are planning a 9:16 Valorant/CS2 {style}, cut to a song.
 
-THE PLAYER'S KILLS in the gameplay recording, in recording seconds (K is when the kill-feed row appears; the real kill is up to 2 s before K):
+THE PLAYER'S KILLS, listed in THIS RUN'S MONTAGE ORDER (shuffled on purpose, so every montage of this match is different). Times are recording seconds; K is when the kill-feed row appears, and the real kill is up to 2 s before K:
 {{{{a}}}}
 The recording is {{{{f}}}} s long.
 
@@ -129,12 +129,12 @@ VARIATION for this run (follow it, so every run looks different): {{{{n}}}}
 Plan it:
 1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).
 2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role "flex", len {flex_len}. If there are no flex moments, the first kill clip opens the montage instead.
-3. Then the kill section: one clip per kill. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.
+3. Then the kill section: one clip per kill, in exactly the order the kills are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.
    Every kill must stay on screen at least {{{{p}}}} s after it happens before the next clip starts, so:
    - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{{{o}}}} s, up to 2 s longer to land the cut on a beat.
    - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{{{q}}}} s, up to 1 s longer (it plays for 2 x len).
-   If the next kill in the recording comes less than {{{{p}}}} s after a kill, put both in one clip and make it long enough to keep playing {{{{p}}}} s after the second.
-   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.
+   Kills listed next to each other that are less than {{{{p}}}} s apart in the recording share one clip; make it long enough to keep playing {{{{p}}}} s after the second.
+   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.
    Make play times whole beats where you can, so the cuts land on beats.
 4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.
 5. totalKills is the number of kills inside the kept clips.

@@ -46,6 +46,8 @@ const SLOW_AT = ["first", "second", "third", "in the middle", "second to last", 
 export const randomVariation = () => `Put the slow-motion clip ${SLOW_AT[randomInt(SLOW_AT.length)]}.`;
 /** One of the lyrical style's ten looks (font, colours); the pipeline maps the digit (pipelines/build.py LOOKS). */
 export const randomLyricLook = () => String(randomInt(10));
+/** Seeds this job's kill order (shuffleKills in staged.ts). */
+export const randomKillSeed = () => String(randomInt(1, 2 ** 31));
 
 const fail = (code: string, message: string, field?: string): ActionResult<never> => ({ ok: false, error: { code, message, field } });
 
@@ -110,6 +112,7 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   if (item.indexTemplates) {
     pipelineInput.variation = randomVariation();
     pipelineInput.lyricLook = randomLyricLook();
+    pipelineInput.killSeed = randomKillSeed();
   }
 
   const settings = await getSettings();

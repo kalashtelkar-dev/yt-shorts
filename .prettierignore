@@ -1,0 +1,9 @@
+.next
+node_modules
+drizzle
+pipelines/*.json
+pipelines/base
+.pipelines
+docs/edit-styles/analysis
+pnpm-lock.yaml
+*.md

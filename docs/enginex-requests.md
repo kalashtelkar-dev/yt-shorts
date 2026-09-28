@@ -168,3 +168,18 @@ Built by `.pipelines/build-edit-studio-v5.py` (local) from v4. Validated: compil
 - On-screen text is English letters only everywhere (lyrics transcribed with `language: en`; anything else is dropped).
 
 Built by `.pipelines/build-edit-studio-v7.py` (local) from v6. Validated: compiles; all four clip variants (normal/slow × with/without word, plus an invalid word) simulated.
+
+## 16. Edit studio v8 (`tpl_x4p9irJIKNb-`, 2026-09-28): pruned; montage = song length
+
+**Status:** imported, waiting to be published.
+
+**Inputs:** `youtubeUrl`, `playerName`, `referenceUrl`, `musicUrl` (no `durationSec`: the montage is as long as the song, which plays from its start).
+
+**Removed (119 → 107 nodes):**
+- `start_ok`: covered by `start_allowed` (allowed starts are already clamped at 0).
+- `clip_list_text`, `filters_list`, `filters_joined`, `labels_list`, `labels_joined`: clip objects are joined with no separator and the regexes write filter text directly instead of a JSON array that was parsed and joined again.
+- `caption_list`, `caption_none`: same for captions; one regex keeps the drawtext pieces and yields "" when there are none.
+- `ref_transcript`: the reference's own transcript isn't used for our edit.
+- `duration_sec`, `music_start`, `caption_offset`: replaced by the song's duration (`music.duration`) and a song start of 0; the planner no longer chooses `musicStartSec`.
+
+**Tested** with `.pipelines/emulate.py` (local interpreter for the util nodes): it reproduces the real v7 run's render command exactly (`run_2968991c…`, 18,849-character filter graph, 66 text overlays). The prune-only graph builds the identical command; full v8 matches v7 run with a song start of 0 and length 22 s apart from the two intended edits (no song trim, caption timing on `t`). Edge cases also match: no lyrics, a non-English word, invalid clip starts, no clips.

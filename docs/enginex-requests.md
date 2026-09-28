@@ -125,3 +125,9 @@ Built by `.pipelines/build-edit-studio-v2.py` (local) from edit-studio. Validate
 - New outputs: `captions`, `lyrics` (all words with timings).
 
 Built by `.pipelines/build-edit-studio-v3.py` (local) from v2. Validated: compiles; the caption chain and render graph were simulated (safe, unsafe and empty captions).
+
+## 12. Edit studio v4 (`tpl_0mGYgFucKOSu`, 2026-09-28): response trimmed
+
+**Status:** imported, waiting to be published.
+
+Response is only `montage` and `plan` (the user's request). Removed the other seven response fields and the one step that only fed them (`total_kills`); everything else feeds the plan or the render. The kill count is still inside `plan.totalKills`. When this is wired into the app, the job page will read kills from `plan` instead of a separate output.

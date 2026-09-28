@@ -14,6 +14,7 @@
 //   pnpm enginex:pipeline start <templateId> '<json>'  → starts a run of a published pipeline (dev analysis only; uses compute)
 //   pnpm enginex:pipeline fetch <storageKey> <file>    → downloads a run's output file (via a 10-minute signed link)
 //   pnpm enginex:pipeline cancel <runId>               → cancels a run (stops its compute)
+//   pnpm enginex:pipeline list                         → .pipelines/all.zip (every non-archived pipeline, one document each)
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const base = process.env.ENGINEX_BASE_URL;
@@ -58,6 +59,11 @@ if (cmd === "get" && a) {
   writeFileSync(`.pipelines/${a}.json`, JSON.stringify(r.data, null, 2));
   const d = r.data as { name?: string; version?: number; currentVersion?: number; etag?: string; compiles?: boolean };
   console.log(`Saved .pipelines/${a}.json  "${d.name}" head v${d.version} published v${d.currentVersion} etag ${d.etag} compiles=${d.compiles}`);
+} else if (cmd === "list") {
+  const res = await fetch(new URL("/v1/pipelines/export", base), { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(60_000) });
+  mkdirSync(".pipelines", { recursive: true });
+  writeFileSync(".pipelines/all.zip", Buffer.from(await res.arrayBuffer()));
+  console.log(`HTTP ${res.status}, saved .pipelines/all.zip`);
 } else if (cmd === "nodes") {
   const r = await call("GET", "/v1/pipelines/nodes");
   mkdirSync(".pipelines", { recursive: true });

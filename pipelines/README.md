@@ -4,11 +4,11 @@ The stage pipelines behind the edit styles (see `docs/edit-styles/`), built from
 
 | File | Pipeline | Engine X id |
 |---|---|---|
-| `gameplay-index.json` | gameplay link + player → video, kill times, intro-flex moments | `tpl_5qece0gK2fgX` |
-| `gameplay-index-upload.json` | same, from an uploaded file | `tpl_ot0JpJ0pzOr7` |
+| `gameplay-index.json` | gameplay link + player → video, kill times, intro-flex moments | `tpl_yYsSXHkQXJBP` |
+| `gameplay-index-upload.json` | same, from an uploaded file | `tpl_K6Lo3rwFya4A` |
 | `song-index.json` | song link → audio, duration, loudness, word timings | `tpl_sfY_wbow51wN` |
-| `style-kill-montage.json` | indexes → Kill Montage | `tpl_xf7oCU4999sK` |
-| `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_TAR3yOXmFDte` |
+| `style-kill-montage.json` | indexes → Kill Montage | `tpl_L9GCGiLR4xdr` |
+| `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_DtMrjAKAX5Pl` |
 
 **Changing a pipeline:**
 1. Edit `build.py`, then run `python3 pipelines/build.py`.

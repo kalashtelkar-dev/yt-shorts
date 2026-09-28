@@ -12,6 +12,8 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     globalSetup: ["./vitest.setup-db.ts"],
+    // One shared test DB: sweep() in lifecycle and staged tests touches every job, so files run one at a time.
+    fileParallelism: false,
     env: {
       ENGINEX_MODE: "mock",
       DATABASE_URL: "postgres://montage:montage@localhost:5432/montage_test",

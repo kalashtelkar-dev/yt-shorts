@@ -206,10 +206,17 @@ Utility nodes ("no job") run inside the scheduler in milliseconds; the run time 
 
 | Pipeline | Id |
 |---|---|
-| gameplay-index | `tpl_5qece0gK2fgX` |
-| gameplay-index-upload | `tpl_ot0JpJ0pzOr7` |
+| gameplay-index | `tpl_yYsSXHkQXJBP` |
+| gameplay-index-upload | `tpl_K6Lo3rwFya4A` |
 | song-index | `tpl_sfY_wbow51wN` |
-| style-kill-montage | `tpl_xf7oCU4999sK` |
-| style-lyrical-kill-montage | `tpl_TAR3yOXmFDte` |
+| style-kill-montage | `tpl_L9GCGiLR4xdr` |
+| style-lyrical-kill-montage | `tpl_DtMrjAKAX5Pl` |
 
 Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision model (gameplay-index), flex clip + 1.5× speed-up clips with a whip blur, per-run `variation`, `maxDurationSec` cap, and (lyrical) every sung word centred and glowing with the hook bigger. Both styles' render commands were built with the emulator and rendered with a real ffmpeg 7.1 on stand-in media (exit 0, 1080×1920, 60 fps, audio).
+
+## 19. Stage pipelines, second import (2026-09-28)
+
+**Status:** imported as drafts, waiting to be published. They replace `tpl_5qece0gK2fgX`, `tpl_ot0JpJ0pzOr7`, `tpl_xf7oCU4999sK` and `tpl_TAR3yOXmFDte`; song-index is unchanged. The ids in §18's table now point at these.
+
+- **gameplay-index and gameplay-index-upload:** the flex contact sheets decode keyframes only (`-skip_frame nokey`). The first live runs on 19–25 min matches were still on this step after 25 minutes.
+- **Both styles:** accept the kill finder's bare-number lists (`[67, 176]`) as well as `[{"t":67}]`, and the same for flex. `check.py` covers it.

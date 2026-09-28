@@ -7,7 +7,7 @@ import { startJob, sweep } from "./lifecycle";
 import { REUSE_MS, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
-const INDEX = { gameplay: "tpl_5qece0gK2fgX", gameplayUpload: "tpl_ot0JpJ0pzOr7", song: "tpl_sfY_wbow51wN" };
+const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_sfY_wbow51wN" };
 const T0 = Date.UTC(2026, 8, 28, 10, 0, 0);
 const stageMap = [
   { match: "download", label: "Downloading your video" },
@@ -28,7 +28,7 @@ async function newJob(opts: { playerName?: string; musicUrl?: string; style?: st
         userId,
         catalogItemId,
         catalogSlug: "kill-montage",
-        templateId: opts.style ?? "tpl_xf7oCU4999sK",
+        templateId: opts.style ?? "tpl_L9GCGiLR4xdr",
         indexTemplates: INDEX,
         input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
         source: "url",
@@ -55,7 +55,7 @@ beforeEach(async () => {
   await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
   const [item] = await db
     .insert(catalogItems)
-    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_xf7oCU4999sK", indexTemplates: INDEX, stageMap })
+    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_L9GCGiLR4xdr", indexTemplates: INDEX, stageMap })
     .returning({ id: catalogItems.id });
   catalogItemId = item.id;
   await grant(userId, 2000, "test");

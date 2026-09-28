@@ -147,3 +147,13 @@ Response is only `montage` and `plan` (the user's request). Removed the other se
 **Risk:** if the planner still invents starts, every clip is dropped and the run ends without a montage (the plan output shows why).
 
 Built by `.pipelines/build-edit-studio-v5.py` (local) from v4. Validated: compiles; starts, allow-list, captions and clip filters simulated on the v3 run's real kills and words.
+
+## 14. Edit studio v6 (`tpl_dvIkhyi3E42V`, 2026-09-28): lyric captions actually appear
+
+**Status:** imported, waiting to be published.
+
+**Why:** v5's run (`run_7e338a2e…`) rendered kills but no text. The song (`H2N0eHGOi_w`, a phonk track) has one sung word; the transcriber auto-detected Korean and wrote "오마!" ("Oh my!"). The planner picked the window 7.43–8.31 s, but the word ends at 8.313 s, so the "end ≤ 8.31" filter dropped it by 3 ms and every caption step was skipped.
+
+**Changes:** words are kept by their start time within the planner's window ± 0.15 s; lyrics are transcribed with `language: en` (non-English songs would need this changed).
+
+**Note:** captions can only show words the song actually sings; a mostly instrumental track gives one or two words at most.

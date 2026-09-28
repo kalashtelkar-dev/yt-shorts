@@ -4,7 +4,11 @@ import json, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 from emulate import run
 
-words = json.load(open(os.path.join(HERE, "fixtures", "words.json")))
+# lyric lines as the app sends them (src/server/jobs/lyrics.ts): 3-5 words, one or two rows, song seconds
+NO_TEXT = {"start": 0, "end": 0, "l1": "", "l2": "", "p": 0}  # the app always adds it, so the text steps never see an empty list
+lines = [{"start": 0.49, "end": 1.21, "l1": "I’m so cool", "l2": "", "p": 0}, {"start": 1.21, "end": 2.69, "l1": "with my fashion", "l2": "pink lipstick", "p": 4},
+         {"start": 2.69, "end": 4.09, "l1": "and my knee", "l2": "rolls down", "p": 5}, {"start": 4.09, "end": 5.26, "l1": "All the boys say", "l2": ""},
+         {"start": 30.0, "end": 31.0, "l1": "after the end", "l2": "", "p": 1}, NO_TEXT]
 K = [10.75, 12.5, 18.0, 20.6, 25.0, 28.3, 34.4, 36.5, 45.8]
 kills = {"kills": [{"t": k} for k in K], "totalKills": len(K)}
 flex = {"flex": [{"start": 6.0, "what": "walking with the pistol"}]}
@@ -17,11 +21,11 @@ def plan(flex_len, clips_extra=()):
                       {"id": 5, "start": 25.8, "len": 3.5, "speed": 1.5, "role": "kill"},
                       {"id": 6, "start": 31.9, "len": 3, "speed": 1, "role": "kill"},
                       {"id": 7, "start": 99.0, "len": 3, "speed": 1, "role": "kill"}, *clips_extra]}
-def build(name, p, song=17.9, cap=60, w=words, look="0"):
+def build(name, p, song=17.9, cap=60, w=lines, look="0"):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     seeds = {("kills_in", "value"): json.dumps(kills), ("flex_in", "value"): json.dumps(flex), ("game_dur", "value"): "95",
              ("song_dur", "value"): song, ("max_dur", "value"): cap, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
-             ("words_in", "value"): json.dumps(w), ("plan", "json"): p, ("look_in", "value"): look}
+             ("lines_in", "value"): json.dumps(w, ensure_ascii=False), ("plan", "json"): p, ("look_in", "value"): look}
     return run(g, seeds, ("render_gate", "value"))
 def fc(args): return args[args.index("-filter_complex") + 1]
 def t(args): return float(args[args.index("-t") + 1])
@@ -51,20 +55,33 @@ a45 = build("style-kill-montage", plan(3), song=120, cap=45)
 check("a length with no row (45 s) uses the default hold (2 s)", trims(a45) == trims(a))
 long = build("style-kill-montage", plan(3, clips_extra=()) | {"clips": plan(3)["clips"][:3] + [{"id": 4, "start": 22.5, "len": 5.5, "speed": 1, "role": "kill"}]})
 check("a clip already longer than the minimum keeps its length", (22.5, 5.5) in trims(long))
+dup = {**plan(3), "clips": plan(3)["clips"][:1] + [{"id": 2, "start": 17.0, "len": 2, "speed": 0.5, "role": "kill", "kill": 18},
+                                                   {"id": 3, "start": 15.5, "len": 4.5, "speed": 1, "role": "kill", "kill": 18},
+                                                   {"id": 4, "start": 22.5, "len": 4.5, "speed": 1, "role": "kill", "kill": 25}]}
+check("one clip per kill: a second clip of the same kill (slow + normal) is dropped", trims(build("style-kill-montage", dup)) == [(6, 3), (17, 2), (22.5, 4.5)])
 check("kill montage: no clips -> no render", build("style-kill-montage", {**plan(3), "clips": []}) is None)
 
 b = build("style-lyrical-kill-montage", plan(1.25))
-check("lyrical: words shown one at a time, centred", fc(b).count("drawtext") > 20 and "y=h*0.875" not in fc(b) and "y=h*0.5-text_h/2" in fc(b))
-check("lyrical: look 0 by default (Anton), hook bigger than words", "fontsize=167:fontcolor=white:borderw=7" in fc(b) and fc(b).count("fontsize=200:") >= 1)
-check("lyrical: outline and shadow on every word", fc(b).count("shadowx=") == fc(b).count("drawtext"))
+draws = re.findall(r"drawtext=[^,]*?text='([^']*)'[^,]*?:x=([^:]*):y=([^:]*):alpha='min\(1,\(t-([\d.]+)\)/0\.08\)':enable='between\(t,([\d.]+),([\d.]+)\)'", fc(b))
+check("lyrical: every line that starts before the end, in its own spot, one or two rows", [(t, x, y, float(a), float(e)) for t, x, y, a, _, e in draws] == [
+    ("I’m so cool", "70", "h*0.34-lh/2", 0.49, 1.21),                                                         # spot 0: upper left
+    ("with my fashion", "(w-text_w)/2", "h*0.64-lh-8", 1.21, 2.69), ("pink lipstick", "(w-text_w)/2", "h*0.64+8", 1.21, 2.69),  # 4: lower middle
+    ("and my knee", "w-text_w-70", "h*0.64-lh-8", 2.69, 4.09), ("rolls down", "w-text_w-70", "h*0.64+8", 2.69, 4.09),         # 5: lower right
+    ("All the boys say", "(w-text_w)/2", "h*0.64-lh/2", 4.09, 5.26)])                                         # no spot: lower middle
+check("lyrical: never in the centre", all(not y.startswith("h*0.5") for _, _, y, *_ in draws))
+check("lyrical: never in the bottom band", "y=h*0.875" not in fc(b))
+check("lyrical: look 0 by default (Anton, a 16-character row fills ~72% of the width)", fc(b).count("fontsize=96:fontcolor=white:borderw=5") == len(draws))
+check("lyrical: outline and shadow on every row", fc(b).count("shadowx=") == fc(b).count("drawtext") == len(draws))
 b3 = build("style-lyrical-kill-montage", plan(1.25), look="3")
-check("lyrical: look 3 changes the style", "fontsize=128:fontcolor=white:borderw=8:bordercolor=0x141414" in fc(b3) and "fontsize=167" not in fc(b3))
+check("lyrical: look 3 changes the style", "fontsize=78:fontcolor=white:borderw=6:bordercolor=0x141414" in fc(b3) and "fontsize=96" not in fc(b3))
 check("lyrical: look 3 copies font input 3", run(json.load(open(os.path.join(HERE, "style-lyrical-kill-montage.json")))["graph"], {("look_in", "value"): "3"}, ("font_args_list", "value"))[4] == "{in3}")
 check("lyrical: an unknown look falls back to look 0", fc(build("style-lyrical-kill-montage", plan(1.25), look="x")) == fc(b))
 check("lyrical: ten fonts downloaded", len(next(n for n in json.load(open(os.path.join(HERE, "style-lyrical-kill-montage.json")))["graph"]["nodes"] if n["id"] == "caption_font")["params"]["input"]) == 10)
-check("lyrical: only words sung before the montage ends", all(float(x.split(",")[0]) <= fade(b) + 0.8 for x in fc(b).split("between(t,")[1:]))
-check("lyrical: no song words -> renders without text", "drawtext" not in fc(build("style-lyrical-kill-montage", plan(1.25), w=[])))
-check("lyrical: a slur is never shown", "igga" not in fc(b).lower())
+check("lyrical: no lyrics (only the no-text line) -> renders without text", "drawtext" not in fc(build("style-lyrical-kill-montage", plan(1.25), w=[NO_TEXT])))
+song = json.load(open(os.path.join(HERE, "song-index.json")))["graph"]
+check("song-index: vocals -> transcribe (no built-in alignment) -> align -> segments out",
+      {e["id"] for e in song["edges"]} >= {"vocals.vocals->transcript.input", "transcript.segments->aligned.segments", "vocals.vocals->aligned.input", "aligned.segments->out.segments"}
+      and next(n for n in song["nodes"] if n["id"] == "transcript")["params"]["align"] is False)
 # "below the minimum" regexes: every value from 0 to 9.99 in 0.01 steps, as written by the planner
 from build import lt_regex
 for x in (1.5, 1.75, 2, 3, 3.5, 4, 4.5, 6.5):
@@ -78,7 +95,7 @@ def build_with(kills_obj, name="style-kill-montage"):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     seeds = {("kills_in", "value"): json.dumps(kills_obj), ("flex_in", "value"): json.dumps({"flex": [6.0]}), ("game_dur", "value"): "95",
              ("song_dur", "value"): 17.9, ("max_dur", "value"): 60, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
-             ("words_in", "value"): "[]", ("plan", "json"): plan(3), ("look_in", "value"): "0"}
+             ("lines_in", "value"): "[]", ("plan", "json"): plan(3), ("look_in", "value"): "0"}
     return run(g, seeds, ("render_gate", "value"))
 check("kills as bare numbers (and flex as bare numbers) give the same render", build_with(bare) == build_with(kills))
 # {in0}/{in1}/{in2} follow the order of the edges into the render; the filter reads gameplay, song, font

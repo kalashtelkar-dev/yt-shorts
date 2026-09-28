@@ -7,7 +7,7 @@ import { startJob, sweep } from "./lifecycle";
 import { REUSE_MS, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
-const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_sfY_wbow51wN" };
+const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_QwiaZRvGOgIR" };
 const T0 = Date.UTC(2026, 8, 28, 10, 0, 0);
 const stageMap = [
   { match: "download", label: "Downloading your video" },
@@ -28,7 +28,7 @@ async function newJob(opts: { playerName?: string; musicUrl?: string; style?: st
         userId,
         catalogItemId,
         catalogSlug: "kill-montage",
-        templateId: opts.style ?? "tpl_3MGEHxb-HUEM",
+        templateId: opts.style ?? "tpl_72xfG9gy9eH8",
         indexTemplates: INDEX,
         input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
         source: "url",
@@ -55,7 +55,7 @@ beforeEach(async () => {
   await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
   const [item] = await db
     .insert(catalogItems)
-    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_3MGEHxb-HUEM", indexTemplates: INDEX, stageMap })
+    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_72xfG9gy9eH8", indexTemplates: INDEX, stageMap })
     .returning({ id: catalogItems.id });
   catalogItemId = item.id;
   await grant(userId, 2000, "test");
@@ -139,22 +139,25 @@ describe("staged styles (mock Engine X)", () => {
     expect(await getBalance(userId)).toBe(2000);
   });
 
-  it("shuffles the kill order per seed, keeping multi-kills together in time order", () => {
-    const kills = { kills: [{ t: 10 }, { t: 11.5 }, { t: 40 }, { t: 90 }, { t: 130 }, { t: 131 }, { t: 200 }, { t: 260 }], totalKills: 8 };
+  it("merges kills less than 8 s apart into one entry, then shuffles the entries per seed", () => {
+    const kills = { kills: [{ t: 10 }, { t: 13.5 }, { t: 17 }, { t: 40 }, { t: 90 }, { t: 130 }, { t: 131 }, { t: 200 }, { t: 260 }, { t: 260 }], totalKills: 10 };
     const orders = new Set<string>();
     for (let seed = 1; seed <= 30; seed++) {
-      const out = shuffleKills(kills, String(seed)) as typeof kills;
-      expect(out.totalKills).toBe(8);
-      expect(out.kills.map((k) => k.t).sort((a, b) => a - b)).toEqual(kills.kills.map((k) => k.t)); // same kills
-      const at = (t: number) => out.kills.findIndex((k) => k.t === t);
-      expect(at(11.5)).toBe(at(10) + 1); // multi-kills stay together
-      expect(at(131)).toBe(at(130) + 1);
+      const out = shuffleKills(kills, String(seed)) as { kills: { t: number; more?: string }[]; totalKills: number };
+      expect(out.totalKills).toBe(10);
+      expect([...out.kills].sort((a, b) => a.t - b.t)).toEqual([
+        { t: 10, more: "+3.5 s, +7 s" }, // a chain: each within 8 s of the one before
+        { t: 40 },
+        { t: 90 },
+        { t: 130, more: "+1 s" },
+        { t: 200 },
+        { t: 260 }, // the same kill twice: once
+      ]);
       expect(shuffleKills(kills, String(seed))).toEqual(out); // one job, one order
       orders.add(out.kills.map((k) => k.t).join());
     }
     expect(orders.size).toBeGreaterThan(20); // different jobs, different orders
-    expect((shuffleKills({ kills: [67, 176, 177], totalKills: 3 }, "5") as { kills: number[] }).kills).toHaveLength(3); // bare numbers
-    expect(shuffleKills(kills, undefined)).toBe(kills); // older jobs: unchanged
+    expect(shuffleKills({ kills: [67, 176, 177], totalKills: 3 }, undefined)).toEqual({ kills: [{ t: 67 }, { t: 176, more: "+1 s" }], totalKills: 3 }); // bare numbers
   });
 
   it("sends a style only the inputs it declares", () => {
@@ -165,6 +168,8 @@ describe("staged styles (mock Engine X)", () => {
     expect(kill).not.toHaveProperty("words");
     expect(kill).not.toHaveProperty("lyricLook");
     expect(kill).toMatchObject({ maxDurationSec: "60", variation: "slow last", gameDurationSec: "1800", kills: JSON.stringify(g.kills) });
-    expect(styleInput(job, g, s, null)).toMatchObject({ words: JSON.stringify(s.words), lyricLook: "7" });
+    expect(styleInput(job, g, s, null)).toMatchObject({ lyricLook: "7", lines: expect.stringContaining('{"start":1,"end":1.3,"l1":"so","l2":"","p":') });
+    const seg = { ...s, segments: [{ start: 1, end: 2, words: [{ word: "so", start: 1, end: 1.3 }, { word: "cool", start: 1.4, end: 2 }] }] };
+    expect(JSON.parse(styleInput(job, g, seg, ["lines"]).lines)).toMatchObject([{ start: 1, end: 2, l1: "so cool", l2: "" }, { l1: "" }]); // + the no-text line
   });
 });

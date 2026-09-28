@@ -355,7 +355,7 @@
         "params": {
           "path": "len",
           "op": "less-or-equal",
-          "compareTo": "10"
+          "compareTo": "20"
         },
         "position": {
           "x": 1500,
@@ -774,7 +774,7 @@
         "engine": "util",
         "operation": "template",
         "params": {
-          "template": "You are planning a 9:16 Valorant/CS2 kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion, cut to a song.\n\nTHE PLAYER'S KILLS, listed in THIS RUN'S MONTAGE ORDER (shuffled on purpose, so every montage of this match is different). Times are recording seconds; K is when the kill-feed row appears, and the real kill is up to 2 s before K:\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: one clip per kill, in exactly the order the kills are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   Every kill must stay on screen at least {{p}} s after it happens before the next clip starts, so:\n   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).\n   Kills listed next to each other that are less than {{p}} s apart in the recording share one clip; make it long enough to keep playing {{p}} s after the second.\n   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role. Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
+          "template": "You are planning a 9:16 Valorant/CS2 kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion, cut to a song.\n\nTHE PLAYER'S KILLS, listed in THIS RUN'S MONTAGE ORDER (shuffled on purpose, so every montage of this match is different). Each entry is one kill, or a multi-kill whose \"more\" lists its next kills in seconds after t. Times are recording seconds; t is when the kill-feed row appears, and the real kill is up to 2 s before it:\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill entry, same order as the entries, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill entry, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: exactly ONE clip per kill entry (normal OR slow motion, never both), in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   Every kill must stay on screen at least {{p}} s after it happens before the next clip starts, so:\n   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).\n   For an entry with \"more\" you may lengthen its clip to show those next kills too (add the last one's offset to len); it must keep playing {{p}} s after the last kill it shows.\n   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role, kill. kill is the t of the entry the clip shows, copied exactly (0 for the flex clip). Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string, \"kill\": number}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
         },
         "position": {
           "x": 300,
@@ -836,6 +836,33 @@
         }
       },
       {
+        "id": "one_per_kill",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-unique",
+        "params": {
+          "path": "kill",
+          "keep": "first"
+        },
+        "position": {
+          "x": 1800,
+          "y": 1440
+        }
+      },
+      {
+        "id": "kept_count",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-aggregate",
+        "params": {
+          "op": "count"
+        },
+        "position": {
+          "x": 0,
+          "y": 1620
+        }
+      },
+      {
         "id": "hold_table",
         "kind": "engine",
         "engine": "util",
@@ -844,8 +871,8 @@
           "value": "\n15;1;3.5;1.5;[0-2](?:\\.\\d+)?|3(?:\\.(?:[0-4]\\d*)?)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-4]\\d*)?)?\n30;1.5;4;1.75;[0-3](?:\\.\\d+)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-6]\\d*|7[0-4]\\d*|7)?)?\n60;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?\n90;4;6.5;3;[0-5](?:\\.\\d+)?|6(?:\\.(?:[0-4]\\d*)?)?;[0-2](?:\\.\\d+)?\ndefault;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?"
         },
         "position": {
-          "x": 1800,
-          "y": 1440
+          "x": 300,
+          "y": 1620
         }
       },
       {
@@ -857,7 +884,7 @@
           "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
         },
         "position": {
-          "x": 0,
+          "x": 600,
           "y": 1620
         }
       },
@@ -870,7 +897,7 @@
           "replace": "$1"
         },
         "position": {
-          "x": 300,
+          "x": 900,
           "y": 1620
         }
       },
@@ -883,7 +910,7 @@
           "replace": "$2"
         },
         "position": {
-          "x": 600,
+          "x": 1200,
           "y": 1620
         }
       },
@@ -896,7 +923,7 @@
           "replace": "$3"
         },
         "position": {
-          "x": 900,
+          "x": 1500,
           "y": 1620
         }
       },
@@ -909,7 +936,7 @@
           "replace": "$4"
         },
         "position": {
-          "x": 1200,
+          "x": 1800,
           "y": 1620
         }
       },
@@ -922,8 +949,8 @@
           "replace": "$5"
         },
         "position": {
-          "x": 1500,
-          "y": 1620
+          "x": 0,
+          "y": 1800
         }
       },
       {
@@ -935,8 +962,23 @@
           "indent": 0
         },
         "position": {
-          "x": 1800,
-          "y": 1620
+          "x": 300,
+          "y": 1800
+        }
+      },
+      {
+        "id": "kill_fill",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "\\{(?![^{}]*\"kill\":)(?=[^{}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)",
+          "replace": "{\"kill\":\"s$1\","
+        },
+        "position": {
+          "x": 600,
+          "y": 1800
         }
       },
       {
@@ -948,7 +990,7 @@
           "template": "(\\{(?=[^{}]*\"speed\":\"?1(?:\\.0+)?\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
         },
         "position": {
-          "x": 0,
+          "x": 900,
           "y": 1800
         }
       },
@@ -961,7 +1003,7 @@
           "template": "$1{{a}}"
         },
         "position": {
-          "x": 300,
+          "x": 1200,
           "y": 1800
         }
       },
@@ -974,7 +1016,7 @@
           "flags": "g"
         },
         "position": {
-          "x": 600,
+          "x": 1500,
           "y": 1800
         }
       },
@@ -987,7 +1029,7 @@
           "template": "(\\{(?=[^{}]*\"speed\":\"?0?\\.50*\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
         },
         "position": {
-          "x": 900,
+          "x": 1800,
           "y": 1800
         }
       },
@@ -1000,8 +1042,8 @@
           "template": "$1{{a}}"
         },
         "position": {
-          "x": 1200,
-          "y": 1800
+          "x": 0,
+          "y": 1980
         }
       },
       {
@@ -1013,8 +1055,8 @@
           "flags": "g"
         },
         "position": {
-          "x": 1500,
-          "y": 1800
+          "x": 300,
+          "y": 1980
         }
       },
       {
@@ -1026,8 +1068,8 @@
           "fenced": false
         },
         "position": {
-          "x": 1800,
-          "y": 1800
+          "x": 600,
+          "y": 1980
         }
       },
       {
@@ -1038,7 +1080,7 @@
           "plan"
         ],
         "position": {
-          "x": 0,
+          "x": 900,
           "y": 1980
         }
       }
@@ -1053,17 +1095,6 @@
         "to": {
           "node": "plan",
           "port": "connection"
-        }
-      },
-      {
-        "id": "start_allowed.items->clip_id_range.value",
-        "from": {
-          "node": "start_allowed",
-          "port": "items"
-        },
-        "to": {
-          "node": "clip_id_range",
-          "port": "value"
         }
       },
       {
@@ -1166,28 +1197,6 @@
         }
       },
       {
-        "id": "start_allowed.items->play_sum.value",
-        "from": {
-          "node": "start_allowed",
-          "port": "items"
-        },
-        "to": {
-          "node": "play_sum",
-          "port": "value"
-        }
-      },
-      {
-        "id": "start_allowed.items->slow_clips.value",
-        "from": {
-          "node": "start_allowed",
-          "port": "items"
-        },
-        "to": {
-          "node": "slow_clips",
-          "port": "value"
-        }
-      },
-      {
         "id": "slow_clips.items->slow_sum.value",
         "from": {
           "node": "slow_clips",
@@ -1251,28 +1260,6 @@
         "to": {
           "node": "ffmpeg_args",
           "port": "f"
-        }
-      },
-      {
-        "id": "start_allowed.count->has_clips.a",
-        "from": {
-          "node": "start_allowed",
-          "port": "count"
-        },
-        "to": {
-          "node": "has_clips",
-          "port": "a"
-        }
-      },
-      {
-        "id": "start_allowed.count->ffmpeg_args.c",
-        "from": {
-          "node": "start_allowed",
-          "port": "count"
-        },
-        "to": {
-          "node": "ffmpeg_args",
-          "port": "c"
         }
       },
       {
@@ -1804,6 +1791,83 @@
         }
       },
       {
+        "id": "one_per_kill.items->kept_count.value",
+        "from": {
+          "node": "one_per_kill",
+          "port": "items"
+        },
+        "to": {
+          "node": "kept_count",
+          "port": "value"
+        }
+      },
+      {
+        "id": "start_allowed.items->one_per_kill.value",
+        "from": {
+          "node": "start_allowed",
+          "port": "items"
+        },
+        "to": {
+          "node": "one_per_kill",
+          "port": "value"
+        }
+      },
+      {
+        "id": "one_per_kill.items->clip_id_range.value",
+        "from": {
+          "node": "one_per_kill",
+          "port": "items"
+        },
+        "to": {
+          "node": "clip_id_range",
+          "port": "value"
+        }
+      },
+      {
+        "id": "one_per_kill.items->play_sum.value",
+        "from": {
+          "node": "one_per_kill",
+          "port": "items"
+        },
+        "to": {
+          "node": "play_sum",
+          "port": "value"
+        }
+      },
+      {
+        "id": "one_per_kill.items->slow_clips.value",
+        "from": {
+          "node": "one_per_kill",
+          "port": "items"
+        },
+        "to": {
+          "node": "slow_clips",
+          "port": "value"
+        }
+      },
+      {
+        "id": "kept_count.value->has_clips.a",
+        "from": {
+          "node": "kept_count",
+          "port": "value"
+        },
+        "to": {
+          "node": "has_clips",
+          "port": "a"
+        }
+      },
+      {
+        "id": "kept_count.value->ffmpeg_args.c",
+        "from": {
+          "node": "kept_count",
+          "port": "value"
+        },
+        "to": {
+          "node": "ffmpeg_args",
+          "port": "c"
+        }
+      },
+      {
         "id": "play_time.value->end_time.a",
         "from": {
           "node": "play_time",
@@ -1991,6 +2055,17 @@
         }
       },
       {
+        "id": "plan_text.value->kill_fill.text",
+        "from": {
+          "node": "plan_text",
+          "port": "value"
+        },
+        "to": {
+          "node": "kill_fill",
+          "port": "text"
+        }
+      },
+      {
         "id": "short_normal.text->hold_normal_pattern.a",
         "from": {
           "node": "short_normal",
@@ -2013,10 +2088,10 @@
         }
       },
       {
-        "id": "plan_text.value->hold_normal.text",
+        "id": "kill_fill.text->hold_normal.text",
         "from": {
-          "node": "plan_text",
-          "port": "value"
+          "node": "kill_fill",
+          "port": "text"
         },
         "to": {
           "node": "hold_normal",

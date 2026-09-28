@@ -44,22 +44,20 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
 
 ## Lyrics on screen
 
-- **Source:**
-  - `transcribe/separate` gives the vocals stem, then `transcribe/words` in English gives each word with its start and end.
-  - The pipeline keeps confident words (score ≥ 0.3), strips punctuation, blocks slurs, and allows English letters only.
-- **What shows:**
-  - **Every sung word** while the montage plays, **one word at a time**, from its start to its end (the next word replaces it).
-  - **The hook word** (the most repeated word or line, e.g. "UNTOUCHABLE") gets the big treatment each time it's sung, as in the reference.
-- **Where:** centred on the gameplay band (never in the blurred bands, never styled like subtitles).
+- **Source (song-index):** `transcribe/separate` gives the vocals stem. `transcribe/transcribe` (large-v3, English, its own alignment off) gives the segments. `transcribe/align`, the forced aligner, then times every word in each segment on the vocals.
+- **Lines (the app, `src/server/jobs/lyrics.ts`):**
+  - **Cutting:** each segment becomes lines of 3–5 words, cut evenly (7 words → 4 + 3). A line never mixes two segments.
+  - **Timing:** a line shows from its first word's start to its last word's end, and holds until the next line when the gap is under 0.3 s.
+  - **Rows:** a line longer than 16 characters is split into two rows, with the longer row as short as possible.
+  - **Cleaning:** English letters only, curly apostrophes, no punctuation, and slurs are dropped.
+- **Where: a random spot for every line (the user's choice, 2026-09-28), never the centre:** the upper or lower third of the gameplay band, left, middle or right. It's never the same spot twice in a row, and it's repeatable per job (seeded). The spots are `SPOTS` in `pipelines/build.py`. The text is never in the blurred bands and never styled like subtitles.
 - **Look: a different one every job (the user's choice, 2026-09-28):** thick, as bold as possible, with shadows.
   - **Ten looks:** the app sends a random digit (`lyricLook`), and the pipeline maps it to a heavy Google font with its own colours: Anton, Archivo Black, Bungee, Luckiest Guy, Titan One, Black Ops One, Russo One, Bowlby One, Rubik Mono One and Passion One Black. The list is `LOOKS` in `pipelines/build.py`.
-  - **On every word:** a 6–8 px dark outline and a hard offset shadow (black, or red or purple in some looks), plus the glow (a blurred copy of the text under it).
-  - **Size:** the hook word is sized so an 11-letter word fits across 1000 px in that font; other words are 1/1.2 of that.
-  - **Before (replaced):** Cinzel Decorative, white, glowing, 130 px.
-- **Motion, in steps:**
-  1. **Now:** each word appears on its sung start with a quick scale-pop (≈ 0.1 s) and leaves on its end.
-  2. **Next:** the hook word is built letter by letter over its sung duration (prefix reveal), as in the reference.
-- **Sync:** the words' timestamps come straight from the transcription. The song plays from 0, so montage time = song time. The model never computes caption times.
+  - **On every row:** a 4–6 px dark outline and a hard offset shadow (black, or red or purple in some looks), plus the glow (a blurred copy of the text under it).
+  - **Size:** a 16-character row fills about 72% of the width, so the words sit on the gameplay without covering it (the user asked for smaller text on 2026-09-28).
+  - **Replaced:** Cinzel Decorative centred one word at a time (v8); then one centred word at a time with a bigger hook word.
+- **Motion:** each line fades in over 0.08 s on its start and leaves on its end.
+- **Sync:** the timestamps come straight from the aligner. The song plays from 0, so montage time = song time. The model never computes caption times or writes caption text.
 - **No lyrics:** if the song has no clear English vocals, no text shows and the montage still renders, which then looks the same as a Kill Montage.
 
 ## What the pipeline needs (maps to edit-studio v8)
@@ -69,5 +67,5 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
 | Everything in the Kill Montage table | see `kill-montage.md` | same |
 | Vocals, then word timestamps | works (v3+) | none |
 | Words on screen | v8: running words in the bottom band, plus cut words in the centre (the user rejected the bottom band) | Show the running words in the centre, one at a time, glowing. Drop the separate cut-word track, since the running words already land on the cuts. Avoid v5's mistake of letting the planner write caption text |
-| Hook treatment | missing | The planner names the hook word (a copy from the words list). Each time it's sung it renders larger (1.2× the look's word size) |
+| Hook treatment | tried, then removed | The bigger hook word didn't fit multi-word lines; lines replaced it |
 | Intro flex ≈ 1 s | missing | Same as the Kill Montage, with the flex capped at 1–1.5 s |

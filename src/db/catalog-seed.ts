@@ -5,7 +5,7 @@ import type { catalogItems } from "./schema";
 // while several steps run in parallel, the earliest stage listed wins.
 // Both styles are staged (docs/edit-styles/, pipelines/README.md): gameplay-index and song-index run in
 // parallel and are cached, then the style pipeline plans and renders.
-const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_sfY_wbow51wN" };
+const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_QwiaZRvGOgIR" };
 const FIELDS = [
   { name: "playerName", label: "Your in-game name", type: "text" as const, required: true, max: 32, help: "Exactly as it shows in the kill feed" },
   { name: "songUrl", label: "Song (YouTube link)", type: "url" as const, required: true, help: "The montage runs as long as the song, up to the length you pick" },
@@ -32,7 +32,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "kill-montage",
     title: "Kill Montage",
     description: "A quick intro, then your kills back to back, cut to your song.",
-    templateId: "tpl_3MGEHxb-HUEM", // style-kill-montage
+    templateId: "tpl_72xfG9gy9eH8", // style-kill-montage
     indexTemplates: INDEX,
     enabled: true,
     beta: false,
@@ -49,7 +49,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "lyrical-kill-montage",
     title: "Lyrical Kill Montage",
     description: "Your kills cut to your song, with its words on screen.",
-    templateId: "tpl_IAAtFJul2yyM", // style-lyrical-kill-montage
+    templateId: "tpl_Qc96rHG5IlPZ", // style-lyrical-kill-montage
     indexTemplates: INDEX,
     enabled: true,
     beta: true,

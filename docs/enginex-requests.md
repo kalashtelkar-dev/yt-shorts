@@ -243,3 +243,14 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 
 - **App:** every job stores a `killSeed`. When the render starts, `shuffleKills` (in `staged.ts`) shuffles the cached kill list with that seed. Kills less than 3 s apart stay together, in time order. The clip-start lists follow the same order, since they're built from the kill list.
 - **Prompt only:** the kills are labelled as this run's montage order, and the planner must keep that order (never sort by time or strength). Multi-kills are "kills listed next to each other" within the hold. The "strongest kill on the drop" rule is gone, because it pulled every run back to the same plan.
+
+## 23. Lyrics from the aligner, 3–5-word lines in random spots, one clip per kill (2026-09-28)
+
+**Status:** imported as drafts, waiting to be published: song-index `tpl_QwiaZRvGOgIR` (replaces `tpl_sfY_wbow51wN`), style-kill-montage `tpl_72xfG9gy9eH8` (replaces `tpl_3MGEHxb-HUEM`), style-lyrical-kill-montage `tpl_Qc96rHG5IlPZ` (replaces `tpl_IAAtFJul2yyM`).
+
+- **song-index:** vocals stem, then `transcribe/transcribe` (large-v3, en, `align: false`), then `transcribe/align` (the phoneme aligner, on the vocals). It outputs `segments` (each with its words and their start and end) instead of `words`.
+- **App (`src/server/jobs/lyrics.ts`):** each segment is cut into lines of 3–5 words (evenly: 7 → 4 + 3), never across segments. Each line is timed from its first word's start to its last word's end, split into two rows when longer than 16 characters, and given a random spot `p` (0–5, never the same twice in a row, seeded per job). Words are cleaned (English letters, curly apostrophes, no slurs). One empty line is always added so the text steps never receive an empty list.
+- **style-lyrical:** input `lines` replaces `words`. Six rewrites turn `p` into x and y (upper or lower third of the gameplay; left, middle or right; never the centre; lower middle if missing). One-row and two-row lines are drawn with the job's look. The hook word, and the lyrics in the planner prompt, are gone. The looks are 28% smaller, with thinner outlines and shadows, so a 16-character row fills about 72% of the width.
+- **Both styles, repeated kills:** a real 30 s run planned a slow and a normal clip for every kill (53 clips for 26 kills). Now each clip names its kill (`kill` = the entry's t; a clip without one gets its own key), and `one_per_kill` (json-unique, keep first, after the start check) drops a second clip of the same kill. `kept_count` replaces the start check's count. `len_max` goes to 20 for multi-kill clips.
+- **App, close kills:** kills less than 8 s apart become one entry `{t, more: "+3 s, +7 s"}`, so two clips can't show the same moment. The planner may lengthen that clip over the `more` kills.
+- **Checked** with `check.py` (34 checks) and a local ffmpeg 7.1 render of looks 0 and 3 with lines in four spots.

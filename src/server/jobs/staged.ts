@@ -8,7 +8,9 @@ import { enginex } from "@/server/enginex/client";
 import { EngineXError } from "@/server/enginex/types";
 import type { Settings } from "@/server/settings";
 import { publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
+import { seeded } from "@/lib/seeded";
 import { event, finishFailed, notify } from "./lifecycle";
+import { lyricLines } from "./lyrics";
 
 // Staged styles (docs/edit-styles/README.md): the gameplay and the song are indexed by their own pipelines,
 // in parallel, and the results are shared through media_index; then the style pipeline plans and renders.
@@ -149,32 +151,41 @@ export async function pollIndexes(settings: Settings, now = Date.now()) {
 }
 
 /** Everything the app can send a style pipeline (styleInput); a style may declare fewer. */
-export const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "words", "maxDurationSec", "variation", "lyricLook"];
+export const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "words", "maxDurationSec", "variation", "lyricLook", "lines"];
 
-const MULTI_KILL_SEC = 3;
+// Kills closer than this share one entry, so two clips never show the same moment. A clip reaches at most hold (4 s at
+// 90 s) + 2 s past its kill and the next starts 2.5 s before its own (pipelines/build.py), so 8 s apart can't overlap.
+const MERGE_SEC = 8;
 /**
- * This job's kill order: the stored kill list, shuffled with the job's seed, so the same match gives a different montage
- * every run while one job always gets the same order. Kills less than 3 s apart stay together, in time order (a multi-kill).
- * Items are {t} objects or bare numbers (the kill finder writes either). No seed (older jobs): unchanged.
+ * This job's kill list: close kills merged into one entry ({t: first, more: "+3 s, +7 s"}, a multi-kill the planner can
+ * extend its clip over), then the entries shuffled with the job's seed, so the same match gives a different montage every
+ * run while one job always gets the same order. Accepts {t} objects or bare numbers (the kill finder writes either).
+ * No seed (older jobs): merged, in time order.
  */
 export function shuffleKills(kills: unknown, seed: string | undefined): unknown {
   const list = (kills as { kills?: unknown })?.kills;
-  if (!seed || !Array.isArray(list)) return kills;
-  const t = (k: unknown) => Number(typeof k === "object" && k ? (k as { t?: unknown }).t : k);
-  const groups: unknown[][] = [];
-  for (const k of [...list].sort((a, b) => t(a) - t(b))) {
+  if (!Array.isArray(list)) return kills;
+  const times = list.map((k) => Number(typeof k === "object" && k ? (k as { t?: unknown }).t : k)).filter(Number.isFinite);
+  const groups: number[][] = [];
+  for (const t of [...new Set(times)].sort((a, b) => a - b)) {
     const last = groups.at(-1);
-    if (last && t(k) - t(last.at(-1)) < MULTI_KILL_SEC) last.push(k);
-    else groups.push([k]);
+    if (last && t - last.at(-1)! < MERGE_SEC) last.push(t);
+    else groups.push([t]);
   }
-  let x = Number(seed) >>> 0 || 1; // xorshift32: small and deterministic
-  const next = () => ((x ^= x << 13), (x ^= x >>> 17), (x ^= x << 5), (x >>> 0) / 2 ** 32);
-  for (let n = groups.length - 1; n > 0; n--) {
-    const j = Math.floor(next() * (n + 1));
-    [groups[n], groups[j]] = [groups[j], groups[n]];
+  if (seed) {
+    const next = seeded(seed);
+    for (let n = groups.length - 1; n > 0; n--) {
+      const j = Math.floor(next() * (n + 1));
+      [groups[n], groups[j]] = [groups[j], groups[n]];
+    }
   }
-  return { ...(kills as object), kills: groups.flat() };
+  const entry = ([t, ...rest]: number[]) => (rest.length ? { t, more: rest.map((r) => `+${Math.round((r - t) * 10) / 10} s`).join(", ") } : { t });
+  return { ...(kills as object), kills: groups.map(entry) };
 }
+
+// Always one line that draws nothing: an empty list would make Engine X skip the text steps and leave the render without
+// its text layer (pipelines/build.py draws only lines with text).
+const NO_TEXT = { start: 0, end: 0, l1: "", l2: "" };
 
 /** The style pipeline's inputs, from the two indexes. Only inputs the pipeline declares are sent. */
 export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<string, unknown>, s: Record<string, unknown>, declared: string[] | null) {
@@ -191,6 +202,8 @@ export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<st
     maxDurationSec: String(job.durationSec),
     variation: i.variation ?? "",
     lyricLook: i.lyricLook ?? "0",
+    // aligned segments from song-index; an older cached result has only words, read as one segment
+    lines: JSON.stringify([...lyricLines(s.segments ?? (Array.isArray(s.words) ? [{ words: s.words }] : []), i.killSeed ?? "1"), NO_TEXT]),
   };
   return declared ? Object.fromEntries(Object.entries(all).filter(([k]) => declared.includes(k))) : all;
 }

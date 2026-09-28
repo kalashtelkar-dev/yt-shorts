@@ -56,7 +56,7 @@ def run(graph, seeds, target):
         for port, f, fp in ins.get(nid, []):
             ports.setdefault(port, []).append(out(f, fp))
         one = {k: v[0] for k, v in ports.items()}
-        LISTP = {"json-filter": "value", "json-aggregate": "value", "json-map": "value", "join": "value", "pick": "list"}
+        LISTP = {"json-filter": "value", "json-aggregate": "value", "json-map": "value", "join": "value", "pick": "list", "json-unique": "value"}
         fan = [k for k, v in one.items() if isinstance(v, Fan) and LISTP.get(op) != k and k != "compareTo"]
         if len(fan) > 1: raise ValueError(f"{nid}: fan out twice {fan}")
         if fan:
@@ -82,7 +82,14 @@ def run(graph, seeds, target):
             keys = [k.strip() for k in p["keys"].split(",")]
             return {"value": {k: v["value"][k] for k in keys if k in v["value"]}}  # order of the keys given
         if op == "json-stringify": return {"value": jstr(v["value"])}
+        if op == "json-unique":
+            seen, keep = set(), []
+            for it in list(v["value"]):
+                key = jstr(it.get(p["path"]) if p.get("path") else it)
+                if key not in seen: seen.add(key); keep.append(it)
+            return {"items": Fan(keep), "removed": len(list(v["value"])) - len(keep)}
         if op == "json-aggregate":
+            if p.get("op") == "count": return {"value": len(list(v["value"]))}
             xs = [num(it.get(p["path"])) if p.get("path") else num(it) for it in v["value"]]
             return {"value": {"sum": sum(xs), "count": len(xs), "min": min(xs, default=0), "max": max(xs, default=0)}[p.get("op", "sum")]}
         if op == "join": return {"value": p.get("separator", "").join(jstr(x) for x in v["value"])}

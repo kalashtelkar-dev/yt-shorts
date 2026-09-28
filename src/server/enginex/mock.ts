@@ -46,7 +46,7 @@ function outputFor(kind: MockKind, runId: string): Record<string, unknown> {
   }
   if (kind === "song") {
     return { audio: `mock/${runId}/song.m4a`, durationSec: 22, title: "Mock song", loudness: "0.000000,-30.0\n0.250000,-20.0",
-      words: [{ word: "so", start: 1.0, end: 1.3, score: 0.9 }, { word: "cool", start: 1.4, end: 1.9, score: 0.9 }] };
+      segments: [{ start: 1.0, end: 1.9, text: "so cool", words: [{ word: "so", start: 1.0, end: 1.3, score: 0.9 }, { word: "cool", start: 1.4, end: 1.9, score: 0.9 }] }] };
   }
   if (kind === "style") {
     return { montage: `mock/${runId}/montage.mp4`, plan: { totalKills: 5, clips: [{ id: 1, start: 20, len: 3, speed: 1, role: "flex" }] } };
@@ -101,8 +101,8 @@ export function mockRunAt(runId: string, now: number): Run {
 
 // The staged pipelines (pipelines/README.md), so the mock answers getPipeline like Engine X would.
 const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "style" | "style-lyrical"> = {
-  tpl_yYsSXHkQXJBP: "gameplay", tpl_K6Lo3rwFya4A: "gameplay-upload", tpl_sfY_wbow51wN: "song",
-  "tpl_3MGEHxb-HUEM": "style", "tpl_IAAtFJul2yyM": "style-lyrical",
+  tpl_yYsSXHkQXJBP: "gameplay", tpl_K6Lo3rwFya4A: "gameplay-upload", tpl_QwiaZRvGOgIR: "song",
+  "tpl_72xfG9gy9eH8": "style", "tpl_Qc96rHG5IlPZ": "style-lyrical",
 };
 const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"];
 function mockInputs(templateId: string): string[] {
@@ -111,7 +111,7 @@ function mockInputs(templateId: string): string[] {
     case "gameplay-upload": return ["video", "playerName"];
     case "song": return ["musicUrl"];
     case "style": return STYLE_INPUTS;
-    case "style-lyrical": return [...STYLE_INPUTS, "words", "lyricLook"];
+    case "style-lyrical": return [...STYLE_INPUTS, "lines", "lyricLook"];
   }
   if (templateId === "tpl_fgi2j31DHK_M" || templateId.includes("lyric")) return ["youtubeUrl", "playerName", "songUrl", "songStart", "songEnd", "lyricsLrc"];
   if (templateId === "tpl_24XhRunrxRjQ" || templateId.includes("upload")) return ["video", "videoTitle", "playerName", "durationSec"];

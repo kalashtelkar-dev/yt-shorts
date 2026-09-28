@@ -61,3 +61,20 @@ Full text: `.pipelines/instruction-v3.txt` (local). Validated: compiles, no erro
 **Why the download was slow:** app and dashboard jobs send identical download settings and start without queueing (`waitMs` ≈ 15 ms). The same 1.35 GB 1080p file took 45 s on one download pod and 152 s on another, and 480–530 s when two ran at once. Speed is YouTube throughput per pod, fetched one fragment at a time. Parallel fragments are yt-dlp's standard fix; the 1080p quality (needed for kill-feed OCR) stays. If it's still slow, the next lever is `height<=720` (about half the size), at some risk to OCR accuracy.
 
 Both validated: compile, no errors.
+
+## 7. Engine names changed on the Engine X side (noticed 2026-09-28)
+
+Engine X renamed its engines: `ytdlp` → `media-fetch`, `ffmpeg` → `video`, `scenedetect` → `scenes`, `whisperx` → `transcribe`, `vllm` → `llm` (and `imagemagick` → `image`). Stored pipelines were migrated server-side and still compile, but documents built with the old names no longer validate, so `.pipelines/*.import.json` files from before are stale; re-`get` a pipeline before editing it. The app keys its friendly errors and automatic retries on engine names; `src/server/jobs/errors.ts` now accepts both.
+
+## 8. Edit analyzer (`tpl_aTgr3PL4JeTW`, 2026-09-28)
+
+**Status:** imported, waiting to be published. A dev tool for tuning prompts; not used by the app.
+
+**What it does:** takes a reference YouTube edit (`youtubeUrl`) and returns what the edit is made of, so the kill-montage instruction can be tuned to copy it:
+- exact measurements: duration, resolution, fps, every cut time (scenedetect, adaptive detector, min shot 6 frames), shot count and average shot length;
+- audio loudness every 0.25 s (ffprobe astats), for drops and beat-synced cuts;
+- speech/lyrics transcript (whisperx large-v3-turbo);
+- 8 contact sheets (4×4 frames, time-stamped, spread evenly over the whole video, ~120 frames);
+- an LLM (vision) write-up as JSON: summary, format/framing, pacing and beat sync, structure, per-clip roles with seconds before/after each kill, transitions, effects, overlays, audio, what it couldn't tell, and concrete changes to our pipeline.
+
+**Untested parts (first run will tell):** whether the `deepsoch-worker` model accepts images (if not, drop the `sheets → analyse.images` wire and it runs on the measurements alone), and the ffprobe loudness command.

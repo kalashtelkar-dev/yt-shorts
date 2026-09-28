@@ -98,3 +98,17 @@ Engine X renamed its engines: `ytdlp` → `media-fetch`, `ffmpeg` → `video`, `
 **Outputs:** `montage`, `clips`, `totalKills`, `title`, `plan`, `analysis`, `musicStartSec`.
 
 Built by `.pipelines/build-edit-studio.py` (local) from v9 and edit-analyzer-v3. Validated: compiles.
+
+## 10. Edit studio v2 (`tpl_lA-8tjA4SQE7`, 2026-09-28)
+
+**Status:** imported, waiting to be published.
+
+**Why:** the first edit-studio run (`run_36eefda2…`, 15 s target) planned clips of 6, 60, 145 and 106 seconds by "merging" kills minutes apart; the 15 s cap then cut the video off mid-way through clip 2, so most planned kills never appeared and the ending was abrupt. Its stated beat timings didn't add up either.
+
+**Changes:**
+- Planner makes choices only: beat length (`beatSec`), `musicStartSec`, `dropAtSec`, and per clip `k` (its kill), `start` (k − lead, lead 1.5–3 s from the reference), `len` (whole beats, lead + 0.5 to 6 s) and `speed` (1, or 0.5 for exactly one clip, on the drop). No merging of kills more than 2 s apart.
+- Checked in the graph: clips missing `speed`, shorter than 1 s, longer than 6.5 s or starting before 0 are dropped. Clips are cut by start + duration.
+- Play time is computed (sum of lengths, slow clip counted twice); the montage fades in over 0.3 s and fades picture and sound out over 0.8 s, ending exactly at `min(play time, durationSec)`.
+- Slow motion is picture only: `setpts=2*PTS` smoothed with `framerate=60`; that clip's game audio is muted and padded to the slowed length so audio stays in sync; the song is untouched.
+
+Built by `.pipelines/build-edit-studio-v2.py` (local) from edit-studio. Validated: compiles; the render command was simulated on a sample plan (normal, slow and reordered/quoted clips).

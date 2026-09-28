@@ -210,7 +210,7 @@ Utility nodes ("no job") run inside the scheduler in milliseconds; the run time 
 | gameplay-index-upload | `tpl_K6Lo3rwFya4A` |
 | song-index | `tpl_sfY_wbow51wN` |
 | style-kill-montage | `tpl_L9GCGiLR4xdr` |
-| style-lyrical-kill-montage | `tpl_DtMrjAKAX5Pl` |
+| style-lyrical-kill-montage | `tpl_yd7ODZifX40-` |
 
 Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision model (gameplay-index), flex clip + 1.5× speed-up clips with a whip blur, per-run `variation`, `maxDurationSec` cap, and (lyrical) every sung word centred and glowing with the hook bigger. Both styles' render commands were built with the emulator and rendered with a real ffmpeg 7.1 on stand-in media (exit 0, 1080×1920, 60 fps, audio).
 
@@ -220,3 +220,10 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 
 - **gameplay-index and gameplay-index-upload:** the flex contact sheets decode keyframes only (`-skip_frame nokey`). The first live runs on 19–25 min matches were still on this step after 25 minutes.
 - **Both styles:** accept the kill finder's bare-number lists (`[67, 176]`) as well as `[{"t":67}]`, and the same for flex. `check.py` covers it.
+
+## 20. style-lyrical-kill-montage, third import (2026-09-28): render input order
+
+**Status:** imported as `tpl_yd7ODZifX40-`, waiting to be published. It replaces `tpl_DtMrjAKAX5Pl`.
+
+- **The bug:** every lyrical render failed with "Invalid data found when processing input". The copied v8 edge put the caption font first into `make_montage`, so the font became `{in0}` and ffmpeg read it as the gameplay. The filter expects `{in0}` gameplay, `{in1}` song, `{in2}` font.
+- **The fix:** the same nodes and edges, reordered. `check.py` now asserts the render input order for both styles.

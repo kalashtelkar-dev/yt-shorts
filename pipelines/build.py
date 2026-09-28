@@ -219,6 +219,8 @@ def style(lyrical):
     g.E = [e for e in g.E if not (e['to']['node'] == "ffmpeg_args" and e['to']['port'] in ("d", "g"))]
     g.edge("cap", "value", "ffmpeg_args", "d")
     if lyrical:
+        # the font is {in2}: drop v8's copy of this edge (it came first) so the order is gameplay, song, font
+        g.E = [e for e in g.E if not (e['to']['node'] == "make_montage" and e['from']['node'] == "caption_font")]
         g.edge("caption_font", "file", "make_montage", "input")
         # every confident, clean word sung before the montage ends, centred, glowing, fading in over 0.08 s; the hook word bigger
         g.util("end_text", "template", {"template": "{{a}}"}).edge("end_time", "value", "end_text", "a")

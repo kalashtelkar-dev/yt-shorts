@@ -49,7 +49,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "lyrical-kill-montage",
     title: "Lyrical Kill Montage",
     description: "Your kills cut to your song, with its words on screen.",
-    templateId: "tpl_DtMrjAKAX5Pl", // style-lyrical-kill-montage
+    templateId: "tpl_yd7ODZifX40-", // style-lyrical-kill-montage
     indexTemplates: INDEX,
     enabled: true,
     beta: true,

@@ -58,4 +58,10 @@ def build_with(kills_obj, name="style-kill-montage"):
              ("words_in", "value"): "[]", ("plan", "json"): plan(3)}
     return run(g, seeds, ("render_gate", "value"))
 check("kills as bare numbers (and flex as bare numbers) give the same render", build_with(bare) == build_with(kills))
+# {in0}/{in1}/{in2} follow the order of the edges into the render; the filter reads gameplay, song, font
+def render_inputs(name):
+    g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    return [e["from"]["node"] for e in g["edges"] if e["to"] == {"node": "make_montage", "port": "input"}]
+check("render inputs in order: gameplay, song", render_inputs("style-kill-montage") == ["video_in", "audio_in"])
+check("lyrical render inputs in order: gameplay, song, font", render_inputs("style-lyrical-kill-montage") == ["video_in", "audio_in", "caption_font"])
 sys.exit(1 if failures else 0)

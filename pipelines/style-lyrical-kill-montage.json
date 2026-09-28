@@ -1654,17 +1654,6 @@
         }
       },
       {
-        "id": "caption_font.file->make_montage.input",
-        "from": {
-          "node": "caption_font",
-          "port": "file"
-        },
-        "to": {
-          "node": "make_montage",
-          "port": "input"
-        }
-      },
-      {
         "id": "words_sure.items->words_clean.value",
         "from": {
           "node": "words_sure",
@@ -2179,6 +2168,17 @@
         "to": {
           "node": "ffmpeg_args",
           "port": "d"
+        }
+      },
+      {
+        "id": "caption_font.file->make_montage.input",
+        "from": {
+          "node": "caption_font",
+          "port": "file"
+        },
+        "to": {
+          "node": "make_montage",
+          "port": "input"
         }
       },
       {

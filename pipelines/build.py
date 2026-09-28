@@ -58,7 +58,9 @@ def gameplay_index(upload=False):
     # flex candidates: ~120 time-stamped frames spread over the whole recording, read by the vision model
     g.util("flex_frames_n", "number", {"value": 120})
     g.util("flex_fps", "math", {"op": "divide"}).edge("flex_frames_n", "value", "flex_fps", "a").edge(*dur, "flex_fps", "b")
-    g.util("flex_args", "template", {"template": json.dumps(["-y", "-i", "{in0}", "-vf",
+    # -skip_frame nokey: decode only keyframes (every few seconds in YouTube files); plenty for frames ~20 s apart,
+    # and ~50x less decoding than every frame of a 40-minute 60 fps recording (the first version took 10+ minutes here).
+    g.util("flex_args", "template", {"template": json.dumps(["-y", "-skip_frame", "nokey", "-i", "{in0}", "-vf",
         "fps={{a}},scale=-2:300,drawtext=fontfile={in1}:text='%{pts\\:hms}':x=6:y=6:fontsize=22:fontcolor=white:box=1:boxcolor=black@0.7:boxborderw=4,tile=4x4:padding=4:margin=4",
         "-an", "-c:v", "libx264", "-g", "1", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "{out}"])})
     g.util("flex_args_json", "json-parse", {"fenced": False}).util("flex_args_list", "merge", {})
@@ -155,9 +157,15 @@ def style(lyrical):
     if lyrical:
         g.take("caption_font", "words_sure", "words_clean", "caption_pick", "caption_item", "caption_joined", "word_apos", "word_punct", "caption_draw", "caption_keep").keep_src_edges()
     # kills and flex arrive as JSON text
-    g.util("kills_json", "json-parse", {"fenced": False}).edge("kills_in", "value", "kills_json", "text")
+    # The kill finder sometimes answers [67, 176] instead of [{"t": 67}, {"t": 176}] (seen on a real match);
+    # a number straight after "[" or "," is a bare list entry, so wrap it. "totalKills": 14 follows ":", untouched.
+    g.util("kills_norm", "regex", {"flags": "g", "pattern": r'(?<=[\[,])\s*(\d+(?:\.\d+)?)\s*(?=[,\]])', "replace": '{"t":$1}'})
+    g.edge("kills_in", "value", "kills_norm", "text")
+    g.util("kills_json", "json-parse", {"fenced": False}).edge("kills_norm", "text", "kills_json", "text")
     g.E = [e for e in g.E if e['to']['node'] != "kill_list"]; g.edge("kills_json", "value", "kill_list", "value")
-    g.util("flex_json", "json-parse", {"fenced": False}).edge("flex_in", "value", "flex_json", "text")
+    g.util("flex_norm", "regex", {"flags": "g", "pattern": r'(?<=[\[,])\s*(\d+(?:\.\d+)?)\s*(?=[,\]])', "replace": '{"start":$1}'})
+    g.edge("flex_in", "value", "flex_norm", "text")
+    g.util("flex_json", "json-parse", {"fenced": False}).edge("flex_norm", "text", "flex_json", "text")
     g.util("flex_list", "json-path", {"path": "flex", "fallback": "[]"}).edge("flex_json", "value", "flex_list", "value")
     g.util("flex_starts", "json-map", {"path": "start", "dropEmpty": True}).edge("flex_list", "value", "flex_starts", "value")
     g.util("flex_alt", "join", {"separator": "|"}).edge("flex_starts", "items", "flex_alt", "value")

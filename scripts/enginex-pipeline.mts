@@ -13,6 +13,7 @@
 //   pnpm enginex:pipeline job <jobId>                  → .pipelines/job-<jobId>.json (one step's engine job, read-only)
 //   pnpm enginex:pipeline start <templateId> '<json>'  → starts a run of a published pipeline (dev analysis only; uses compute)
 //   pnpm enginex:pipeline fetch <storageKey> <file>    → downloads a run's output file (via a 10-minute signed link)
+//   pnpm enginex:pipeline cancel <runId>               → cancels a run (stops its compute)
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const base = process.env.ENGINEX_BASE_URL;
@@ -96,6 +97,9 @@ if (cmd === "get" && a) {
 } else if (cmd === "start" && a && b) {
   const r = await call("POST", `/v1/run/${encodeURIComponent(a)}`, JSON.parse(b));
   show(r);
+} else if (cmd === "cancel" && a) {
+  const r = await call("DELETE", `/v1/runs/${encodeURIComponent(a)}`);
+  console.log(`HTTP ${r.status}, cancel ${a}`);
 } else if (cmd === "fetch" && a && b) {
   // Never print the signed URL (CLAUDE.md §4.3); just save the file.
   const r = await call("POST", "/v1/outputs/sign", { keys: [a], expiresSec: 600 });

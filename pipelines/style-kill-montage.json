@@ -659,6 +659,21 @@
         }
       },
       {
+        "id": "kills_norm",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "(?<=[\\[,])\\s*(\\d+(?:\\.\\d+)?)\\s*(?=[,\\]])",
+          "replace": "{\"t\":$1}"
+        },
+        "position": {
+          "x": 0,
+          "y": 1260
+        }
+      },
+      {
         "id": "kills_json",
         "kind": "engine",
         "engine": "util",
@@ -667,7 +682,22 @@
           "fenced": false
         },
         "position": {
-          "x": 0,
+          "x": 300,
+          "y": 1260
+        }
+      },
+      {
+        "id": "flex_norm",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "(?<=[\\[,])\\s*(\\d+(?:\\.\\d+)?)\\s*(?=[,\\]])",
+          "replace": "{\"start\":$1}"
+        },
+        "position": {
+          "x": 600,
           "y": 1260
         }
       },
@@ -680,7 +710,7 @@
           "fenced": false
         },
         "position": {
-          "x": 300,
+          "x": 900,
           "y": 1260
         }
       },
@@ -694,7 +724,7 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 600,
+          "x": 1200,
           "y": 1260
         }
       },
@@ -708,7 +738,7 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 900,
+          "x": 1500,
           "y": 1260
         }
       },
@@ -721,7 +751,7 @@
           "separator": "|"
         },
         "position": {
-          "x": 1200,
+          "x": 1800,
           "y": 1260
         }
       },
@@ -734,8 +764,8 @@
           "template": "^({{a}}|{{b}}|{{c}})0*$"
         },
         "position": {
-          "x": 1500,
-          "y": 1260
+          "x": 0,
+          "y": 1440
         }
       },
       {
@@ -747,8 +777,8 @@
           "template": "You are planning a 9:16 Valorant/CS2 kill montage: a short intro flex (no kill), then back-to-back kills at mixed speeds, cut to a song.\n\nTHE PLAYER'S KILLS in the gameplay recording, in recording seconds (K is when the kill-feed row appears; the real kill is up to 2 s before K):\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal and speed-up clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: one clip per kill (kills less than 2 s apart share a clip). A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   - Normal: speed 1, start from CLIP STARTS, len 3 to 5 s.\n   - Speed-up: speed 1.5, start from CLIP STARTS, len 3 to 6 s (it plays for len / 1.5).\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS, len 1.5 to 2 s (it plays for 2 x len).\n   Use at least one slow-motion and one speed-up clip, at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role. Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
         },
         "position": {
-          "x": 1800,
-          "y": 1260
+          "x": 300,
+          "y": 1440
         }
       },
       {
@@ -760,7 +790,7 @@
           "indent": 0
         },
         "position": {
-          "x": 0,
+          "x": 600,
           "y": 1440
         }
       },
@@ -773,7 +803,7 @@
           "indent": 0
         },
         "position": {
-          "x": 300,
+          "x": 900,
           "y": 1440
         }
       },
@@ -786,7 +816,7 @@
           "op": "min"
         },
         "position": {
-          "x": 600,
+          "x": 1200,
           "y": 1440
         }
       },
@@ -801,7 +831,7 @@
           "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=(PTS-STARTPTS)/1.5,fps=60,avgblur=sizeX=48:sizeY=1:enable='lt(t,0.07)',split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,atempo=1.5[a$1];"
         },
         "position": {
-          "x": 900,
+          "x": 1500,
           "y": 1440
         }
       },
@@ -816,7 +846,7 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 1200,
+          "x": 1800,
           "y": 1440
         }
       },
@@ -830,8 +860,8 @@
           "path": "len"
         },
         "position": {
-          "x": 1500,
-          "y": 1440
+          "x": 0,
+          "y": 1620
         }
       },
       {
@@ -843,8 +873,8 @@
           "value": 3
         },
         "position": {
-          "x": 1800,
-          "y": 1440
+          "x": 300,
+          "y": 1620
         }
       },
       {
@@ -856,7 +886,7 @@
           "op": "divide"
         },
         "position": {
-          "x": 0,
+          "x": 600,
           "y": 1620
         }
       },
@@ -869,7 +899,7 @@
           "op": "subtract"
         },
         "position": {
-          "x": 300,
+          "x": 900,
           "y": 1620
         }
       },
@@ -881,7 +911,7 @@
           "plan"
         ],
         "position": {
-          "x": 600,
+          "x": 1200,
           "y": 1620
         }
       }
@@ -1339,10 +1369,21 @@
         }
       },
       {
-        "id": "kills_in.value->kills_json.text",
+        "id": "kills_in.value->kills_norm.text",
         "from": {
           "node": "kills_in",
           "port": "value"
+        },
+        "to": {
+          "node": "kills_norm",
+          "port": "text"
+        }
+      },
+      {
+        "id": "kills_norm.text->kills_json.text",
+        "from": {
+          "node": "kills_norm",
+          "port": "text"
         },
         "to": {
           "node": "kills_json",
@@ -1361,10 +1402,21 @@
         }
       },
       {
-        "id": "flex_in.value->flex_json.text",
+        "id": "flex_in.value->flex_norm.text",
         "from": {
           "node": "flex_in",
           "port": "value"
+        },
+        "to": {
+          "node": "flex_norm",
+          "port": "text"
+        }
+      },
+      {
+        "id": "flex_norm.text->flex_json.text",
+        "from": {
+          "node": "flex_norm",
+          "port": "text"
         },
         "to": {
           "node": "flex_json",

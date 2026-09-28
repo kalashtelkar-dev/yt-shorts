@@ -49,4 +49,13 @@ check("lyrical: the hook word is bigger", fc(b).count("fontsize=170") >= 1)
 check("lyrical: only words sung before the montage ends", all(float(x.split(",")[0]) <= 15.59 for x in fc(b).split("between(t,")[1:]))
 check("lyrical: no song words -> renders without text", "drawtext" not in fc(build("style-lyrical-kill-montage", plan(1.25), w=[])))
 check("lyrical: a slur is never shown", "igga" not in fc(b).lower())
+# the kill finder sometimes answers bare numbers: both shapes must give the same clips
+bare = {"kills": K, "totalKills": len(K)}
+def build_with(kills_obj, name="style-kill-montage"):
+    g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    seeds = {("kills_in", "value"): json.dumps(kills_obj), ("flex_in", "value"): json.dumps({"flex": [6.0]}), ("game_dur", "value"): "95",
+             ("song_dur", "value"): 17.9, ("max_dur", "value"): 60, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
+             ("words_in", "value"): "[]", ("plan", "json"): plan(3)}
+    return run(g, seeds, ("render_gate", "value"))
+check("kills as bare numbers (and flex as bare numbers) give the same render", build_with(bare) == build_with(kills))
 sys.exit(1 if failures else 0)

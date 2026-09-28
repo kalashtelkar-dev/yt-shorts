@@ -149,7 +149,7 @@ export async function pollIndexes(settings: Settings, now = Date.now()) {
 }
 
 /** Everything the app can send a style pipeline (styleInput); a style may declare fewer. */
-export const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "words", "maxDurationSec", "variation"];
+export const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "words", "maxDurationSec", "variation", "lyricLook"];
 
 /** The style pipeline's inputs, from the two indexes. Only inputs the pipeline declares are sent. */
 export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<string, unknown>, s: Record<string, unknown>, declared: string[] | null) {
@@ -165,6 +165,7 @@ export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<st
     words: JSON.stringify(s.words ?? []),
     maxDurationSec: String(job.durationSec),
     variation: i.variation ?? "",
+    lyricLook: i.lyricLook ?? "0",
   };
   return declared ? Object.fromEntries(Object.entries(all).filter(([k]) => declared.includes(k))) : all;
 }

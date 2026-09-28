@@ -51,22 +51,33 @@ A 9:16 Valorant/CS2 montage cut to a song: a short **intro flex**, then **back-t
    - **Where it comes from:** a quiet stretch at least 6 s away from any kill.
    - **Speed:** normal, or smooth slow motion if the song is calm there.
 2. **Kill section.**
-   - **Content:** one clip per kill, in time order or in the plan's order. Kills less than 2 s apart share a clip (multi-kill).
-   - **Clip shape:** each clip starts 1.5–3 s before the kill-feed time and ends 0.5–1.5 s after it.
+   - **Content:** one clip per kill, in time order or in the plan's order. A kill that comes within the hold time of the previous one shares its clip (multi-kill).
+   - **Clip shape:** a normal clip starts 2.5 s before the kill-feed time, a slow clip 1 s before.
+   - **Hold after each kill (the user's rule, 2026-09-28):** every kill stays on screen for a minimum time before the next clip starts.
+
+     | Length picked | Hold | Shortest normal clip | Shortest slow clip (plays 2×) |
+     |---|---|---|---|
+     | 15 s | 1 s | 3.5 s | 1.5 s |
+     | 30 s | 1.5 s | 4 s | 1.75 s |
+     | 60 s | 2 s | 4.5 s | 2 s |
+     | 90 s | 4 s | 6.5 s | 3 s |
+     | any other | 2 s | 4.5 s | 2 s |
+
+     The planner is told these minimums. Any kill clip it still makes shorter is lengthened to the minimum, never dropped. The flex clip has no kill and is left alone.
    - **Speed:** each clip gets one speed, chosen per run in a shuffled order (see below).
 3. **End:** the last clip lands on the song's last strong hit, then the picture and sound fade out over 0.8 s.
 
-### Speeds: mixed, never in a fixed order
+### Speeds: normal and slow motion, in a random order
 
 | Speed | Picture | Game audio | Use |
 |---|---|---|---|
 | Normal (1×) | as is | as is | most kills |
 | Slow motion (0.5×) | half speed, smoothed to 60 fps | muted for that clip (song carries it) | the best kill, a multi-kill, a sniper kill |
-| Speed-up (1.5–2×) | fast, with a whip blur on its first frames | sped up to match (pitch kept) | the approach before a kill, or a quick kill |
 
 **Rules:**
-- **Mix:** at least one slow and one speed-up clip. At most 1 slow clip for every 4 clips.
-- **Order:** random every run. A slow clip can be first, third, seventh or last; speed-ups anywhere.
+- **No speed-ups:** removed by the user on 2026-09-28. A speed-up the planner still writes is dropped.
+- **Mix:** at least one slow clip, at most 1 slow clip for every 4 clips.
+- **Order:** random every run. A slow clip can be first, third, seventh or last.
 - **Variety:** the same match must give different orders on different runs, so the app passes a random seed to the planner.
 - **Drop:** a slow clip or the strongest kill lands on the song's drop.
 
@@ -77,7 +88,6 @@ A 9:16 Valorant/CS2 montage cut to a song: a short **intro flex**, then **back-t
   - **Top and bottom:** a blurred, zoomed copy of the same frame.
 - **Transitions, at every cut:**
   - a 0.12 s white flash and a zoom punch (8 %, 0.2 s);
-  - on speed-up clips, a directional (whip) blur on the first 2 frames;
   - on the drop, a longer flash (0.25 s) and a 15 % punch.
 - **Text:** none.
 - **Audio:**
@@ -92,6 +102,7 @@ A 9:16 Valorant/CS2 montage cut to a song: a short **intro flex**, then **back-t
 | Intro flex | missing | New: sample quiet stretches (≥ 6 s from any kill) into time-stamped contact sheets. The vision model picks a 2–4 s window showing knife, inspect or movement. The graph checks it's ≥ 6 s from kills |
 | Song beats, drop | works (loudness every 0.25 s) | none |
 | Clip starts from the pipeline's allow-list, never from the model | works (v5+) | none |
-| Speed per clip | normal and 0.5 only | Add 1.5× / 2× (`setpts=PTS/1.5`, `atempo=1.5`) and a whip blur on the first frames. Planner gets a random seed and the mix rules above |
+| Speed per clip | normal and 0.5 only | Keep only these two (a 1.5× version was built and then removed at the user's request). Planner gets a random seed and the mix rules above |
+| Hold after each kill | missing | The hold table above, by length; kill clips below the minimum are lengthened |
 | Length = song length | works (v8) | Keep v8's ending: the video ends when clips run out. Never hold a frozen frame (v9's bug) |
 | Lyrics / text | cut words in v7/v8 | Off for this style |

@@ -6,7 +6,7 @@ import type { SessionUser } from "@/server/auth";
 import { getBalance, grant } from "@/server/credits";
 import { redis } from "@/server/redis";
 import { cleanFileName, issueUpload } from "@/server/uploads";
-import { createJob } from "./create";
+import { createJob, randomLyricLook, randomVariation } from "./create";
 
 let user: SessionUser;
 let slug: string;
@@ -74,6 +74,15 @@ describe("createJob", () => {
   it("blocks suspended users", async () => {
     const r = await createJob({ ...user, suspendedAt: new Date() } as SessionUser, { catalogSlug: slug, url, durationSec: 30, fields: { playerName: "Aqua" } });
     expect(r).toMatchObject({ ok: false, error: { code: "suspended" } });
+  });
+});
+
+describe("per-run variety", () => {
+  it("places slow motion only (no speed-ups) and picks one of the ten lyric looks", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(randomVariation()).toMatch(/^Put the slow-motion clip [\w -]+\.$/);
+      expect(randomLyricLook()).toMatch(/^\d$/);
+    }
   });
 });
 

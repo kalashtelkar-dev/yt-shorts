@@ -6,7 +6,7 @@
     "version": 1
   },
   "name": "style-lyrical-kill-montage",
-  "description": "Lyrical kill montage (docs/edit-styles/lyrical-kill-montage.md) from a gameplay-index and a song-index: intro flex, mixed normal / 0.5x / 1.5x kill clips placed by a per-run variation, beat-synced, 9:16 blurred layout, flash + zoom (+ whip on speed-ups), song from its start, every sung word centred and glowing, the hook bigger.",
+  "description": "Lyrical kill montage (docs/edit-styles/lyrical-kill-montage.md) from a gameplay-index and a song-index: intro flex, normal and 0.5x kill clips placed by a per-run variation, each kill held a minimum time that grows with the length, beat-synced, 9:16 blurred layout, flash + zoom, song from its start, every sung word centred and glowing, the hook bigger.",
   "graph": {
     "version": 1,
     "nodes": [
@@ -111,7 +111,7 @@
         "kind": "input",
         "name": "variation",
         "type": "text",
-        "sample": "Put the slow-motion clip third and the speed-up clips early.",
+        "sample": "Put the slow-motion clip third.",
         "required": true,
         "position": {
           "x": 300,
@@ -131,6 +131,18 @@
         }
       },
       {
+        "id": "look_in",
+        "kind": "input",
+        "name": "lyricLook",
+        "type": "text",
+        "sample": "0",
+        "required": true,
+        "position": {
+          "x": 900,
+          "y": 180
+        }
+      },
+      {
         "id": "llm",
         "kind": "engine",
         "engine": "llm",
@@ -139,7 +151,7 @@
         },
         "operation": "connection",
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 180
         }
       },
@@ -153,7 +165,7 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 180
         }
       },
@@ -167,7 +179,7 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 180
         }
       },
@@ -180,8 +192,8 @@
           "value": 2.5
         },
         "position": {
-          "x": 1800,
-          "y": 180
+          "x": 0,
+          "y": 360
         }
       },
       {
@@ -193,7 +205,7 @@
           "value": 1.0
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 360
         }
       },
@@ -206,7 +218,7 @@
           "value": 0
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 360
         }
       },
@@ -219,7 +231,7 @@
           "op": "subtract"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 360
         }
       },
@@ -232,7 +244,7 @@
           "op": "subtract"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 360
         }
       },
@@ -245,7 +257,7 @@
           "op": "max"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 360
         }
       },
@@ -258,7 +270,7 @@
           "op": "max"
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 360
         }
       },
@@ -271,8 +283,8 @@
           "separator": ", "
         },
         "position": {
-          "x": 1800,
-          "y": 360
+          "x": 0,
+          "y": 540
         }
       },
       {
@@ -284,7 +296,7 @@
           "separator": ", "
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 540
         }
       },
@@ -297,7 +309,7 @@
           "separator": "|"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 540
         }
       },
@@ -310,7 +322,7 @@
           "separator": "|"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 540
         }
       },
@@ -326,7 +338,7 @@
           "temperature": 0.2
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 540
         }
       },
@@ -340,7 +352,7 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 540
         }
       },
@@ -355,7 +367,7 @@
           "invert": true
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 540
         }
       },
@@ -367,11 +379,11 @@
         "params": {
           "path": "len",
           "op": "less-or-equal",
-          "compareTo": "6.5"
+          "compareTo": "10"
         },
         "position": {
-          "x": 1800,
-          "y": 540
+          "x": 0,
+          "y": 720
         }
       },
       {
@@ -385,7 +397,7 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 720
         }
       },
@@ -399,7 +411,7 @@
           "op": "matches"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 720
         }
       },
@@ -412,7 +424,7 @@
         },
         "operation": "json-pick",
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 720
         }
       },
@@ -425,7 +437,7 @@
         },
         "operation": "json-stringify",
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 720
         }
       },
@@ -438,7 +450,7 @@
           "separator": ""
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 720
         }
       },
@@ -453,7 +465,7 @@
           "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=2*(PTS-STARTPTS),framerate=fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.15*max(0,1-in/20)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.25:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,volume=0,apad=pad_dur=$3[a$1];"
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 720
         }
       },
@@ -468,8 +480,8 @@
           "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
         },
         "position": {
-          "x": 1800,
-          "y": 720
+          "x": 0,
+          "y": 900
         }
       },
       {
@@ -483,7 +495,7 @@
         },
         "operation": "regex",
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 900
         }
       },
@@ -497,7 +509,7 @@
           "path": "len"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 900
         }
       },
@@ -512,7 +524,7 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 900
         }
       },
@@ -526,7 +538,7 @@
           "path": "len"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 900
         }
       },
@@ -539,7 +551,7 @@
           "op": "add"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 900
         }
       },
@@ -552,7 +564,7 @@
           "op": "min"
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 900
         }
       },
@@ -565,8 +577,8 @@
           "value": 0.8
         },
         "position": {
-          "x": 1800,
-          "y": 900
+          "x": 0,
+          "y": 1080
         }
       },
       {
@@ -578,7 +590,7 @@
           "op": "subtract"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1080
         }
       },
@@ -591,7 +603,7 @@
           "template": "[\"-y\", \"-filter_complex\", \"{{a}}{{b}}concat=n={{c}}:v=1:a=1[vc][ga];color=c=black@0:s=1080x1920:r=60,format=rgba,{{g}}split=2[t1][t2];[t1]gblur=sigma=14,colorchannelmixer=aa=1.6[glow];[vc][glow]overlay=0:0:shortest=1:format=auto[vg];[vg][t2]overlay=0:0:shortest=1:format=auto,fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];amovie='{in1}',asetpts=PTS-STARTPTS,aresample=48000[mus];[ga]volume=0.3[gad];[mus][gad]amix=inputs=2:duration=shortest:normalize=0,afade=t=in:st=0:d=0.3,afade=t=out:st={{f}}:d=0.8[a]\", \"-map\", \"[v]\", \"-map\", \"[a]\", \"-c:v\", \"{enc:h264}\", \"-preset\", \"p5\", \"-tune\", \"hq\", \"-rc\", \"vbr\", \"-cq\", \"20\", \"-b:v\", \"0\", \"-maxrate\", \"20M\", \"-bufsize\", \"40M\", \"-profile:v\", \"high\", \"-pix_fmt\", \"yuv420p\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{d}}\", \"montage.mp4\"]"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1080
         }
       },
@@ -604,7 +616,7 @@
         },
         "operation": "json-parse",
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1080
         }
       },
@@ -615,7 +627,7 @@
         "params": {},
         "operation": "merge",
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1080
         }
       },
@@ -628,7 +640,7 @@
         },
         "operation": "text",
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1080
         }
       },
@@ -641,7 +653,7 @@
         },
         "operation": "compare",
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1080
         }
       },
@@ -652,8 +664,8 @@
         "params": {},
         "operation": "gate",
         "position": {
-          "x": 1800,
-          "y": 1080
+          "x": 0,
+          "y": 1260
         }
       },
       {
@@ -666,7 +678,7 @@
         },
         "operation": "custom",
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1260
         }
       },
@@ -676,23 +688,18 @@
         "engine": "video",
         "operation": "custom",
         "params": {
-          "args": [
-            "-y",
-            "-f",
-            "data",
-            "-i",
-            "{in0}",
-            "-map",
-            "0",
-            "-c",
-            "copy",
-            "-f",
-            "data",
-            "{out}"
-          ],
           "tier": "gpu",
           "input": [
-            "https://github.com/google/fonts/raw/main/ofl/cinzeldecorative/CinzelDecorative-Regular.ttf"
+            "https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/archivoblack/ArchivoBlack-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/bungee/Bungee-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/apache/luckiestguy/LuckiestGuy-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/titanone/TitanOne-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/blackopsone/BlackOpsOne-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/russoone/RussoOne-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/bowlbyone/BowlbyOne-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/rubikmonoone/RubikMonoOne-Regular.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/passionone/PassionOne-Black.ttf"
           ],
           "outputs": [
             {
@@ -702,7 +709,7 @@
           ]
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1260
         }
       },
@@ -717,7 +724,7 @@
           "compareTo": "0.3"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1260
         }
       },
@@ -733,7 +740,7 @@
           "invert": true
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1260
         }
       },
@@ -746,7 +753,7 @@
           "keys": "word, start, end"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1260
         }
       },
@@ -759,7 +766,7 @@
           "indent": 0
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1260
         }
       },
@@ -772,8 +779,8 @@
           "separator": ""
         },
         "position": {
-          "x": 1800,
-          "y": 1260
+          "x": 0,
+          "y": 1440
         }
       },
       {
@@ -787,7 +794,7 @@
           "replace": "$1\u2019"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1440
         }
       },
@@ -802,7 +809,7 @@
           "replace": "$1"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1440
         }
       },
@@ -813,11 +820,10 @@
         "operation": "regex",
         "params": {
           "flags": "g",
-          "pattern": "\\{(?=[^}]*\"word\":\"([A-Za-z0-9\u2019\\-]{1,14})\")(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"end\":\"?(\\d+(?:\\.\\d+)?)\"?)[^}]*\\}",
-          "replace": "\u00a7drawtext=fontfile='{in2}':text='$1':fontsize=130:fontcolor=white:x=(w-text_w)/2:y=h*0.5-text_h/2:alpha='min(1,(t-$2)/0.08)':enable='between(t,$2,$3)',\u00a7"
+          "pattern": "\\{(?=[^}]*\"word\":\"([A-Za-z0-9\u2019\\-]{1,14})\")(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"end\":\"?(\\d+(?:\\.\\d+)?)\"?)[^}]*\\}"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1440
         }
       },
@@ -832,7 +838,7 @@
           "replace": "$1"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1440
         }
       },
@@ -847,7 +853,7 @@
           "replace": "{\"t\":$1}"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1440
         }
       },
@@ -860,7 +866,7 @@
           "fenced": false
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1440
         }
       },
@@ -875,8 +881,8 @@
           "replace": "{\"start\":$1}"
         },
         "position": {
-          "x": 1800,
-          "y": 1440
+          "x": 0,
+          "y": 1620
         }
       },
       {
@@ -888,7 +894,7 @@
           "fenced": false
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1620
         }
       },
@@ -902,7 +908,7 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1620
         }
       },
@@ -916,7 +922,7 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1620
         }
       },
@@ -929,7 +935,7 @@
           "separator": "|"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1620
         }
       },
@@ -942,7 +948,7 @@
           "template": "^({{a}}|{{b}}|{{c}})0*$"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1620
         }
       },
@@ -952,10 +958,10 @@
         "engine": "util",
         "operation": "template",
         "params": {
-          "template": "You are planning a 9:16 Valorant/CS2 lyrical kill montage: a very short intro flex, then back-to-back kills at mixed speeds, with the song's words on screen, cut to a song.\n\nTHE PLAYER'S KILLS in the gameplay recording, in recording seconds (K is when the kill-feed row appears; the real kill is up to 2 s before K):\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal and speed-up clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nTHE SONG'S LYRICS, word by word with start and end in song seconds (may be empty): {{j}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 1 to 1.5 s, ending on a beat. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: one clip per kill (kills less than 2 s apart share a clip). A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   - Normal: speed 1, start from CLIP STARTS, len 3 to 5 s.\n   - Speed-up: speed 1.5, start from CLIP STARTS, len 3 to 6 s (it plays for len / 1.5).\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS, len 1.5 to 2 s (it plays for 2 x len).\n   Use at least one slow-motion and one speed-up clip, at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\n6. hook: the song's hook, the one word sung most often or most strongly while the montage plays (English letters only, copied from the lyrics), or \"\" if there are no lyrics. It is shown bigger each time it is sung.\nWrite each clip's keys in exactly this order: id, start, len, speed, role. Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"hook\": string, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"hook\": \"\", \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
+          "template": "You are planning a 9:16 Valorant/CS2 lyrical kill montage: a very short intro flex, then back-to-back kills at normal speed and in slow motion, with the song's words on screen, cut to a song.\n\nTHE PLAYER'S KILLS in the gameplay recording, in recording seconds (K is when the kill-feed row appears; the real kill is up to 2 s before K):\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nTHE SONG'S LYRICS, word by word with start and end in song seconds (may be empty): {{j}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 1 to 1.5 s, ending on a beat. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: one clip per kill. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   Every kill must stay on screen at least {{p}} s after it happens before the next clip starts, so:\n   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).\n   If the next kill in the recording comes less than {{p}} s after a kill, put both in one clip and make it long enough to keep playing {{p}} s after the second.\n   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\n6. hook: the song's hook, the one word sung most often or most strongly while the montage plays (English letters only, copied from the lyrics), or \"\" if there are no lyrics. It is shown bigger each time it is sung.\nWrite each clip's keys in exactly this order: id, start, len, speed, role. Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"hook\": string, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"hook\": \"\", \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1620
         }
       },
@@ -968,8 +974,8 @@
           "indent": 0
         },
         "position": {
-          "x": 1800,
-          "y": 1620
+          "x": 0,
+          "y": 1800
         }
       },
       {
@@ -981,7 +987,7 @@
           "indent": 0
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1800
         }
       },
@@ -994,34 +1000,19 @@
           "op": "min"
         },
         "position": {
-          "x": 300,
-          "y": 1800
-        }
-      },
-      {
-        "id": "fast_filters",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\\{(?=[^}]*\"id\":\"?(\\d+)\"?)(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"len\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"speed\":\"?1\\.50*\"?[,}])[^}]*\\}",
-          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=(PTS-STARTPTS)/1.5,fps=60,avgblur=sizeX=48:sizeY=1:enable='lt(t,0.07)',split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,atempo=1.5[a$1];"
-        },
-        "position": {
           "x": 600,
           "y": 1800
         }
       },
       {
-        "id": "fast_clips",
+        "id": "speed_ok",
         "kind": "engine",
         "engine": "util",
         "operation": "json-filter",
         "params": {
           "path": "speed",
-          "op": "greater",
-          "compareTo": "1"
+          "op": "matches",
+          "compareTo": "^(1(\\.0+)?|0?\\.50*)$"
         },
         "position": {
           "x": 900,
@@ -1029,13 +1020,12 @@
         }
       },
       {
-        "id": "fast_sum",
+        "id": "hold_table",
         "kind": "engine",
         "engine": "util",
-        "operation": "json-aggregate",
+        "operation": "text",
         "params": {
-          "op": "sum",
-          "path": "len"
+          "value": "\n15;1;3.5;1.5;[0-2](?:\\.\\d+)?|3(?:\\.(?:[0-4]\\d*)?)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-4]\\d*)?)?\n30;1.5;4;1.75;[0-3](?:\\.\\d+)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-6]\\d*|7[0-4]\\d*|7)?)?\n60;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?\n90;4;6.5;3;[0-5](?:\\.\\d+)?|6(?:\\.(?:[0-4]\\d*)?)?;[0-2](?:\\.\\d+)?\ndefault;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?"
         },
         "position": {
           "x": 1200,
@@ -1043,12 +1033,12 @@
         }
       },
       {
-        "id": "three",
+        "id": "hold_pattern",
         "kind": "engine",
         "engine": "util",
-        "operation": "number",
+        "operation": "template",
         "params": {
-          "value": 3
+          "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
         },
         "position": {
           "x": 1500,
@@ -1056,12 +1046,12 @@
         }
       },
       {
-        "id": "fast_saving",
+        "id": "hold_sec",
         "kind": "engine",
         "engine": "util",
-        "operation": "math",
+        "operation": "regex",
         "params": {
-          "op": "divide"
+          "replace": "$1"
         },
         "position": {
           "x": 1800,
@@ -1069,16 +1059,159 @@
         }
       },
       {
-        "id": "play_net",
+        "id": "len_normal",
         "kind": "engine",
         "engine": "util",
-        "operation": "math",
+        "operation": "regex",
         "params": {
-          "op": "subtract"
+          "replace": "$2"
         },
         "position": {
           "x": 0,
           "y": 1980
+        }
+      },
+      {
+        "id": "len_slow",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$3"
+        },
+        "position": {
+          "x": 300,
+          "y": 1980
+        }
+      },
+      {
+        "id": "short_normal",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$4"
+        },
+        "position": {
+          "x": 600,
+          "y": 1980
+        }
+      },
+      {
+        "id": "short_slow",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$5"
+        },
+        "position": {
+          "x": 900,
+          "y": 1980
+        }
+      },
+      {
+        "id": "plan_text",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-stringify",
+        "params": {
+          "indent": 0
+        },
+        "position": {
+          "x": 1200,
+          "y": 1980
+        }
+      },
+      {
+        "id": "hold_normal_pattern",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "(\\{(?=[^{}]*\"speed\":\"?1(?:\\.0+)?\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
+        },
+        "position": {
+          "x": 1500,
+          "y": 1980
+        }
+      },
+      {
+        "id": "hold_normal_len",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "$1{{a}}"
+        },
+        "position": {
+          "x": 1800,
+          "y": 1980
+        }
+      },
+      {
+        "id": "hold_normal",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g"
+        },
+        "position": {
+          "x": 0,
+          "y": 2160
+        }
+      },
+      {
+        "id": "hold_slow_pattern",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "(\\{(?=[^{}]*\"speed\":\"?0?\\.50*\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
+        },
+        "position": {
+          "x": 300,
+          "y": 2160
+        }
+      },
+      {
+        "id": "hold_slow_len",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "$1{{a}}"
+        },
+        "position": {
+          "x": 600,
+          "y": 2160
+        }
+      },
+      {
+        "id": "hold_slow",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g"
+        },
+        "position": {
+          "x": 900,
+          "y": 2160
+        }
+      },
+      {
+        "id": "plan_held",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-parse",
+        "params": {
+          "fenced": false
+        },
+        "position": {
+          "x": 1200,
+          "y": 2160
         }
       },
       {
@@ -1090,8 +1223,8 @@
           "template": "{{a}}"
         },
         "position": {
-          "x": 300,
-          "y": 1980
+          "x": 1500,
+          "y": 2160
         }
       },
       {
@@ -1103,8 +1236,8 @@
           "fenced": false
         },
         "position": {
-          "x": 600,
-          "y": 1980
+          "x": 1800,
+          "y": 2160
         }
       },
       {
@@ -1117,8 +1250,136 @@
           "op": "less-or-equal"
         },
         "position": {
+          "x": 0,
+          "y": 2340
+        }
+      },
+      {
+        "id": "look_table",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "text",
+        "params": {
+          "value": "\n0;{in0};fontsize=167:fontcolor=white:borderw=7:bordercolor=black:shadowx=9:shadowy=9:shadowcolor=black@0.85;fontsize=200:fontcolor=white:borderw=7:bordercolor=black:shadowx=9:shadowy=9:shadowcolor=black@0.85\n1;{in1};fontsize=119:fontcolor=white:borderw=7:bordercolor=black:shadowx=0:shadowy=12:shadowcolor=black@0.75;fontsize=143:fontcolor=white:borderw=7:bordercolor=black:shadowx=0:shadowy=12:shadowcolor=black@0.75\n2;{in2};fontsize=106:fontcolor=0xFFD83D:borderw=6:bordercolor=black:shadowx=8:shadowy=8:shadowcolor=black;fontsize=127:fontcolor=0xFFD83D:borderw=6:bordercolor=black:shadowx=8:shadowy=8:shadowcolor=black\n3;{in3};fontsize=128:fontcolor=white:borderw=8:bordercolor=0x141414:shadowx=9:shadowy=9:shadowcolor=0xE5484D;fontsize=154:fontcolor=white:borderw=8:bordercolor=0x141414:shadowx=9:shadowy=9:shadowcolor=0xE5484D\n4;{in4};fontsize=122:fontcolor=white:borderw=7:bordercolor=0x5B21B6:shadowx=8:shadowy=8:shadowcolor=black@0.8;fontsize=147:fontcolor=white:borderw=7:bordercolor=0x5B21B6:shadowx=8:shadowy=8:shadowcolor=black@0.8\n5;{in5};fontsize=122:fontcolor=0xF4F4F4:borderw=6:bordercolor=black:shadowx=10:shadowy=10:shadowcolor=black@0.7;fontsize=146:fontcolor=0xF4F4F4:borderw=6:bordercolor=black:shadowx=10:shadowy=10:shadowcolor=black@0.7\n6;{in6};fontsize=129:fontcolor=0x3DE8FF:borderw=6:bordercolor=0x03141A:shadowx=8:shadowy=8:shadowcolor=black@0.85;fontsize=155:fontcolor=0x3DE8FF:borderw=6:bordercolor=0x03141A:shadowx=8:shadowy=8:shadowcolor=black@0.85\n7;{in7};fontsize=110:fontcolor=white:borderw=7:bordercolor=black:shadowx=6:shadowy=10:shadowcolor=0xFF3B30;fontsize=132:fontcolor=white:borderw=7:bordercolor=black:shadowx=6:shadowy=10:shadowcolor=0xFF3B30\n8;{in8};fontsize=88:fontcolor=white:borderw=6:bordercolor=black:shadowx=8:shadowy=8:shadowcolor=black@0.8;fontsize=106:fontcolor=white:borderw=6:bordercolor=black:shadowx=8:shadowy=8:shadowcolor=black@0.8\n9;{in9};fontsize=148:fontcolor=0xFFE14D:borderw=7:bordercolor=0x1A1200:shadowx=9:shadowy=9:shadowcolor=black@0.85;fontsize=177:fontcolor=0xFFE14D:borderw=7:bordercolor=0x1A1200:shadowx=9:shadowy=9:shadowcolor=black@0.85\ndefault;{in0};fontsize=167:fontcolor=white:borderw=7:bordercolor=black:shadowx=9:shadowy=9:shadowcolor=black@0.85;fontsize=200:fontcolor=white:borderw=7:bordercolor=black:shadowx=9:shadowy=9:shadowcolor=black@0.85"
+        },
+        "position": {
+          "x": 300,
+          "y": 2340
+        }
+      },
+      {
+        "id": "look_pattern",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
+        },
+        "position": {
+          "x": 600,
+          "y": 2340
+        }
+      },
+      {
+        "id": "look_font",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$1"
+        },
+        "position": {
           "x": 900,
-          "y": 1980
+          "y": 2340
+        }
+      },
+      {
+        "id": "look_word",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$2"
+        },
+        "position": {
+          "x": 1200,
+          "y": 2340
+        }
+      },
+      {
+        "id": "look_hook",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$3"
+        },
+        "position": {
+          "x": 1500,
+          "y": 2340
+        }
+      },
+      {
+        "id": "font_args",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "[\"-y\", \"-f\", \"data\", \"-i\", \"{{a}}\", \"-map\", \"0\", \"-c\", \"copy\", \"-f\", \"data\", \"{out}\"]"
+        },
+        "position": {
+          "x": 1800,
+          "y": 2340
+        }
+      },
+      {
+        "id": "font_args_json",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-parse",
+        "params": {
+          "fenced": false
+        },
+        "position": {
+          "x": 0,
+          "y": 2520
+        }
+      },
+      {
+        "id": "font_args_list",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "merge",
+        "params": {},
+        "position": {
+          "x": 300,
+          "y": 2520
+        }
+      },
+      {
+        "id": "word_replace",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "\u00a7drawtext=fontfile='{in2}':text='$1':{{a}}:x=(w-text_w)/2:y=h*0.5-text_h/2:alpha='min(1,(t-$2)/0.08)':enable='between(t,$2,$3)',\u00a7"
+        },
+        "position": {
+          "x": 600,
+          "y": 2520
+        }
+      },
+      {
+        "id": "hook_replace",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "\u00a7drawtext=fontfile='{in2}':text='$1':{{a}}:x=(w-text_w)/2:y=h*0.5-text_h/2:alpha='min(1,(t-$2)/0.08)':enable='between(t,$2,$3)',\u00a7"
+        },
+        "position": {
+          "x": 900,
+          "y": 2520
         }
       },
       {
@@ -1132,7 +1393,7 @@
         },
         "position": {
           "x": 1200,
-          "y": 1980
+          "y": 2520
         }
       },
       {
@@ -1147,7 +1408,7 @@
         },
         "position": {
           "x": 1500,
-          "y": 1980
+          "y": 2520
         }
       },
       {
@@ -1160,7 +1421,7 @@
         },
         "position": {
           "x": 1800,
-          "y": 1980
+          "y": 2520
         }
       },
       {
@@ -1169,12 +1430,11 @@
         "engine": "util",
         "operation": "regex",
         "params": {
-          "flags": "gi",
-          "replace": "\u00a7drawtext=fontfile='{in2}':text='$1':fontsize=170:fontcolor=white:x=(w-text_w)/2:y=h*0.5-text_h/2:alpha='min(1,(t-$2)/0.08)':enable='between(t,$2,$3)',\u00a7"
+          "flags": "gi"
         },
         "position": {
           "x": 0,
-          "y": 2160
+          "y": 2700
         }
       },
       {
@@ -1186,7 +1446,7 @@
         ],
         "position": {
           "x": 300,
-          "y": 2160
+          "y": 2700
         }
       }
     ],
@@ -1200,17 +1460,6 @@
         "to": {
           "node": "plan",
           "port": "connection"
-        }
-      },
-      {
-        "id": "plan.json->clips.value",
-        "from": {
-          "node": "plan",
-          "port": "json"
-        },
-        "to": {
-          "node": "clips",
-          "port": "value"
         }
       },
       {
@@ -1309,17 +1558,6 @@
         },
         "to": {
           "node": "has_speed",
-          "port": "value"
-        }
-      },
-      {
-        "id": "has_speed.items->len_max.value",
-        "from": {
-          "node": "has_speed",
-          "port": "items"
-        },
-        "to": {
-          "node": "len_max",
           "port": "value"
         }
       },
@@ -2028,20 +2266,9 @@
         }
       },
       {
-        "id": "slow_filters.text->fast_filters.text",
+        "id": "slow_filters.text->segment_filters.text",
         "from": {
           "node": "slow_filters",
-          "port": "text"
-        },
-        "to": {
-          "node": "fast_filters",
-          "port": "text"
-        }
-      },
-      {
-        "id": "fast_filters.text->segment_filters.text",
-        "from": {
-          "node": "fast_filters",
           "port": "text"
         },
         "to": {
@@ -2050,75 +2277,31 @@
         }
       },
       {
-        "id": "start_allowed.items->fast_clips.value",
+        "id": "has_speed.items->speed_ok.value",
         "from": {
-          "node": "start_allowed",
+          "node": "has_speed",
           "port": "items"
         },
         "to": {
-          "node": "fast_clips",
+          "node": "speed_ok",
           "port": "value"
         }
       },
       {
-        "id": "fast_clips.items->fast_sum.value",
+        "id": "speed_ok.items->len_max.value",
         "from": {
-          "node": "fast_clips",
+          "node": "speed_ok",
           "port": "items"
         },
         "to": {
-          "node": "fast_sum",
+          "node": "len_max",
           "port": "value"
         }
       },
       {
-        "id": "fast_sum.value->fast_saving.a",
-        "from": {
-          "node": "fast_sum",
-          "port": "value"
-        },
-        "to": {
-          "node": "fast_saving",
-          "port": "a"
-        }
-      },
-      {
-        "id": "three.value->fast_saving.b",
-        "from": {
-          "node": "three",
-          "port": "value"
-        },
-        "to": {
-          "node": "fast_saving",
-          "port": "b"
-        }
-      },
-      {
-        "id": "play_time.value->play_net.a",
+        "id": "play_time.value->end_time.a",
         "from": {
           "node": "play_time",
-          "port": "value"
-        },
-        "to": {
-          "node": "play_net",
-          "port": "a"
-        }
-      },
-      {
-        "id": "fast_saving.value->play_net.b",
-        "from": {
-          "node": "fast_saving",
-          "port": "value"
-        },
-        "to": {
-          "node": "play_net",
-          "port": "b"
-        }
-      },
-      {
-        "id": "play_net.value->end_time.a",
-        "from": {
-          "node": "play_net",
           "port": "value"
         },
         "to": {
@@ -2135,6 +2318,303 @@
         "to": {
           "node": "end_time",
           "port": "b"
+        }
+      },
+      {
+        "id": "max_dur.value->hold_pattern.a",
+        "from": {
+          "node": "max_dur",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "hold_table.value->hold_sec.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_sec",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->hold_sec.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_sec",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_table.value->len_normal.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "len_normal",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->len_normal.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "len_normal",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_table.value->len_slow.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "len_slow",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->len_slow.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "len_slow",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_table.value->short_normal.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "short_normal",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->short_normal.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "short_normal",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_table.value->short_slow.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "short_slow",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->short_slow.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "short_slow",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "len_normal.text->plan_prompt.o",
+        "from": {
+          "node": "len_normal",
+          "port": "text"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "o"
+        }
+      },
+      {
+        "id": "hold_sec.text->plan_prompt.p",
+        "from": {
+          "node": "hold_sec",
+          "port": "text"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "p"
+        }
+      },
+      {
+        "id": "len_slow.text->plan_prompt.q",
+        "from": {
+          "node": "len_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "q"
+        }
+      },
+      {
+        "id": "plan.json->plan_text.value",
+        "from": {
+          "node": "plan",
+          "port": "json"
+        },
+        "to": {
+          "node": "plan_text",
+          "port": "value"
+        }
+      },
+      {
+        "id": "short_normal.text->hold_normal_pattern.a",
+        "from": {
+          "node": "short_normal",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_normal_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "len_normal.text->hold_normal_len.a",
+        "from": {
+          "node": "len_normal",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_normal_len",
+          "port": "a"
+        }
+      },
+      {
+        "id": "plan_text.value->hold_normal.text",
+        "from": {
+          "node": "plan_text",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_normal",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_normal_pattern.value->hold_normal.pattern",
+        "from": {
+          "node": "hold_normal_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_normal",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_normal_len.value->hold_normal.replace",
+        "from": {
+          "node": "hold_normal_len",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_normal",
+          "port": "replace"
+        }
+      },
+      {
+        "id": "short_slow.text->hold_slow_pattern.a",
+        "from": {
+          "node": "short_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_slow_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "len_slow.text->hold_slow_len.a",
+        "from": {
+          "node": "len_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_slow_len",
+          "port": "a"
+        }
+      },
+      {
+        "id": "hold_normal.text->hold_slow.text",
+        "from": {
+          "node": "hold_normal",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_slow",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_slow_pattern.value->hold_slow.pattern",
+        "from": {
+          "node": "hold_slow_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_slow",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_slow_len.value->hold_slow.replace",
+        "from": {
+          "node": "hold_slow_len",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_slow",
+          "port": "replace"
+        }
+      },
+      {
+        "id": "hold_slow.text->plan_held.text",
+        "from": {
+          "node": "hold_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "plan_held",
+          "port": "text"
+        }
+      },
+      {
+        "id": "plan_held.value->clips.value",
+        "from": {
+          "node": "plan_held",
+          "port": "value"
+        },
+        "to": {
+          "node": "clips",
+          "port": "value"
         }
       },
       {
@@ -2237,6 +2717,160 @@
         }
       },
       {
+        "id": "look_in.value->look_pattern.a",
+        "from": {
+          "node": "look_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "look_table.value->look_font.text",
+        "from": {
+          "node": "look_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_font",
+          "port": "text"
+        }
+      },
+      {
+        "id": "look_pattern.value->look_font.pattern",
+        "from": {
+          "node": "look_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_font",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "look_table.value->look_word.text",
+        "from": {
+          "node": "look_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_word",
+          "port": "text"
+        }
+      },
+      {
+        "id": "look_pattern.value->look_word.pattern",
+        "from": {
+          "node": "look_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_word",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "look_table.value->look_hook.text",
+        "from": {
+          "node": "look_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_hook",
+          "port": "text"
+        }
+      },
+      {
+        "id": "look_pattern.value->look_hook.pattern",
+        "from": {
+          "node": "look_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "look_hook",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "look_font.text->font_args.a",
+        "from": {
+          "node": "look_font",
+          "port": "text"
+        },
+        "to": {
+          "node": "font_args",
+          "port": "a"
+        }
+      },
+      {
+        "id": "font_args.value->font_args_json.text",
+        "from": {
+          "node": "font_args",
+          "port": "value"
+        },
+        "to": {
+          "node": "font_args_json",
+          "port": "text"
+        }
+      },
+      {
+        "id": "font_args_json.value->font_args_list.a",
+        "from": {
+          "node": "font_args_json",
+          "port": "value"
+        },
+        "to": {
+          "node": "font_args_list",
+          "port": "a"
+        }
+      },
+      {
+        "id": "font_args_list.value->caption_font.args",
+        "from": {
+          "node": "font_args_list",
+          "port": "value"
+        },
+        "to": {
+          "node": "caption_font",
+          "port": "args"
+        }
+      },
+      {
+        "id": "look_word.text->word_replace.a",
+        "from": {
+          "node": "look_word",
+          "port": "text"
+        },
+        "to": {
+          "node": "word_replace",
+          "port": "a"
+        }
+      },
+      {
+        "id": "look_hook.text->hook_replace.a",
+        "from": {
+          "node": "look_hook",
+          "port": "text"
+        },
+        "to": {
+          "node": "hook_replace",
+          "port": "a"
+        }
+      },
+      {
+        "id": "word_replace.value->caption_draw.replace",
+        "from": {
+          "node": "word_replace",
+          "port": "value"
+        },
+        "to": {
+          "node": "caption_draw",
+          "port": "replace"
+        }
+      },
+      {
         "id": "plan.json->hook.value",
         "from": {
           "node": "plan",
@@ -2278,6 +2912,17 @@
         "to": {
           "node": "hook_draw",
           "port": "pattern"
+        }
+      },
+      {
+        "id": "hook_replace.value->hook_draw.replace",
+        "from": {
+          "node": "hook_replace",
+          "port": "value"
+        },
+        "to": {
+          "node": "hook_draw",
+          "port": "replace"
         }
       },
       {

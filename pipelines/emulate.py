@@ -92,7 +92,7 @@ def run(graph, seeds, target):
             return {"value": t}
         if op == "regex":
             f = p.get("flags", "")
-            return {"text": js_regex_sub(jstr(v.get("pattern", p.get("pattern"))), p.get("replace", ""), jstr(v["text"]), "g" in f, re.I if "i" in f else 0)}
+            return {"text": js_regex_sub(jstr(v.get("pattern", p.get("pattern"))), jstr(v.get("replace", p.get("replace", ""))), jstr(v["text"]), "g" in f, re.I if "i" in f else 0)}
         if op == "replace":
             return {"value": jstr(v["text"]).replace(p["find"], jstr(v.get("replace", p.get("replace", ""))))}
         if op == "math":

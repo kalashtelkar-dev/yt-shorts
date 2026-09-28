@@ -43,9 +43,9 @@ export type CreateJobInput = z.input<typeof createJobInput>;
 
 // Staged styles shuffle where the slow-motion and speed-up clips go on every run (docs/edit-styles/kill-montage.md).
 const SLOW_AT = ["first", "second", "third", "in the middle", "second to last", "last", "on the drop"];
-const FAST_AT = ["early", "spread out", "late", "right before the slow-motion clip", "on every other kill"];
-export const randomVariation = () =>
-  `Put the slow-motion clip ${SLOW_AT[randomInt(SLOW_AT.length)]} and the speed-up clips ${FAST_AT[randomInt(FAST_AT.length)]}.`;
+export const randomVariation = () => `Put the slow-motion clip ${SLOW_AT[randomInt(SLOW_AT.length)]}.`;
+/** One of the lyrical style's ten looks (font, colours); the pipeline maps the digit (pipelines/build.py LOOKS). */
+export const randomLyricLook = () => String(randomInt(10));
 
 const fail = (code: string, message: string, field?: string): ActionResult<never> => ({ ok: false, error: { code, message, field } });
 
@@ -107,7 +107,10 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
     throw e;
   }
 
-  if (item.indexTemplates) pipelineInput.variation = randomVariation();
+  if (item.indexTemplates) {
+    pipelineInput.variation = randomVariation();
+    pipelineInput.lyricLook = randomLyricLook();
+  }
 
   const settings = await getSettings();
   const [{ active }] = await db

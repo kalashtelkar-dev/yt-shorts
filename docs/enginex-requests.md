@@ -227,3 +227,12 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 
 - **The bug:** every lyrical render failed with "Invalid data found when processing input". The copied v8 edge put the caption font first into `make_montage`, so the font became `{in0}` and ffmpeg read it as the gameplay. The filter expects `{in0}` gameplay, `{in1}` song, `{in2}` font.
 - **The fix:** the same nodes and edges, reordered. `check.py` now asserts the render input order for both styles.
+
+## 21. Both styles (2026-09-28): two speeds, a hold after each kill, ten lyric looks
+
+**Status:** imported as drafts, waiting to be published: style-kill-montage `tpl_dUktOJyZOv-K` (replaces `tpl_L9GCGiLR4xdr`), style-lyrical-kill-montage `tpl_DFhPatfbngu3` (replaces `tpl_yd7ODZifX40-`). The index pipelines are unchanged.
+
+- **No speed-ups:** the 1.5× clips and their nodes are gone (`fast_filters`, `fast_clips`, `fast_sum`, `three`, `fast_saving`, `play_net`). A new `speed_ok` filter drops any clip that isn't 1× or 0.5×.
+- **Hold after each kill:** a `hold_table` keyed by `maxDurationSec` gives 1 s at 15 s, 1.5 s at 30 s, 2 s at 60 s and 4 s at 90 s (2 s otherwise). It sets the planner's minimum clip lengths (normal = 2.5 + hold, slow = 1 + hold/2). Two regexes on the plan text then lengthen any kill clip below its minimum before the clip checks (`hold_normal`, `hold_slow`); the flex clip is excluded. `len_max` goes from 6.5 to 10.
+- **Lyric looks (lyrical):** a new input `lyricLook` (a digit 0–9, random per job from the app) picks one of ten looks from `look_table`. `caption_font` downloads the ten fonts, and its command (from `font_args`) copies the chosen one out as `caption.ttf`. The look's word and hook styles (size, colour, outline, shadow) are wired into `caption_draw` and `hook_draw` as their `replace`.
+- **Checked** with `check.py` (32 checks, including the "below N" regexes against every value from 0 to 9.99) and with a local ffmpeg 7.1 render of looks 3 and 6 on a real match.

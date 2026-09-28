@@ -39,7 +39,7 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
 ```
 
 1. **Intro flex, about 1 s:** a no-kill moment as in the Kill Montage (knife, inspect, movement). It ends on a white flash.
-2. **Kill section:** same rules as the Kill Montage, with mixed normal, slow and speed-up clips in a shuffled order every run, and transitions at every cut. On top of it, the lyrics.
+2. **Kill section:** same rules as the Kill Montage (normal and slow clips in a shuffled order every run, the same hold after each kill, transitions at every cut). On top of it, the lyrics.
 3. **End:** the last clip lands on the song's last hit, then a 0.8 s fade.
 
 ## Lyrics on screen
@@ -51,10 +51,11 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
   - **Every sung word** while the montage plays, **one word at a time**, from its start to its end (the next word replaces it).
   - **The hook word** (the most repeated word or line, e.g. "UNTOUCHABLE") gets the big treatment each time it's sung, as in the reference.
 - **Where:** centred on the gameplay band (never in the blurred bands, never styled like subtitles).
-- **Look:**
-  - **The user's choice:** Cinzel Decorative (Google Fonts): white, glowing, big (140–150 px), capitals.
-  - **The reference's alternative:** a heavy rounded sans (e.g. Montserrat ExtraBold).
-  - **Glow:** a blurred copy of the text under the sharp text.
+- **Look: a different one every job (the user's choice, 2026-09-28):** thick, as bold as possible, with shadows.
+  - **Ten looks:** the app sends a random digit (`lyricLook`), and the pipeline maps it to a heavy Google font with its own colours: Anton, Archivo Black, Bungee, Luckiest Guy, Titan One, Black Ops One, Russo One, Bowlby One, Rubik Mono One and Passion One Black. The list is `LOOKS` in `pipelines/build.py`.
+  - **On every word:** a 6–8 px dark outline and a hard offset shadow (black, or red or purple in some looks), plus the glow (a blurred copy of the text under it).
+  - **Size:** the hook word is sized so an 11-letter word fits across 1000 px in that font; other words are 1/1.2 of that.
+  - **Before (replaced):** Cinzel Decorative, white, glowing, 130 px.
 - **Motion, in steps:**
   1. **Now:** each word appears on its sung start with a quick scale-pop (≈ 0.1 s) and leaves on its end.
   2. **Next:** the hook word is built letter by letter over its sung duration (prefix reveal), as in the reference.
@@ -68,5 +69,5 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
 | Everything in the Kill Montage table | see `kill-montage.md` | same |
 | Vocals, then word timestamps | works (v3+) | none |
 | Words on screen | v8: running words in the bottom band, plus cut words in the centre (the user rejected the bottom band) | Show the running words in the centre, one at a time, glowing. Drop the separate cut-word track, since the running words already land on the cuts. Avoid v5's mistake of letting the planner write caption text |
-| Hook treatment | missing | The planner names the hook word (a copy from the words list). Each time it's sung it renders larger (150 px) with a pop |
+| Hook treatment | missing | The planner names the hook word (a copy from the words list). Each time it's sung it renders larger (1.2× the look's word size) |
 | Intro flex ≈ 1 s | missing | Same as the Kill Montage, with the flex capped at 1–1.5 s |

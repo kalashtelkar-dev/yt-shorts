@@ -117,7 +117,7 @@ THE PLAYER'S KILLS in the gameplay recording, in recording seconds (K is when th
 The recording is {{{{f}}}} s long.
 
 INTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{{{m}}}}
-CLIP STARTS for normal and speed-up clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{{{k}}}}
+CLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{{{k}}}}
 SLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill, same order): {{{{l}}}}
 
 THE SONG: {{{{g}}}} s long. Loudness every 0.25 s as "time,RMS dB" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):
@@ -129,16 +129,61 @@ VARIATION for this run (follow it, so every run looks different): {{{{n}}}}
 Plan it:
 1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).
 2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role "flex", len {flex_len}. If there are no flex moments, the first kill clip opens the montage instead.
-3. Then the kill section: one clip per kill (kills less than 2 s apart share a clip). A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.
-   - Normal: speed 1, start from CLIP STARTS, len 3 to 5 s.
-   - Speed-up: speed 1.5, start from CLIP STARTS, len 3 to 6 s (it plays for len / 1.5).
-   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS, len 1.5 to 2 s (it plays for 2 x len).
-   Use at least one slow-motion and one speed-up clip, at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.
+3. Then the kill section: one clip per kill. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.
+   Every kill must stay on screen at least {{{{p}}}} s after it happens before the next clip starts, so:
+   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{{{o}}}} s, up to 2 s longer to land the cut on a beat.
+   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{{{q}}}} s, up to 1 s longer (it plays for 2 x len).
+   If the next kill in the recording comes less than {{{{p}}}} s after a kill, put both in one clip and make it long enough to keep playing {{{{p}}}} s after the second.
+   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.
    Make play times whole beats where you can, so the cuts land on beats.
 4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.
 5. totalKills is the number of kills inside the kept clips.
 {step6}Write each clip's keys in exactly this order: id, start, len, speed, role. Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.
 Answer exactly in this shape: {{"beatSec": number, "dropAtSec": number, {hook_key}"clips": [{{"id": integer, "start": number, "len": number, "speed": number, "role": string}}], "totalKills": integer, "notes": string}}. If there are no kills, answer {{"beatSec": 0.5, "dropAtSec": 0, {hook_zero}"clips": [], "totalKills": 0, "notes": "no kills"}}."""
+
+# Seconds each kill stays on screen before the next clip, by the montage length the user picked (the user's rule:
+# 15 s -> 1, 60 s -> 2, 90 s -> 4; 30 s sits between). Any other length uses "default".
+HOLD = {"15": 1, "30": 1.5, "60": 2, "90": 4, "default": 2}
+LEAD_NORMAL, LEAD_SLOW = 2.5, 1.0  # the kill's place in a clip (lead_normal / lead_slow in v8)
+
+def lt_regex(x):
+    """A regex for the decimal numbers below x (0 <= x < 10, at most 2 decimals), e.g. 4.5 -> 0-3.xx, 4, 4.0-4.4x."""
+    i, _, f = f"{x:.2f}".rstrip("0").rstrip(".").partition(".")
+    i = int(i); alts = [f"[0-{i - 1}](?:\\.\\d+)?"] if i else []
+    if f:
+        frac = [f[:k] + (f"[0-{int(f[k]) - 1}]" if f[k] != "0" else "") + "\\d*" for k in range(len(f)) if f[k] != "0"] + [f[:k] for k in range(1, len(f))]
+        alts.append(f"{i}(?:\\.(?:{'|'.join(frac)})?)?")
+    return "|".join(alts) or "(?!)"
+
+def hold_table():
+    # rows "\n<length>;<hold>;<min len normal>;<min len slow>;<regex: below normal>;<regex: below slow>"
+    rows = []
+    for d, t in HOLD.items():
+        ln, ls = LEAD_NORMAL + t, LEAD_SLOW + t / 2  # slow plays at half speed: t/2 s of recording fill t s on screen
+        rows.append(f"\n{d};{t:g};{ln:g};{ls:g};{lt_regex(ln)};{lt_regex(ls)}")
+    return "".join(rows)
+
+# Lyric looks, one picked per job by the app's lyricLook digit (0-9). Heavy fonts, outline + hard shadow; the hook word
+# fits an 11-letter word across 1000 px, other words are 1/1.2 of that.
+FONT_BASE = "https://github.com/google/fonts/raw/main/"
+LOOKS = [
+    ("ofl/anton/Anton-Regular.ttf", 200, "fontcolor=white:borderw=7:bordercolor=black:shadowx=9:shadowy=9:shadowcolor=black@0.85"),
+    ("ofl/archivoblack/ArchivoBlack-Regular.ttf", 143, "fontcolor=white:borderw=7:bordercolor=black:shadowx=0:shadowy=12:shadowcolor=black@0.75"),
+    ("ofl/bungee/Bungee-Regular.ttf", 127, "fontcolor=0xFFD83D:borderw=6:bordercolor=black:shadowx=8:shadowy=8:shadowcolor=black"),
+    ("apache/luckiestguy/LuckiestGuy-Regular.ttf", 154, "fontcolor=white:borderw=8:bordercolor=0x141414:shadowx=9:shadowy=9:shadowcolor=0xE5484D"),
+    ("ofl/titanone/TitanOne-Regular.ttf", 147, "fontcolor=white:borderw=7:bordercolor=0x5B21B6:shadowx=8:shadowy=8:shadowcolor=black@0.8"),
+    ("ofl/blackopsone/BlackOpsOne-Regular.ttf", 146, "fontcolor=0xF4F4F4:borderw=6:bordercolor=black:shadowx=10:shadowy=10:shadowcolor=black@0.7"),
+    ("ofl/russoone/RussoOne-Regular.ttf", 155, "fontcolor=0x3DE8FF:borderw=6:bordercolor=0x03141A:shadowx=8:shadowy=8:shadowcolor=black@0.85"),
+    ("ofl/bowlbyone/BowlbyOne-Regular.ttf", 132, "fontcolor=white:borderw=7:bordercolor=black:shadowx=6:shadowy=10:shadowcolor=0xFF3B30"),
+    ("ofl/rubikmonoone/RubikMonoOne-Regular.ttf", 106, "fontcolor=white:borderw=6:bordercolor=black:shadowx=8:shadowy=8:shadowcolor=black@0.8"),
+    ("ofl/passionone/PassionOne-Black.ttf", 177, "fontcolor=0xFFE14D:borderw=7:bordercolor=0x1A1200:shadowx=9:shadowy=9:shadowcolor=black@0.85"),
+]
+assert len(LOOKS) == 10  # the app sends one digit
+
+def look_table():
+    # rows "\n<digit>;<font input>;<word style>;<hook style>"; "default" (look 0) catches anything else
+    rows = [(str(i), f"{{in{i}}}", f"fontsize={round(h / 1.2)}:{st}", f"fontsize={h}:{st}") for i, (_, h, st) in enumerate(LOOKS)]
+    return "".join(f"\n{';'.join(r)}" for r in rows + [("default",) + rows[0][1:]])
 
 def style(lyrical):
     g = G()
@@ -146,9 +191,9 @@ def style(lyrical):
                                    ("flex_in", "flex", "text", '{"flex":[{"start":20,"what":"knife out"}]}'), ("game_dur", "gameDurationSec", "text", "2400"),
                                    ("audio_in", "audio", "file:audio", ""), ("song_dur", "songDurationSec", "text", "22"),
                                    ("loudness_in", "loudness", "text", "0.000000,-30.0"), ("max_dur", "maxDurationSec", "text", "60"),
-                                   ("variation_in", "variation", "text", "Put the slow-motion clip third and the speed-up clips early.")):
+                                   ("variation_in", "variation", "text", "Put the slow-motion clip third.")):
         inp(g, nid, name, typ, sample)
-    if lyrical: inp(g, "words_in", "words", "text", "[]")
+    if lyrical: inp(g, "words_in", "words", "text", "[]"); inp(g, "look_in", "lyricLook", "text", "0")
     g.take("llm", "kill_list", "kill_times", "lead_normal", "lead_slow", "zero_num", "starts_normal_raw", "starts_slow_raw", "starts_normal", "starts_slow",
            "starts_normal_csv", "starts_slow_csv", "starts_normal_alt", "starts_slow_alt", "plan", "clips", "has_speed", "len_max", "len_min", "start_allowed",
            "clip_id_range", "clip_id_range_text", "clip_items_joined", "slow_filters", "segment_filters", "segment_labels",
@@ -177,8 +222,8 @@ def style(lyrical):
     # planner
     extra = ("\nTHE SONG'S LYRICS, word by word with start and end in song seconds (may be empty): {{j}}\n" if lyrical else "")
     step6 = ('6. hook: the song\'s hook, the one word sung most often or most strongly while the montage plays (English letters only, copied from the lyrics), or "" if there are no lyrics. It is shown bigger each time it is sung.\n' if lyrical else "")
-    prompt = PLAN_HEAD.format(style="lyrical kill montage: a very short intro flex, then back-to-back kills at mixed speeds, with the song's words on screen" if lyrical
-                              else "kill montage: a short intro flex (no kill), then back-to-back kills at mixed speeds",
+    prompt = PLAN_HEAD.format(style="lyrical kill montage: a very short intro flex, then back-to-back kills at normal speed and in slow motion, with the song's words on screen" if lyrical
+                              else "kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion",
                               extra=extra, flex_len="1 to 1.5 s, ending on a beat" if lyrical else "2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s",
                               step6=step6, hook_key='"hook": string, ' if lyrical else "", hook_zero='"hook": "", ' if lyrical else "")
     g.util("plan_prompt", "template", {"template": prompt})
@@ -191,22 +236,36 @@ def style(lyrical):
         g.edge(n, p, "plan_prompt", port)
     if lyrical: g.edge("words_in", "value", "plan_prompt", "j")
     g.edge("llm", "connection", "plan", "connection").edge("plan_prompt", "value", "plan", "prompt")
-    # speed-up clips: 1.5x picture and game audio, a horizontal whip blur on the first frames
-    normal = SRC["segment_filters"]["params"]["replace"]
-    a1, a2 = "setpts=PTS-STARTPTS,fps=60,split=2[f$1][b$1];", "aresample=48000[a$1];"
-    assert a1 in normal and a2 in normal
-    fast = normal.replace(a1, "setpts=(PTS-STARTPTS)/1.5,fps=60,avgblur=sizeX=48:sizeY=1:enable='lt(t,0.07)',split=2[f$1][b$1];").replace(a2, "aresample=48000,atempo=1.5[a$1];")
-    g.util("fast_filters", "regex", {"flags": "g", "pattern": clip_pat(r'1\.50*'), "replace": fast})
+    # two speeds only (normal, 0.5x); a planned speed-up matches neither render pattern and is dropped by speed_ok
     g.N["slow_filters"]["params"]["pattern"] = clip_pat(r'0?\.50*'); g.N["segment_filters"]["params"]["pattern"] = clip_pat(r'1(?:\.0+)?')
     g.E = [e for e in g.E if not (e['to']['node'] in ("slow_filters", "segment_filters") and e['to']['port'] == "text")]
-    g.edge("clip_items_joined", "value", "slow_filters", "text").edge("slow_filters", "text", "fast_filters", "text").edge("fast_filters", "text", "segment_filters", "text")
-    # play time = sum(len) + sum(len of slow) - sum(len of fast) / 3 ; end = min(play time, cap)
-    g.util("fast_clips", "json-filter", {"path": "speed", "op": "greater", "compareTo": "1"}).edge("start_allowed", "items", "fast_clips", "value")
-    g.util("fast_sum", "json-aggregate", {"op": "sum", "path": "len"}).edge("fast_clips", "items", "fast_sum", "value")
-    g.util("three", "number", {"value": 3}).util("fast_saving", "math", {"op": "divide"}).edge("fast_sum", "value", "fast_saving", "a").edge("three", "value", "fast_saving", "b")
-    g.util("play_net", "math", {"op": "subtract"}).edge("play_time", "value", "play_net", "a").edge("fast_saving", "value", "play_net", "b")
+    g.edge("clip_items_joined", "value", "slow_filters", "text").edge("slow_filters", "text", "segment_filters", "text")
+    g.util("speed_ok", "json-filter", {"path": "speed", "op": "matches", "compareTo": r"^(1(\.0+)?|0?\.50*)$"})
+    g.E = [e for e in g.E if e['to']['node'] != "len_max"]
+    g.edge("has_speed", "items", "speed_ok", "value").edge("speed_ok", "items", "len_max", "value")
+    g.N["len_max"]["params"]["compareTo"] = "10"
+    # end = min(sum(len) + sum(len of slow), cap)
     g.E = [e for e in g.E if e['to']['node'] != "end_time"]
-    g.edge("play_net", "value", "end_time", "a").edge("cap", "value", "end_time", "b")
+    g.edge("play_time", "value", "end_time", "a").edge("cap", "value", "end_time", "b")
+    # hold after each kill, by the length the user picked (HOLD); kill clips shorter than that are lengthened, never dropped
+    g.util("hold_table", "text", {"value": hold_table()})
+    g.util("hold_pattern", "template", {"template": r"^[\s\S]*?\n(?:{{a}}|default);([^;\n]*);([^;\n]*);([^;\n]*);([^;\n]*);([^\n]*)[\s\S]*$"})
+    g.edge("max_dur", "value", "hold_pattern", "a")
+    for i, nid in enumerate(("hold_sec", "len_normal", "len_slow", "short_normal", "short_slow"), 1):
+        g.util(nid, "regex", {"replace": f"${i}"}).edge("hold_table", "value", nid, "text").edge("hold_pattern", "value", nid, "pattern")
+    for port, nid in (("o", "len_normal"), ("p", "hold_sec"), ("q", "len_slow")): g.edge(nid, "text", "plan_prompt", port)
+    # on the plan as text: a clip object (no nested braces), not the flex clip, with this speed, whose len is below the minimum
+    clamp = r'(\{(?=[^{}]*"speed":"?SPEED"?[,}])(?![^{}]*"role":"flex")[^{}]*?"len":)"?(?:{{a}})"?(?=[,}])'
+    g.util("plan_text", "json-stringify", {"indent": 0}).edge("plan", "json", "plan_text", "value")
+    prev = ("plan_text", "value")
+    for nid, speed, short, length in (("hold_normal", r"1(?:\.0+)?", "short_normal", "len_normal"), ("hold_slow", r"0?\.50*", "short_slow", "len_slow")):
+        g.util(nid + "_pattern", "template", {"template": clamp.replace("SPEED", speed)}).edge(short, "text", nid + "_pattern", "a")
+        g.util(nid + "_len", "template", {"template": "$1{{a}}"}).edge(length, "text", nid + "_len", "a")
+        g.util(nid, "regex", {"flags": "g"}).edge(*prev, nid, "text")
+        g.edge(nid + "_pattern", "value", nid, "pattern").edge(nid + "_len", "value", nid, "replace")
+        prev = (nid, "text")
+    g.util("plan_held", "json-parse", {"fenced": False}).edge(*prev, "plan_held", "text")
+    g.E = [e for e in g.E if e['to']['node'] != "clips"]; g.edge("plan_held", "value", "clips", "value")
     # render inputs: {in0} gameplay, {in1} song (, {in2} caption font)
     g.edge("video_in", "value", "make_montage", "input").edge("audio_in", "value", "make_montage", "input")
     tpl = g.N["ffmpeg_args"]["params"]["template"]
@@ -231,15 +290,30 @@ def style(lyrical):
         base = g.N["caption_draw"]["params"]["replace"]
         assert "fontsize=84" in base and "y=h*0.875-text_h/2" in base, base
         word = base.replace("y=h*0.875-text_h/2", "y=h*0.5-text_h/2").replace(":enable=", ":alpha='min(1,(t-$2)/0.08)':enable=")
-        g.N["caption_draw"]["params"]["replace"] = word.replace("fontsize=84", "fontsize=130")
+        # this job's look: its font is copied out of the ten downloaded ones, its styles go into both drawtext templates
+        assert "fontsize=84:fontcolor=white" in word, word
+        look = word.replace("fontsize=84:fontcolor=white", "{{a}}")
+        g.util("look_table", "text", {"value": look_table()})
+        g.util("look_pattern", "template", {"template": r"^[\s\S]*?\n(?:{{a}}|default);([^;\n]*);([^;\n]*);([^\n]*)[\s\S]*$"})
+        g.edge("look_in", "value", "look_pattern", "a")
+        for i, nid in enumerate(("look_font", "look_word", "look_hook"), 1):
+            g.util(nid, "regex", {"replace": f"${i}"}).edge("look_table", "value", nid, "text").edge("look_pattern", "value", nid, "pattern")
+        g.N["caption_font"]["params"] = {"tier": "gpu", "input": [FONT_BASE + f for f, _, _ in LOOKS], "outputs": [{"name": "caption.ttf", "contentType": "font/ttf"}]}
+        g.util("font_args", "template", {"template": json.dumps(["-y", "-f", "data", "-i", "{{a}}", "-map", "0", "-c", "copy", "-f", "data", "{out}"])})
+        g.util("font_args_json", "json-parse", {"fenced": False}).util("font_args_list", "merge", {})
+        g.edge("look_font", "text", "font_args", "a").edge("font_args", "value", "font_args_json", "text").edge("font_args_json", "value", "font_args_list", "a")
+        g.edge("font_args_list", "value", "caption_font", "args")
+        g.util("word_replace", "template", {"template": look}).edge("look_word", "text", "word_replace", "a")
+        g.util("hook_replace", "template", {"template": look}).edge("look_hook", "text", "hook_replace", "a")
+        g.N["caption_draw"]["params"].pop("replace"); g.edge("word_replace", "value", "caption_draw", "replace")
         g.util("hook", "json-path", {"path": "hook", "fallback": '""'}).edge("plan", "json", "hook", "value")
         g.util("hook_clean", "regex", {"flags": "g", "pattern": "[^A-Za-z’]", "replace": ""}).edge("hook", "value", "hook_clean", "text")
         cap_pat = g.N["caption_draw"]["params"]["pattern"]
         assert '"word":"([A-Za-z0-9’\\-]{1,14})"' in cap_pat, cap_pat
         g.util("hook_pattern", "template", {"template": cap_pat.replace('"word":"([A-Za-z0-9’\\-]{1,14})"', '"word":"({{a}})"')})
         g.edge("hook_clean", "text", "hook_pattern", "a")
-        g.util("hook_draw", "regex", {"flags": "gi", "replace": word.replace("fontsize=84", "fontsize=170")})
-        g.edge("hook_pattern", "value", "hook_draw", "pattern")
+        g.util("hook_draw", "regex", {"flags": "gi"})
+        g.edge("hook_pattern", "value", "hook_draw", "pattern").edge("hook_replace", "value", "hook_draw", "replace")
         g.E = [e for e in g.E if not (e['to']['node'] == "caption_draw" and e['to']['port'] == "text")]
         g.edge("word_punct", "text", "hook_draw", "text").edge("hook_draw", "text", "caption_draw", "text")
         g.edge("caption_keep", "text", "ffmpeg_args", "g")
@@ -247,7 +321,7 @@ def style(lyrical):
     g.edge("make_montage", "file", "out", "montage").edge("plan", "json", "out", "plan")
     name = "style-lyrical-kill-montage" if lyrical else "style-kill-montage"
     return g.doc(name, ("Lyrical kill montage (docs/edit-styles/lyrical-kill-montage.md)" if lyrical else "Kill montage (docs/edit-styles/kill-montage.md)")
-                 + " from a gameplay-index and a song-index: intro flex, mixed normal / 0.5x / 1.5x kill clips placed by a per-run variation, beat-synced, 9:16 blurred layout, flash + zoom (+ whip on speed-ups), song from its start"
+                 + " from a gameplay-index and a song-index: intro flex, normal and 0.5x kill clips placed by a per-run variation, each kill held a minimum time that grows with the length, beat-synced, 9:16 blurred layout, flash + zoom, song from its start"
                  + (", every sung word centred and glowing, the hook bigger." if lyrical else ", no text."))
 
 if __name__ == "__main__":

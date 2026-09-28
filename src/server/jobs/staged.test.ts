@@ -28,7 +28,7 @@ async function newJob(opts: { playerName?: string; musicUrl?: string; style?: st
         userId,
         catalogItemId,
         catalogSlug: "kill-montage",
-        templateId: opts.style ?? "tpl_L9GCGiLR4xdr",
+        templateId: opts.style ?? "tpl_dUktOJyZOv-K",
         indexTemplates: INDEX,
         input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
         source: "url",
@@ -55,7 +55,7 @@ beforeEach(async () => {
   await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
   const [item] = await db
     .insert(catalogItems)
-    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_L9GCGiLR4xdr", indexTemplates: INDEX, stageMap })
+    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_dUktOJyZOv-K", indexTemplates: INDEX, stageMap })
     .returning({ id: catalogItems.id });
   catalogItemId = item.id;
   await grant(userId, 2000, "test");
@@ -142,10 +142,11 @@ describe("staged styles (mock Engine X)", () => {
   it("sends a style only the inputs it declares", () => {
     const g = { video: "v.mp4", durationSec: 1800, kills: { kills: [{ t: 51 }], totalKills: 1 }, flex: { flex: [] } };
     const s = { audio: "a.m4a", durationSec: 22, loudness: "0,-30", words: [{ word: "so", start: 1, end: 1.3, score: 0.9 }] };
-    const job = { input: { variation: "slow last" }, durationSec: 60 };
+    const job = { input: { variation: "slow last", lyricLook: "7" }, durationSec: 60 };
     const kill = styleInput(job, g, s, ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"]);
     expect(kill).not.toHaveProperty("words");
+    expect(kill).not.toHaveProperty("lyricLook");
     expect(kill).toMatchObject({ maxDurationSec: "60", variation: "slow last", gameDurationSec: "1800", kills: JSON.stringify(g.kills) });
-    expect(styleInput(job, g, s, null)).toHaveProperty("words", JSON.stringify(s.words));
+    expect(styleInput(job, g, s, null)).toMatchObject({ words: JSON.stringify(s.words), lyricLook: "7" });
   });
 });

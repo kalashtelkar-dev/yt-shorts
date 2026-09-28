@@ -6,7 +6,7 @@
     "version": 1
   },
   "name": "style-kill-montage",
-  "description": "Kill montage (docs/edit-styles/kill-montage.md) from a gameplay-index and a song-index: intro flex, mixed normal / 0.5x / 1.5x kill clips placed by a per-run variation, beat-synced, 9:16 blurred layout, flash + zoom (+ whip on speed-ups), song from its start, no text.",
+  "description": "Kill montage (docs/edit-styles/kill-montage.md) from a gameplay-index and a song-index: intro flex, normal and 0.5x kill clips placed by a per-run variation, each kill held a minimum time that grows with the length, beat-synced, 9:16 blurred layout, flash + zoom, song from its start, no text.",
   "graph": {
     "version": 1,
     "nodes": [
@@ -111,7 +111,7 @@
         "kind": "input",
         "name": "variation",
         "type": "text",
-        "sample": "Put the slow-motion clip third and the speed-up clips early.",
+        "sample": "Put the slow-motion clip third.",
         "required": true,
         "position": {
           "x": 300,
@@ -355,7 +355,7 @@
         "params": {
           "path": "len",
           "op": "less-or-equal",
-          "compareTo": "6.5"
+          "compareTo": "10"
         },
         "position": {
           "x": 1500,
@@ -774,7 +774,7 @@
         "engine": "util",
         "operation": "template",
         "params": {
-          "template": "You are planning a 9:16 Valorant/CS2 kill montage: a short intro flex (no kill), then back-to-back kills at mixed speeds, cut to a song.\n\nTHE PLAYER'S KILLS in the gameplay recording, in recording seconds (K is when the kill-feed row appears; the real kill is up to 2 s before K):\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal and speed-up clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: one clip per kill (kills less than 2 s apart share a clip). A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   - Normal: speed 1, start from CLIP STARTS, len 3 to 5 s.\n   - Speed-up: speed 1.5, start from CLIP STARTS, len 3 to 6 s (it plays for len / 1.5).\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS, len 1.5 to 2 s (it plays for 2 x len).\n   Use at least one slow-motion and one speed-up clip, at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role. Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
+          "template": "You are planning a 9:16 Valorant/CS2 kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion, cut to a song.\n\nTHE PLAYER'S KILLS in the gameplay recording, in recording seconds (K is when the kill-feed row appears; the real kill is up to 2 s before K):\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: one clip per kill. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   Every kill must stay on screen at least {{p}} s after it happens before the next clip starts, so:\n   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).\n   If the next kill in the recording comes less than {{p}} s after a kill, put both in one clip and make it long enough to keep playing {{p}} s after the second.\n   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role. Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
         },
         "position": {
           "x": 300,
@@ -821,14 +821,14 @@
         }
       },
       {
-        "id": "fast_filters",
+        "id": "speed_ok",
         "kind": "engine",
         "engine": "util",
-        "operation": "regex",
+        "operation": "json-filter",
         "params": {
-          "flags": "g",
-          "pattern": "\\{(?=[^}]*\"id\":\"?(\\d+)\"?)(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"len\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"speed\":\"?1\\.50*\"?[,}])[^}]*\\}",
-          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=(PTS-STARTPTS)/1.5,fps=60,avgblur=sizeX=48:sizeY=1:enable='lt(t,0.07)',split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,atempo=1.5[a$1];"
+          "path": "speed",
+          "op": "matches",
+          "compareTo": "^(1(\\.0+)?|0?\\.50*)$"
         },
         "position": {
           "x": 1500,
@@ -836,14 +836,12 @@
         }
       },
       {
-        "id": "fast_clips",
+        "id": "hold_table",
         "kind": "engine",
         "engine": "util",
-        "operation": "json-filter",
+        "operation": "text",
         "params": {
-          "path": "speed",
-          "op": "greater",
-          "compareTo": "1"
+          "value": "\n15;1;3.5;1.5;[0-2](?:\\.\\d+)?|3(?:\\.(?:[0-4]\\d*)?)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-4]\\d*)?)?\n30;1.5;4;1.75;[0-3](?:\\.\\d+)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-6]\\d*|7[0-4]\\d*|7)?)?\n60;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?\n90;4;6.5;3;[0-5](?:\\.\\d+)?|6(?:\\.(?:[0-4]\\d*)?)?;[0-2](?:\\.\\d+)?\ndefault;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?"
         },
         "position": {
           "x": 1800,
@@ -851,13 +849,12 @@
         }
       },
       {
-        "id": "fast_sum",
+        "id": "hold_pattern",
         "kind": "engine",
         "engine": "util",
-        "operation": "json-aggregate",
+        "operation": "template",
         "params": {
-          "op": "sum",
-          "path": "len"
+          "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
         },
         "position": {
           "x": 0,
@@ -865,12 +862,12 @@
         }
       },
       {
-        "id": "three",
+        "id": "hold_sec",
         "kind": "engine",
         "engine": "util",
-        "operation": "number",
+        "operation": "regex",
         "params": {
-          "value": 3
+          "replace": "$1"
         },
         "position": {
           "x": 300,
@@ -878,12 +875,12 @@
         }
       },
       {
-        "id": "fast_saving",
+        "id": "len_normal",
         "kind": "engine",
         "engine": "util",
-        "operation": "math",
+        "operation": "regex",
         "params": {
-          "op": "divide"
+          "replace": "$2"
         },
         "position": {
           "x": 600,
@@ -891,16 +888,146 @@
         }
       },
       {
-        "id": "play_net",
+        "id": "len_slow",
         "kind": "engine",
         "engine": "util",
-        "operation": "math",
+        "operation": "regex",
         "params": {
-          "op": "subtract"
+          "replace": "$3"
         },
         "position": {
           "x": 900,
           "y": 1620
+        }
+      },
+      {
+        "id": "short_normal",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$4"
+        },
+        "position": {
+          "x": 1200,
+          "y": 1620
+        }
+      },
+      {
+        "id": "short_slow",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "replace": "$5"
+        },
+        "position": {
+          "x": 1500,
+          "y": 1620
+        }
+      },
+      {
+        "id": "plan_text",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-stringify",
+        "params": {
+          "indent": 0
+        },
+        "position": {
+          "x": 1800,
+          "y": 1620
+        }
+      },
+      {
+        "id": "hold_normal_pattern",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "(\\{(?=[^{}]*\"speed\":\"?1(?:\\.0+)?\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
+        },
+        "position": {
+          "x": 0,
+          "y": 1800
+        }
+      },
+      {
+        "id": "hold_normal_len",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "$1{{a}}"
+        },
+        "position": {
+          "x": 300,
+          "y": 1800
+        }
+      },
+      {
+        "id": "hold_normal",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g"
+        },
+        "position": {
+          "x": 600,
+          "y": 1800
+        }
+      },
+      {
+        "id": "hold_slow_pattern",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "(\\{(?=[^{}]*\"speed\":\"?0?\\.50*\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
+        },
+        "position": {
+          "x": 900,
+          "y": 1800
+        }
+      },
+      {
+        "id": "hold_slow_len",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "$1{{a}}"
+        },
+        "position": {
+          "x": 1200,
+          "y": 1800
+        }
+      },
+      {
+        "id": "hold_slow",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g"
+        },
+        "position": {
+          "x": 1500,
+          "y": 1800
+        }
+      },
+      {
+        "id": "plan_held",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-parse",
+        "params": {
+          "fenced": false
+        },
+        "position": {
+          "x": 1800,
+          "y": 1800
         }
       },
       {
@@ -911,8 +1038,8 @@
           "plan"
         ],
         "position": {
-          "x": 1200,
-          "y": 1620
+          "x": 0,
+          "y": 1980
         }
       }
     ],
@@ -926,17 +1053,6 @@
         "to": {
           "node": "plan",
           "port": "connection"
-        }
-      },
-      {
-        "id": "plan.json->clips.value",
-        "from": {
-          "node": "plan",
-          "port": "json"
-        },
-        "to": {
-          "node": "clips",
-          "port": "value"
         }
       },
       {
@@ -1035,17 +1151,6 @@
         },
         "to": {
           "node": "has_speed",
-          "port": "value"
-        }
-      },
-      {
-        "id": "has_speed.items->len_max.value",
-        "from": {
-          "node": "has_speed",
-          "port": "items"
-        },
-        "to": {
-          "node": "len_max",
           "port": "value"
         }
       },
@@ -1666,20 +1771,9 @@
         }
       },
       {
-        "id": "slow_filters.text->fast_filters.text",
+        "id": "slow_filters.text->segment_filters.text",
         "from": {
           "node": "slow_filters",
-          "port": "text"
-        },
-        "to": {
-          "node": "fast_filters",
-          "port": "text"
-        }
-      },
-      {
-        "id": "fast_filters.text->segment_filters.text",
-        "from": {
-          "node": "fast_filters",
           "port": "text"
         },
         "to": {
@@ -1688,75 +1782,31 @@
         }
       },
       {
-        "id": "start_allowed.items->fast_clips.value",
+        "id": "has_speed.items->speed_ok.value",
         "from": {
-          "node": "start_allowed",
+          "node": "has_speed",
           "port": "items"
         },
         "to": {
-          "node": "fast_clips",
+          "node": "speed_ok",
           "port": "value"
         }
       },
       {
-        "id": "fast_clips.items->fast_sum.value",
+        "id": "speed_ok.items->len_max.value",
         "from": {
-          "node": "fast_clips",
+          "node": "speed_ok",
           "port": "items"
         },
         "to": {
-          "node": "fast_sum",
+          "node": "len_max",
           "port": "value"
         }
       },
       {
-        "id": "fast_sum.value->fast_saving.a",
-        "from": {
-          "node": "fast_sum",
-          "port": "value"
-        },
-        "to": {
-          "node": "fast_saving",
-          "port": "a"
-        }
-      },
-      {
-        "id": "three.value->fast_saving.b",
-        "from": {
-          "node": "three",
-          "port": "value"
-        },
-        "to": {
-          "node": "fast_saving",
-          "port": "b"
-        }
-      },
-      {
-        "id": "play_time.value->play_net.a",
+        "id": "play_time.value->end_time.a",
         "from": {
           "node": "play_time",
-          "port": "value"
-        },
-        "to": {
-          "node": "play_net",
-          "port": "a"
-        }
-      },
-      {
-        "id": "fast_saving.value->play_net.b",
-        "from": {
-          "node": "fast_saving",
-          "port": "value"
-        },
-        "to": {
-          "node": "play_net",
-          "port": "b"
-        }
-      },
-      {
-        "id": "play_net.value->end_time.a",
-        "from": {
-          "node": "play_net",
           "port": "value"
         },
         "to": {
@@ -1773,6 +1823,303 @@
         "to": {
           "node": "end_time",
           "port": "b"
+        }
+      },
+      {
+        "id": "max_dur.value->hold_pattern.a",
+        "from": {
+          "node": "max_dur",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "hold_table.value->hold_sec.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_sec",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->hold_sec.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_sec",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_table.value->len_normal.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "len_normal",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->len_normal.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "len_normal",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_table.value->len_slow.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "len_slow",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->len_slow.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "len_slow",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_table.value->short_normal.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "short_normal",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->short_normal.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "short_normal",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_table.value->short_slow.text",
+        "from": {
+          "node": "hold_table",
+          "port": "value"
+        },
+        "to": {
+          "node": "short_slow",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_pattern.value->short_slow.pattern",
+        "from": {
+          "node": "hold_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "short_slow",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "len_normal.text->plan_prompt.o",
+        "from": {
+          "node": "len_normal",
+          "port": "text"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "o"
+        }
+      },
+      {
+        "id": "hold_sec.text->plan_prompt.p",
+        "from": {
+          "node": "hold_sec",
+          "port": "text"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "p"
+        }
+      },
+      {
+        "id": "len_slow.text->plan_prompt.q",
+        "from": {
+          "node": "len_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "q"
+        }
+      },
+      {
+        "id": "plan.json->plan_text.value",
+        "from": {
+          "node": "plan",
+          "port": "json"
+        },
+        "to": {
+          "node": "plan_text",
+          "port": "value"
+        }
+      },
+      {
+        "id": "short_normal.text->hold_normal_pattern.a",
+        "from": {
+          "node": "short_normal",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_normal_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "len_normal.text->hold_normal_len.a",
+        "from": {
+          "node": "len_normal",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_normal_len",
+          "port": "a"
+        }
+      },
+      {
+        "id": "plan_text.value->hold_normal.text",
+        "from": {
+          "node": "plan_text",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_normal",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_normal_pattern.value->hold_normal.pattern",
+        "from": {
+          "node": "hold_normal_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_normal",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_normal_len.value->hold_normal.replace",
+        "from": {
+          "node": "hold_normal_len",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_normal",
+          "port": "replace"
+        }
+      },
+      {
+        "id": "short_slow.text->hold_slow_pattern.a",
+        "from": {
+          "node": "short_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_slow_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "len_slow.text->hold_slow_len.a",
+        "from": {
+          "node": "len_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_slow_len",
+          "port": "a"
+        }
+      },
+      {
+        "id": "hold_normal.text->hold_slow.text",
+        "from": {
+          "node": "hold_normal",
+          "port": "text"
+        },
+        "to": {
+          "node": "hold_slow",
+          "port": "text"
+        }
+      },
+      {
+        "id": "hold_slow_pattern.value->hold_slow.pattern",
+        "from": {
+          "node": "hold_slow_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_slow",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "hold_slow_len.value->hold_slow.replace",
+        "from": {
+          "node": "hold_slow_len",
+          "port": "value"
+        },
+        "to": {
+          "node": "hold_slow",
+          "port": "replace"
+        }
+      },
+      {
+        "id": "hold_slow.text->plan_held.text",
+        "from": {
+          "node": "hold_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "plan_held",
+          "port": "text"
+        }
+      },
+      {
+        "id": "plan_held.value->clips.value",
+        "from": {
+          "node": "plan_held",
+          "port": "value"
+        },
+        "to": {
+          "node": "clips",
+          "port": "value"
         }
       },
       {

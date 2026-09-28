@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { adminAuditLog, catalogItems, catalogRevisions, jobs, settings, users } from "@/db/schema";
 import { costReport, updateSettings } from "./billing";
-import { deleteCatalogItem, saveCatalogItem, validateTemplate } from "./catalog";
+import { deleteCatalogItem, pipelinesInUse, saveCatalogItem, validateTemplate } from "./catalog";
 import type { Admin } from "./guard";
 
 let admin: Admin;
@@ -30,6 +30,22 @@ beforeEach(async () => {
   await db.insert(users).values({ id, name: "a", email: `${id}@test.local`, role: "admin" });
   admin = { id, email: `${id}@test.local`, name: "a" };
   slug = `km-${id.slice(0, 8)}`;
+});
+
+describe("pipelinesInUse", () => {
+  it("groups every pipeline by stage and lists the styles that share it", () => {
+    const index = { gameplay: "tpl_g", gameplayUpload: "tpl_gu", song: "tpl_s" };
+    const groups = pipelinesInUse([
+      { title: "Kill Montage", enabled: true, templateId: "tpl_k", uploadTemplateId: null, indexTemplates: index },
+      { title: "Lyrical", enabled: false, templateId: "tpl_l", uploadTemplateId: null, indexTemplates: { ...index, gameplayUpload: null } },
+    ]);
+    expect(groups).toEqual([
+      { group: "Style", pipelines: [{ templateId: "tpl_k", usedBy: ["Kill Montage"] }, { templateId: "tpl_l", usedBy: ["Lyrical (off)"] }] },
+      { group: "Gameplay from a link", pipelines: [{ templateId: "tpl_g", usedBy: ["Kill Montage", "Lyrical (off)"] }] },
+      { group: "Gameplay from an upload", pipelines: [{ templateId: "tpl_gu", usedBy: ["Kill Montage"] }] },
+      { group: "Song", pipelines: [{ templateId: "tpl_s", usedBy: ["Kill Montage", "Lyrical (off)"] }] },
+    ]);
+  });
 });
 
 describe("validateTemplate (mock Engine X)", () => {

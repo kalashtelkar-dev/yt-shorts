@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Empty, PageHeader, Panel, Table } from "@/components/admin/bits";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCredits } from "@/lib/format";
-import { listCatalog } from "@/server/admin/catalog";
+import { listCatalog, pipelinesInUse } from "@/server/admin/catalog";
 import { requireAdmin } from "@/server/admin/guard";
 
 export const metadata: Metadata = { title: "Catalog" };
@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: "Catalog" };
 export default async function CatalogPage() {
   await requireAdmin();
   const items = await listCatalog();
+  const groups = pipelinesInUse(items);
   return (
     <>
       <PageHeader title="Catalog">
@@ -56,6 +57,34 @@ export default async function CatalogPage() {
           </Table>
         )}
       </Panel>
+      {groups.length > 0 && (
+        <Panel title="Pipelines in use">
+          <Table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Pipeline</th>
+                <th>Used by</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.flatMap(({ group, pipelines }) =>
+                pipelines.map((p, n) => (
+                  <tr key={`${group}:${p.templateId}`}>
+                    {n === 0 && (
+                      <td rowSpan={pipelines.length} className="whitespace-nowrap font-medium">
+                        {group}
+                      </td>
+                    )}
+                    <td className="font-mono text-xs">{p.templateId}</td>
+                    <td className="text-muted-foreground">{p.usedBy.join(", ")}</td>
+                  </tr>
+                )),
+              )}
+            </tbody>
+          </Table>
+        </Panel>
+      )}
     </>
   );
 }

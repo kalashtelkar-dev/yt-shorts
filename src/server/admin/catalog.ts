@@ -211,6 +211,30 @@ export async function deleteCatalogItem(admin: Admin, id: string): Promise<Actio
   });
 }
 
+type PipelineRow = Pick<typeof catalogItems.$inferSelect, "title" | "enabled" | "templateId" | "uploadTemplateId" | "indexTemplates">;
+export const PIPELINE_GROUPS = ["Style", "Upload (one-run styles)", "Gameplay from a link", "Gameplay from an upload", "Song"] as const;
+export type PipelineGroup = { group: (typeof PIPELINE_GROUPS)[number]; pipelines: { templateId: string; usedBy: string[] }[] };
+
+/** Every Engine X pipeline the catalog uses, grouped by stage, each with the styles that use it (disabled ones marked "off"). */
+export function pipelinesInUse(items: PipelineRow[]): PipelineGroup[] {
+  const groups = new Map(PIPELINE_GROUPS.map((g) => [g, new Map<string, string[]>()]));
+  const add = (g: (typeof PIPELINE_GROUPS)[number], id: string | null | undefined, item: PipelineRow) => {
+    if (!id) return;
+    const m = groups.get(g)!;
+    m.set(id, [...(m.get(id) ?? []), item.enabled ? item.title : `${item.title} (off)`]);
+  };
+  for (const i of items) {
+    add("Style", i.templateId, i);
+    add("Upload (one-run styles)", i.uploadTemplateId, i);
+    add("Gameplay from a link", i.indexTemplates?.gameplay, i);
+    add("Gameplay from an upload", i.indexTemplates?.gameplayUpload, i);
+    add("Song", i.indexTemplates?.song, i);
+  }
+  return PIPELINE_GROUPS.map((group) => ({ group, pipelines: [...groups.get(group)!].map(([templateId, usedBy]) => ({ templateId, usedBy })) })).filter(
+    (g) => g.pipelines.length > 0,
+  );
+}
+
 export async function listCatalog() {
   return db.select().from(catalogItems).orderBy(asc(catalogItems.sortOrder), asc(catalogItems.title));
 }

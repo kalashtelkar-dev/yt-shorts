@@ -15,6 +15,7 @@ The stage pipelines behind the edit styles (see `docs/edit-styles/`), built from
 2. Run `python3 pipelines/check.py`. The emulator builds each style's render command from fixed inputs and asserts what it must contain.
 3. Run `pnpm enginex:pipeline validate pipelines/<file>.json`.
 4. Run `pnpm enginex:pipeline import pipelines/<file>.json`. The run key can't overwrite pipelines, so this makes a new one.
-5. Publish it in the dashboard, and point the catalog at the new id.
+5. Publish it in the dashboard.
+6. Put the new id in this table and in `src/db/catalog-seed.ts` (and the mock's list in `src/server/enginex/mock.ts`), then run `pnpm catalog:sync`. It updates the catalog through the admin save (validated against Engine X, audited). Admin → Catalog → "Pipelines in use" then shows every pipeline by stage.
 
 **`emulate.py`:** a local interpreter for the util nodes. It reproduced real v7 and v8 runs' render commands exactly (see `docs/edit-styles/README.md`).

@@ -112,3 +112,16 @@ Built by `.pipelines/build-edit-studio.py` (local) from v9 and edit-analyzer-v3.
 - Slow motion is picture only: `setpts=2*PTS` smoothed with `framerate=60`; that clip's game audio is muted and padded to the slowed length so audio stays in sync; the song is untouched.
 
 Built by `.pipelines/build-edit-studio-v2.py` (local) from edit-studio. Validated: compiles; the render command was simulated on a sample plan (normal, slow and reordered/quoted clips).
+
+## 11. Edit studio v3 (`tpl_xAu428ogpXWz`, 2026-09-28): lyrics on screen
+
+**Status:** imported, waiting to be published.
+
+**Changes from v2:**
+- The song goes through `transcribe/separate` (vocals stem) then `transcribe/words` (large-v3) for word timestamps in song seconds.
+- The planner also picks one short lyric passage sung during the montage (the hook or the line on the drop), one word per caption (two only if short, ≤ 12 characters), capitals, Latin letters and `? ! . - ’` only, at most 14 captions.
+- Captions become drawtext filters; anything unsafe or malformed is dropped (never fatal), and an empty list means no text. Timing comes straight from the word timestamps: each caption shows while `t + musicStartSec` is inside its sung span (the offset is inserted by a `replace` node, not computed by the model).
+- Style (from the user's reference): Cinzel Decorative (Google Fonts, OFL) at 140 px, white, centred over the gameplay, soft glow (text drawn on a transparent layer, Gaussian-blurred and overlaid under the sharp text); fades out with the picture.
+- New outputs: `captions`, `lyrics` (all words with timings).
+
+Built by `.pipelines/build-edit-studio-v3.py` (local) from v2. Validated: compiles; the caption chain and render graph were simulated (safe, unsafe and empty captions).

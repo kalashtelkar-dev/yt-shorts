@@ -183,3 +183,19 @@ Built by `.pipelines/build-edit-studio-v7.py` (local) from v6. Validated: compil
 - `duration_sec`, `music_start`, `caption_offset`: replaced by the song's duration (`music.duration`) and a song start of 0; the planner no longer chooses `musicStartSec`.
 
 **Tested** with `.pipelines/emulate.py` (local interpreter for the util nodes): it reproduces the real v7 run's render command exactly (`run_2968991c…`, 18,849-character filter graph, 66 text overlays). The prune-only graph builds the identical command; full v8 matches v7 run with a song start of 0 and length 22 s apart from the two intended edits (no song trim, caption timing on `t`). Edge cases also match: no lyrics, a non-English word, invalid clip starts, no clips.
+
+## 17. Edit studio v9 (`tpl_EvWSAu_Qa_wk`, 2026-09-28): 107 → 77 nodes; text only in the centre
+
+**Status:** imported, waiting to be published.
+
+**Why:** the user found the graph too big and the running lyrics read as captions in the bottom band; text should only appear in the centre.
+
+**Removed (30 nodes):**
+- The running-lyrics chain (18): only the big centred word at each cut remains. The planner no longer picks a lyric window.
+- End-time maths (5): the video now holds its last frame if the clips run short (`tpad`), the song plays to its end (`amix duration=first`) and the fade starts at song length − 0.8 s. Same result when the clips fill the song (the normal case).
+- Allowed-start formatting (5): one `a|b|c` list feeds both the planner and the allow-list check; the clamp at 0 is gone (only matters for a kill in the first 2.5 s of the recording).
+- `llm_text` (a one-line header before the OCR text) and `clip_id_range` (the regexes only read the fields they need).
+
+**Tested** with `.pipelines/emulate.py` on the real v8 run (`run_aed2834c…`): the interpreter reproduces v8's render command exactly; v9's clips, cut words, slow motion and transitions are identical; the only differences are the removed bottom captions (20 → 0) and the new end handling (fade still at 21.2 s for this run).
+
+Utility nodes ("no job") run inside the scheduler in milliseconds; the run time is in the engine jobs (download, kill-feed strips, OCR, lyrics, analysis, render).

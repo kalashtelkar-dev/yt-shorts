@@ -131,3 +131,19 @@ Built by `.pipelines/build-edit-studio-v3.py` (local) from v2. Validated: compil
 **Status:** imported, waiting to be published.
 
 Response is only `montage` and `plan` (the user's request). Removed the other seven response fields and the one step that only fed them (`total_kills`); everything else feeds the plan or the render. The kill count is still inside `plan.totalKills`. When this is wired into the app, the job page will read kills from `plan` instead of a separate output.
+
+## 13. Edit studio v5 (`tpl_-O5E7PQ5DiA7`, 2026-09-28): kills actually in the clips, word captions, transitions
+
+**Status:** imported, waiting to be published.
+
+**Why:** in v3's run (`run_4f4d0e45…`) the planner picked real kills (65, 111, 356, 546, 556 s) but wrote each clip's start as its montage position (0, 3, 6, 9, 12), so every clip came from the first 15 s of the recording and showed no kills; the slow-motion clip had nothing to slow. It also ignored the one-word caption rule, so 8 of 12 captions were dropped as unsafe.
+
+**Changes:**
+- Allowed clip starts are computed in the graph from the kill times: kill − 2.5 s for normal clips, kill − 1 s for the slow-motion clip (never below 0). The planner copies a start from those lists; any clip whose start isn't on them is dropped (regex allow-list via `json-filter matches`).
+- Clip rules: normal 3–6 s in whole beats; exactly one slow-motion clip of 1.5–2 s (plays 3–4 s), on the best kill.
+- Captions come from the timed words, not the planner: the planner gives `lyricStartSec`/`lyricEndSec`; the graph keeps the words in that window with confidence ≥ 0.3, drops slurs (small blocklist), turns `'` into `’`, strips punctuation, and shows each word while it's sung.
+- Transitions at every cut: white flash (0.12 s) and zoom punch (8 %, 0.2 s); the slow-motion clip gets 0.25 s and 15 %.
+
+**Risk:** if the planner still invents starts, every clip is dropped and the run ends without a montage (the plan output shows why).
+
+Built by `.pipelines/build-edit-studio-v5.py` (local) from v4. Validated: compiles; starts, allow-list, captions and clip filters simulated on the v3 run's real kills and words.

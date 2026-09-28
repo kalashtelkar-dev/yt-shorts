@@ -81,3 +81,20 @@ Engine X renamed its engines: `ytdlp` → `media-fetch`, `ffmpeg` → `video`, `
 - an LLM (vision) write-up as JSON: summary, format/framing, pacing and beat sync, structure, per-clip roles with seconds before/after each kill, transitions, effects, overlays, audio, what it couldn't tell, and concrete changes to our pipeline.
 
 **Still untested:** whether the `deepsoch-worker` model accepts images (if not, drop the `sheets → analyse.images` wire and it runs on the measurements alone).
+
+## 9. Edit studio (`tpl_5v_XQg1Bc11V`, 2026-09-28)
+
+**Status:** imported, waiting to be published. A version of the edit analyzer that carries on from its JSON to a finished montage. Not wired into the app yet (it needs two new inputs: a reference link and a music link).
+
+**Inputs:** `youtubeUrl` (raw gameplay), `playerName`, `durationSec`, `referenceUrl` (the edit to copy), `musicUrl` (the song).
+
+**Steps:**
+1. Reference → the analyzer (cuts, loudness, transcript, contact sheets → vision LLM) → edit plan JSON. The prompt no longer describes our old 5 s / 3 s pipeline (the first run echoed it back), and `format` must copy the measured size.
+2. Gameplay → kill-feed OCR (as v9) → an LLM lists kill moments only, no clip windows.
+3. Song → audio only → loudness every 0.25 s.
+4. Planner LLM: plan + kills + song loudness + target length → `musicStartSec`, the drop, and clips. Clip lengths follow the plan; the only hard rule is that each clip contains its kill (start ≤ K−1.5, end ≥ K+0.5), and cuts should land on the song's beats.
+5. Render: per clip a near-square centre crop (width 1.02 × height, full height, HUD kept) scaled to 1080 wide over a blurred, zoomed copy filling 1080×1920; 60 fps; clips joined with hard cuts; the song from `musicStartSec` mixed over the game audio at 30 %; capped at `durationSec`.
+
+**Outputs:** `montage`, `clips`, `totalKills`, `title`, `plan`, `analysis`, `musicStartSec`.
+
+Built by `.pipelines/build-edit-studio.py` (local) from v9 and edit-analyzer-v3. Validated: compiles.

@@ -38,7 +38,12 @@ async function call(method: string, path: string, body?: unknown, headers: Recor
 }
 
 const [cmd, a, b] = process.argv.slice(2);
-const show = (x: unknown) => console.log(JSON.stringify(x, null, 2).slice(0, 6000));
+// Prints the first 6000 characters; the full response is always in .pipelines/last-response.json.
+const show = (x: unknown) => {
+  mkdirSync(".pipelines", { recursive: true });
+  writeFileSync(".pipelines/last-response.json", JSON.stringify(x, null, 2));
+  console.log(JSON.stringify(x, null, 2).slice(0, 6000));
+};
 
 if (cmd === "get" && a) {
   const r = await call("GET", `/v1/pipelines/${encodeURIComponent(a)}`);

@@ -66,9 +66,12 @@ Both validated: compile, no errors.
 
 Engine X renamed its engines: `ytdlp` → `media-fetch`, `ffmpeg` → `video`, `scenedetect` → `scenes`, `whisperx` → `transcribe`, `vllm` → `llm` (and `imagemagick` → `image`). Stored pipelines were migrated server-side and still compile, but documents built with the old names no longer validate, so `.pipelines/*.import.json` files from before are stale; re-`get` a pipeline before editing it. The app keys its friendly errors and automatic retries on engine names; `src/server/jobs/errors.ts` now accepts both.
 
-## 8. Edit analyzer (`tpl_aTgr3PL4JeTW`, 2026-09-28)
+## 8. Edit analyzer (2026-09-28)
 
-**Status:** imported, waiting to be published. A dev tool for tuning prompts; not used by the app.
+**Status:** use **`tpl_xiLyac3nxPin`** ("edit-analyzer-v3"), waiting to be published. A dev tool for tuning prompts; not used by the app.
+- `tpl_aTgr3PL4JeTW` (v1): the contact-sheet step got its ffmpeg arguments as one text string ("Error opening output files: Invalid argument"). Every other step worked, including the ffprobe loudness command.
+- `tpl_oRXjkvG0j3zL` (v2): broken draft (imported by mistake after a failed validation; json-parse output can't feed `args` directly). Don't publish.
+- v3 passes the arguments through json-parse → merge, as the kill-montage pipeline does.
 
 **What it does:** takes a reference YouTube edit (`youtubeUrl`) and returns what the edit is made of, so the kill-montage instruction can be tuned to copy it:
 - exact measurements: duration, resolution, fps, every cut time (scenedetect, adaptive detector, min shot 6 frames), shot count and average shot length;
@@ -77,4 +80,4 @@ Engine X renamed its engines: `ytdlp` → `media-fetch`, `ffmpeg` → `video`, `
 - 8 contact sheets (4×4 frames, time-stamped, spread evenly over the whole video, ~120 frames);
 - an LLM (vision) write-up as JSON: summary, format/framing, pacing and beat sync, structure, per-clip roles with seconds before/after each kill, transitions, effects, overlays, audio, what it couldn't tell, and concrete changes to our pipeline.
 
-**Untested parts (first run will tell):** whether the `deepsoch-worker` model accepts images (if not, drop the `sheets → analyse.images` wire and it runs on the measurements alone), and the ffprobe loudness command.
+**Still untested:** whether the `deepsoch-worker` model accepts images (if not, drop the `sheets → analyse.images` wire and it runs on the measurements alone).

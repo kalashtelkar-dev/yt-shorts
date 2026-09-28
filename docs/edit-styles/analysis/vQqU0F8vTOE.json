@@ -1,0 +1,405 @@
+{
+  "source": {
+    "youtubeUrl": "https://www.youtube.com/watch?v=vQqU0F8vTOE",
+    "title": "Beggin' 🙏🔥 (Valorant Montage)",
+    "analyzer": "tpl_xiLyac3nxPin",
+    "runId": "run_4b11e1e8-61e6-4d18-a623-5f140c13efb4"
+  },
+  "measurements": {
+    "durationSec": 95.062494,
+    "width": 1920,
+    "height": 1080,
+    "fps": 60,
+    "sceneCount": 22,
+    "avgShotSec": 4.321022454545455,
+    "cuts": [
+      16.8,
+      22.6,
+      23.233,
+      27.1,
+      27.967,
+      28.4,
+      28.867,
+      29.733,
+      30.15,
+      34.2,
+      34.667,
+      44.533,
+      46.3,
+      49.833,
+      51.55,
+      78.033,
+      82.5,
+      82.95,
+      83.2,
+      89.2,
+      90.467
+    ],
+    "transcript": "Put your loving hands out, baby Cause I'm begging But Messi is better with Ronaldo. Messi is better with Ronaldo and Messi is better with Ronaldo. Listen, you think Ronaldo is a better player. So, let me show you the double-setter here. Simple. I will admit that he is better with Messi. Look, he doesn't need it. He doesn't need to be a better player. Let me show you. I will admit that he is a better player. Let me show you. I will admit that he is a better player. Let me show you. I'm begging, begging you And put your love and hands out all night I need you to understand Try so hard to be"
+  },
+  "analysis": {
+    "audio": {
+      "sfx": "Gunshots, ability sounds, kill confirm sounds",
+      "music": "Pop-rock, high energy, likely 'Beggin'' by Maneskin or similar",
+      "voice": "Male voiceover for skit dialogue",
+      "dropsAt": [
+        17.75,
+        22.25,
+        25,
+        30.25,
+        34.75,
+        41,
+        46.5,
+        51.5,
+        56.5,
+        60,
+        66.5,
+        72,
+        77.5,
+        82,
+        89.25,
+        91
+      ],
+      "gameAudio": "ducked under music"
+    },
+    "clips": [
+      {
+        "end": 3.961,
+        "role": "intro",
+        "speed": "normal",
+        "start": 0,
+        "effects": [
+          "logo overlay"
+        ],
+        "confidence": "high",
+        "killsVisible": 0,
+        "secondsAfterKill": null,
+        "secondsBeforeKill": null
+      },
+      {
+        "end": 16.8,
+        "role": "build-up",
+        "speed": "normal",
+        "start": 4.753,
+        "effects": [
+          "motion blur"
+        ],
+        "confidence": "high",
+        "killsVisible": 0,
+        "secondsAfterKill": null,
+        "secondsBeforeKill": null
+      },
+      {
+        "end": 22.6,
+        "role": "kill",
+        "speed": "speed-ramp",
+        "start": 17.428,
+        "effects": [
+          "flash",
+          "shake",
+          "zoom"
+        ],
+        "confidence": "high",
+        "killsVisible": 1,
+        "secondsAfterKill": 1,
+        "secondsBeforeKill": 2
+      },
+      {
+        "end": 27.1,
+        "role": "kill",
+        "speed": "speed-ramp",
+        "start": 23.233,
+        "effects": [
+          "flash",
+          "shake"
+        ],
+        "confidence": "high",
+        "killsVisible": 1,
+        "secondsAfterKill": 1,
+        "secondsBeforeKill": 1.5
+      },
+      {
+        "end": 28.4,
+        "role": "kill",
+        "speed": "normal",
+        "start": 27.967,
+        "effects": [
+          "zoom"
+        ],
+        "confidence": "medium",
+        "killsVisible": 1,
+        "secondsAfterKill": 0.5,
+        "secondsBeforeKill": 0.5
+      },
+      {
+        "end": 29.733,
+        "role": "kill",
+        "speed": "normal",
+        "start": 28.867,
+        "effects": [
+          "zoom"
+        ],
+        "confidence": "medium",
+        "killsVisible": 1,
+        "secondsAfterKill": 0.5,
+        "secondsBeforeKill": 0.5
+      },
+      {
+        "end": 34.2,
+        "role": "multi-kill",
+        "speed": "speed-ramp",
+        "start": 30.15,
+        "effects": [
+          "flash",
+          "shake",
+          "color overlay"
+        ],
+        "confidence": "high",
+        "killsVisible": 2,
+        "secondsAfterKill": 1,
+        "secondsBeforeKill": 1
+      },
+      {
+        "end": 44.533,
+        "role": "skit/dialogue",
+        "speed": "normal",
+        "start": 34.667,
+        "effects": [
+          "text overlay",
+          "color overlay"
+        ],
+        "confidence": "high",
+        "killsVisible": 0,
+        "secondsAfterKill": null,
+        "secondsBeforeKill": null
+      },
+      {
+        "end": 49.833,
+        "role": "kill",
+        "speed": "speed-ramp",
+        "start": 46.3,
+        "effects": [
+          "flash",
+          "shake"
+        ],
+        "confidence": "high",
+        "killsVisible": 1,
+        "secondsAfterKill": 1,
+        "secondsBeforeKill": 1.5
+      },
+      {
+        "end": 78.033,
+        "role": "skit/dialogue",
+        "speed": "normal",
+        "start": 51.55,
+        "effects": [
+          "text overlay",
+          "color overlay"
+        ],
+        "confidence": "high",
+        "killsVisible": 0,
+        "secondsAfterKill": null,
+        "secondsBeforeKill": null
+      },
+      {
+        "end": 82.95,
+        "role": "kill",
+        "speed": "normal",
+        "start": 82.5,
+        "effects": [
+          "zoom"
+        ],
+        "confidence": "medium",
+        "killsVisible": 1,
+        "secondsAfterKill": 0.5,
+        "secondsBeforeKill": 0.5
+      },
+      {
+        "end": 89.2,
+        "role": "kill",
+        "speed": "speed-ramp",
+        "start": 83.2,
+        "effects": [
+          "flash",
+          "shake"
+        ],
+        "confidence": "high",
+        "killsVisible": 1,
+        "secondsAfterKill": 1,
+        "secondsBeforeKill": 1
+      },
+      {
+        "end": 95.062494,
+        "role": "outro",
+        "speed": "normal",
+        "start": 90.467,
+        "effects": [
+          "end screen",
+          "text overlay"
+        ],
+        "confidence": "high",
+        "killsVisible": 0,
+        "secondsAfterKill": null,
+        "secondsBeforeKill": null
+      }
+    ],
+    "format": {
+      "fps": 60,
+      "aspect": "9:16",
+      "framing": "centre crop of 16:9 gameplay",
+      "resolution": "1080x1920",
+      "durationSec": 95.062494,
+      "gameplaySource": "Valorant"
+    },
+    "pacing": {
+      "rhythm": "accelerating",
+      "cutCount": 22,
+      "evidence": "Audio RMS spikes at 17.75s, 22.25s, 25.0s, 30.25s, 34.75s, 41.0s, 46.5s, 51.5s, 56.5s, 60.0s, 66.5s, 72.0s, 77.5s, 82.0s, 89.25s, 91.0s align with visual cuts or impact frames.",
+      "avgShotSec": 4.321022454545455,
+      "cutsOnBeat": "yes",
+      "longestShotSec": 5.8,
+      "shortestShotSec": 0.433
+    },
+    "effects": {
+      "other": [
+        "Text overlays for skit dialogue",
+        "Purple lightning border for end screen"
+      ],
+      "flashes": "White flashes on kill impacts",
+      "motionBlur": "Applied during fast movements and transitions",
+      "slowMotion": "Speed ramps used, not pure slow-mo",
+      "speedRamps": "Used extensively to sync with beat drops",
+      "cameraShake": "Subtle shake on kills, more intense on multi-kills",
+      "colourGrade": "High contrast, saturated colors, pink/purple overlays during skit",
+      "zoomPunches": "Used on kill impacts, especially for headshots"
+    },
+    "notSure": [
+      "Exact song title and artist (though likely 'Beggin'')",
+      "Specific speed ramp percentages",
+      "Exact timing of all zooms and shakes (only visible on impact frames)",
+      "Whether the 'Montage Status' screens are real-time or edited"
+    ],
+    "summary": "This edit is a high-energy, narrative-driven Valorant montage that uses a humorous 'Messi vs. Ronaldo' skit to frame the gameplay. The pacing is aggressive, with rapid-fire cuts synced to a pop-rock beat, utilizing heavy visual effects like zooms, shakes, and color overlays to emphasize kills. The structure is unique, blending gameplay with a scripted dialogue overlay and a meta-intro/outro sequence.",
+    "overlays": {
+      "text": [
+        {
+          "text": "ZISHU",
+          "start": 0,
+          "style": "Logo, purple neon"
+        },
+        {
+          "text": "Montage Status: Completed.",
+          "start": 40.402,
+          "style": "White text on black box"
+        },
+        {
+          "text": "Montage Status: Processing....",
+          "start": 42.778,
+          "style": "White text on black box"
+        },
+        {
+          "text": "8989 likes ?",
+          "start": 46.739,
+          "style": "White text on black box"
+        },
+        {
+          "text": "Friend : But Messi is better than Ronaldo",
+          "start": 46.739,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "Zishu : How ? Ronaldo has scored 701 Goals",
+          "start": 48.323,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "Friend : Listen,if you think Ronaldo is better,",
+          "start": 53.869,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "Friend : Do a double satchel No Scope!",
+          "start": 56.245,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "Friend : I'll consider that he is better than Messi !!",
+          "start": 58.622,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "Zishu : For sure ? Then you'll be a Ronaldo fan from today !!",
+          "start": 1.6544,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "Friend : Yea so prove it then. I'll consider him better than Messi.",
+          "start": 1.0375,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "Friend : Yeah,Yeah ! Anyways you won't be able to do it.",
+          "start": 1.089,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "Zishu : See, there's no point ! He is already above Messi.",
+          "start": 1.206,
+          "style": "White text, bottom center"
+        },
+        {
+          "text": "sub ? :) Hit 10k Likes ? :)",
+          "start": 1.29517,
+          "style": "White text, center"
+        }
+      ],
+      "captions": true,
+      "killCounter": false,
+      "logoOrWatermark": "ZISHU logo in intro and end screen"
+    },
+    "structure": {
+      "body": "Gameplay clips intercut with a 'Messi vs Ronaldo' skit using text overlays and voiceover. The skit sets up a challenge ('Do a double satchel No Scope!'), which is then demonstrated in the gameplay.",
+      "intro": "Branding logo (ZISHU) followed by a 'Montage Status: Processing' meta-sequence showing the editor's screen.",
+      "outro": "Call to action ('Hit 10k Likes?') followed by a standard YouTube end screen with purple lightning borders.",
+      "clipOrder": "Chronological gameplay, but heavily edited to fit the skit's narrative arc."
+    },
+    "clipAnatomy": {
+      "killsPerClip": "1-2",
+      "multiKillHandling": "Merged into single clip with rapid cuts",
+      "typicalSecondsAfterKill": 1,
+      "typicalSecondsBeforeKill": 1.5
+    },
+    "transitions": [
+      {
+        "type": "hard cut",
+        "count": 20,
+        "where": "Between all clips"
+      },
+      {
+        "type": "zoom",
+        "count": 5,
+        "where": "On kill impacts"
+      },
+      {
+        "type": "flash",
+        "count": 4,
+        "where": "On kill impacts"
+      },
+      {
+        "type": "shake",
+        "count": 4,
+        "where": "On kill impacts"
+      }
+    ],
+    "promptChanges": [
+      "Add skit dialogue text overlays with specific timing",
+      "Implement speed ramps synced to audio beat drops",
+      "Add zoom and shake effects on kill impacts",
+      "Include 'Montage Status' meta-intro sequence",
+      "Add purple lightning border for end screen",
+      "Use pink/purple color overlays during skit segments",
+      "Duck game audio under music track",
+      "Add voiceover for skit dialogue"
+    ]
+  }
+}

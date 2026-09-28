@@ -1,0 +1,196 @@
+{
+  "source": {
+    "youtubeUrl": "https://www.youtube.com/watch?v=H2N0eHGOi_w",
+    "title": "Untouchable - Valorant Edit",
+    "analyzer": "tpl_xiLyac3nxPin",
+    "runId": "run_8613f76f-a179-433e-a7d9-c9e8ee2e9565"
+  },
+  "measurements": {
+    "durationSec": 17.902585,
+    "width": 1920,
+    "height": 1080,
+    "fps": 60,
+    "sceneCount": 5,
+    "avgShotSec": 3.5805169999999995,
+    "cuts": [
+      0.3,
+      12.5,
+      14.55,
+      16.583
+    ],
+    "transcript": "Oh my."
+  },
+  "analysis": {
+    "audio": {
+      "sfx": "gunshots synced to beats",
+      "music": "heavy bass, electronic, high energy",
+      "voice": "none",
+      "dropsAt": [
+        6.5,
+        17
+      ],
+      "gameAudio": "ducked under music"
+    },
+    "clips": [
+      {
+        "end": 6.5,
+        "role": "intro",
+        "speed": "normal",
+        "start": 0,
+        "effects": [
+          "color_grade",
+          "subtle_shake"
+        ],
+        "confidence": "high",
+        "killsVisible": 0,
+        "secondsAfterKill": null,
+        "secondsBeforeKill": null
+      },
+      {
+        "end": 8.3,
+        "role": "kill",
+        "speed": "speed-ramp",
+        "start": 6.5,
+        "effects": [
+          "flash",
+          "text_overlay",
+          "shake"
+        ],
+        "confidence": "high",
+        "killsVisible": 1,
+        "secondsAfterKill": 0,
+        "secondsBeforeKill": 1.8
+      },
+      {
+        "end": 11.6,
+        "role": "multi-kill",
+        "speed": "speed-ramp",
+        "start": 8.3,
+        "effects": [
+          "flash",
+          "text_overlay",
+          "shake",
+          "glitch"
+        ],
+        "confidence": "high",
+        "killsVisible": 2,
+        "secondsAfterKill": 0,
+        "secondsBeforeKill": 3.3
+      },
+      {
+        "end": 14.5,
+        "role": "kill",
+        "speed": "speed-ramp",
+        "start": 11.6,
+        "effects": [
+          "flash",
+          "text_overlay",
+          "shake"
+        ],
+        "confidence": "high",
+        "killsVisible": 1,
+        "secondsAfterKill": 0,
+        "secondsBeforeKill": 2.9
+      },
+      {
+        "end": 16.5,
+        "role": "kill",
+        "speed": "speed-ramp",
+        "start": 14.5,
+        "effects": [
+          "flash",
+          "text_overlay",
+          "shake"
+        ],
+        "confidence": "high",
+        "killsVisible": 1,
+        "secondsAfterKill": 0,
+        "secondsBeforeKill": 2
+      }
+    ],
+    "format": {
+      "fps": 60,
+      "aspect": "9:16",
+      "framing": "centre crop of 16:9 gameplay",
+      "resolution": "1080x1920",
+      "durationSec": 17.902585,
+      "gameplaySource": "Valorant"
+    },
+    "pacing": {
+      "rhythm": "accelerating",
+      "cutCount": 5,
+      "evidence": "Audio RMS jumps from -24dB to -15dB at 6.5s (drop), followed by rapid cuts and visual chaos. Another loudness spike at 17.0s coincides with the final cut to black.",
+      "avgShotSec": 3.580517,
+      "cutsOnBeat": "yes",
+      "longestShotSec": 12.2,
+      "shortestShotSec": 2.05
+    },
+    "effects": {
+      "other": [
+        "text_overlay",
+        "glitch"
+      ],
+      "flashes": "very heavy, white and colored",
+      "motionBlur": "heavy on fast movements",
+      "slowMotion": "minimal, mostly speed ramps",
+      "speedRamps": "heavy, used to sync with music beats",
+      "cameraShake": "heavy on kills",
+      "colourGrade": "high contrast, neon red/cyan accents",
+      "zoomPunches": "medium"
+    },
+    "notSure": [
+      "Exact timing of speed ramps within clips",
+      "Specific color grading LUT used",
+      "Whether 'UNTOUCHABLE' text is animated or static"
+    ],
+    "summary": "This edit is a high-energy, stylized Valorant montage that prioritizes visual impact and rhythm over raw gameplay continuity. It uses a distinct 'flash-cut' style, where the screen is frequently obscured by bright white or colored flashes to mask transitions and emphasize kills. The pacing is aggressive, with rapid cuts that sync to a heavy music drop, creating a sense of overwhelming skill. The color grading is heavily stylized with high contrast and neon accents, particularly red and cyan, to match the weapon skins and ability effects.",
+    "overlays": {
+      "text": [
+        {
+          "text": "UNTOUCHABLE",
+          "start": 6.5,
+          "style": "bold, glowing, centered"
+        }
+      ],
+      "captions": false,
+      "killCounter": false,
+      "logoOrWatermark": null
+    },
+    "structure": {
+      "body": "6.5-16.5s: High-intensity montage with rapid cuts, heavy flashing, and synchronized text overlays.",
+      "intro": "0.0-6.5s: Slow build-up with ambient gameplay and subtle visual effects.",
+      "outro": "16.5-17.9s: Abrupt cut to black, ending on a hard stop."
+    },
+    "clipAnatomy": {
+      "killsPerClip": "1-2",
+      "multiKillHandling": "merged into single clip with rapid cuts",
+      "typicalSecondsAfterKill": 0,
+      "typicalSecondsBeforeKill": 2.5
+    },
+    "transitions": [
+      {
+        "type": "flash",
+        "count": 6,
+        "where": "at every cut, especially during kills"
+      },
+      {
+        "type": "hard cut",
+        "count": 5,
+        "where": "between all clips"
+      },
+      {
+        "type": "shake",
+        "count": 5,
+        "where": "on impact of kills"
+      }
+    ],
+    "promptChanges": [
+      "Add 'flash' effect on every cut, especially during kills",
+      "Add 'shake' effect on impact of kills",
+      "Add 'speed-ramp' effect to sync with music beats",
+      "Add 'text_overlay' with 'UNTOUCHABLE' style text",
+      "Duck game audio under music during kills",
+      "Increase color contrast and add neon accents"
+    ]
+  }
+}

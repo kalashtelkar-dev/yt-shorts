@@ -11,6 +11,8 @@
 //   pnpm enginex:pipeline runs [templateId]            → .pipelines/runs.json (recent runs, read-only)
 //   pnpm enginex:pipeline run <runId>                  → .pipelines/run-<runId>.json (steps and outputs, read-only)
 //   pnpm enginex:pipeline job <jobId>                  → .pipelines/job-<jobId>.json (one step's engine job, read-only)
+//   pnpm enginex:pipeline start <templateId> '<json>'  → starts a run of a published pipeline (dev analysis only; uses compute)
+//   pnpm enginex:pipeline fetch <storageKey> <file>    → downloads a run's output file (via a 10-minute signed link)
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const base = process.env.ENGINEX_BASE_URL;
@@ -91,6 +93,17 @@ if (cmd === "get" && a) {
   mkdirSync(".pipelines", { recursive: true });
   writeFileSync(`.pipelines/job-${a}.json`, JSON.stringify(r.data, null, 2));
   console.log(`HTTP ${r.status}, saved .pipelines/job-${a}.json`);
+} else if (cmd === "start" && a && b) {
+  const r = await call("POST", `/v1/run/${encodeURIComponent(a)}`, JSON.parse(b));
+  show(r);
+} else if (cmd === "fetch" && a && b) {
+  // Never print the signed URL (CLAUDE.md §4.3); just save the file.
+  const r = await call("POST", "/v1/outputs/sign", { keys: [a], expiresSec: 600 });
+  const url = JSON.stringify(r.data).match(/"(https?:\/\/[^"]+)"/)?.[1]; // first link, whatever the response shape
+  if (!url) { console.error(`HTTP ${r.status}: no signed URL in the response`); process.exit(1); }
+  const res = await fetch(url, { signal: AbortSignal.timeout(300_000) });
+  writeFileSync(b, Buffer.from(await res.arrayBuffer()));
+  console.log(`HTTP ${res.status}, saved ${b}`);
 } else {
   console.error("Usage: pnpm enginex:pipeline get|validate|save|publish …  (see the top of scripts/enginex-pipeline.mts)");
   process.exit(1);

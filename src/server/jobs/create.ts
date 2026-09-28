@@ -1,4 +1,5 @@
 import "server-only";
+import { randomInt } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
@@ -40,6 +41,12 @@ export const createJobInput = z.strictObject({
 });
 export type CreateJobInput = z.input<typeof createJobInput>;
 
+// Staged styles shuffle where the slow-motion and speed-up clips go on every run (docs/edit-styles/kill-montage.md).
+const SLOW_AT = ["first", "second", "third", "in the middle", "second to last", "last", "on the drop"];
+const FAST_AT = ["early", "spread out", "late", "right before the slow-motion clip", "on every other kill"];
+export const randomVariation = () =>
+  `Put the slow-motion clip ${SLOW_AT[randomInt(SLOW_AT.length)]} and the speed-up clips ${FAST_AT[randomInt(FAST_AT.length)]}.`;
+
 const fail = (code: string, message: string, field?: string): ActionResult<never> => ({ ok: false, error: { code, message, field } });
 
 /** Validates one catalog-defined field. Returns the clean value or an error message. */
@@ -76,10 +83,11 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   if (!item) return fail("unavailable", "That style isn't available right now. Pick another one.");
   if (!item.durations.includes(input.durationSec)) return fail("invalid", "Pick one of the lengths shown.", "durationSec");
   if (input.source === "upload") {
-    if (!item.uploadTemplateId) return fail("unavailable", "This style doesn't take uploads yet. Paste a YouTube link instead.", "upload");
+    if (!(item.uploadTemplateId || item.indexTemplates?.gameplayUpload)) return fail("unavailable", "This style doesn't take uploads yet. Paste a YouTube link instead.", "upload");
     if (!(await ownsUpload(user.id, input.upload!.key))) return fail("invalid", "That upload has expired. Choose the file again.", "upload");
   }
-  const templateId = input.source === "upload" ? item.uploadTemplateId! : item.templateId;
+  // Staged styles always render with the style pipeline; the source only changes which gameplay index runs.
+  const templateId = input.source === "upload" && !item.indexTemplates ? item.uploadTemplateId! : item.templateId;
   const uploadName = input.upload ? cleanFileName(input.upload.name).replace(/\.[^.]+$/, "") : undefined;
   const price = item.prices[String(input.durationSec)];
   if (!Number.isInteger(price) || price <= 0) return fail("unavailable", "This length isn't available right now. Pick another one.");
@@ -98,6 +106,8 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
     if (e instanceof MapInputError) return fail("config", "This style is misconfigured. We've been told; try again later.");
     throw e;
   }
+
+  if (item.indexTemplates) pipelineInput.variation = randomVariation();
 
   const settings = await getSettings();
   const [{ active }] = await db
@@ -121,6 +131,7 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
           catalogItemId: item.id,
           catalogSlug: item.slug,
           templateId, // snapshot: later catalog edits don't touch this job
+          indexTemplates: item.indexTemplates,
           input: pipelineInput,
           source: input.source,
           sourceUrl,

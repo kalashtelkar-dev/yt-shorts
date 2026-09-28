@@ -64,6 +64,13 @@
       "when": 1790427166121,
       "tag": "0008_colorful_black_bolt",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790601918531,
+      "tag": "0009_overconfident_katie_power",
+      "breakpoints": true
     }
   ]
 }

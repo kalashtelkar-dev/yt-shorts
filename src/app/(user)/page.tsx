@@ -20,6 +20,7 @@ export default async function CreatePage() {
         prices: catalogItems.prices,
         fields: catalogItems.fields,
         uploadTemplateId: catalogItems.uploadTemplateId,
+        indexTemplates: catalogItems.indexTemplates,
       })
       .from(catalogItems)
       .where(eq(catalogItems.enabled, true))
@@ -29,7 +30,7 @@ export default async function CreatePage() {
   const needsAccount = env.AUTH_MODE === "full" && (!viewer || !!viewer.isAnonymous);
   // Only lengths that have a price can be picked.
   const items: CatalogOption[] = rows
-    .map(({ uploadTemplateId, ...r }) => ({ ...r, uploads: !!uploadTemplateId, durations: r.durations.filter((d) => (r.prices[String(d)] ?? 0) > 0) }))
+    .map(({ uploadTemplateId, indexTemplates, ...r }) => ({ ...r, uploads: !!(uploadTemplateId || indexTemplates?.gameplayUpload), durations: r.durations.filter((d) => (r.prices[String(d)] ?? 0) > 0) }))
     .filter((r) => r.durations.length > 0);
 
   const intro = (

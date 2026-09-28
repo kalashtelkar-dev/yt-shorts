@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { adminAuditLog, catalogItems, catalogRevisions, jobs, users } from "@/db/schema";
 import type { ActionResult } from "@/lib/jobs";
 import { checkExpression, sourceOf } from "@/server/catalog";
+import { STYLE_INPUTS } from "@/server/jobs/staged";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError } from "@/server/enginex/types";
 import type { Admin } from "./guard";
@@ -40,6 +41,10 @@ export const catalogInput = z
     description: z.string().trim().max(300),
     templateId: z.string().trim().min(1).max(100),
     uploadTemplateId: z.string().trim().max(100).nullish().transform((v) => v || null),
+    indexTemplates: z
+      .strictObject({ gameplay: z.string().trim().min(1).max(100), gameplayUpload: z.string().trim().max(100).nullish().transform((v) => v || null), song: z.string().trim().min(1).max(100) })
+      .nullish()
+      .transform((v) => v ?? null),
     enabled: z.boolean(),
     beta: z.boolean(),
     sortOrder: z.number().int().min(0).max(1000),
@@ -105,6 +110,40 @@ export async function validateTemplate(templateId: string, inputMap: Record<stri
   };
 }
 
+const pick = (map: Record<string, unknown>, keys: string[]) => Object.fromEntries(Object.entries(map).filter(([k]) => keys.includes(k)));
+function merge(reports: [string, ValidationReport][]): ValidationReport {
+  const [, main] = reports[0];
+  return {
+    ok: reports.every(([, r]) => r.ok),
+    errors: reports.flatMap(([label, r]) => r.errors.map((e) => (label ? `${label}: ${e}` : e))),
+    warnings: reports.flatMap(([label, r]) => r.warnings.map((w) => (label ? `${label}: ${w}` : w))),
+    pipeline: main.pipeline,
+  };
+}
+
+/**
+ * Validates a catalog item's pipelines. Single styles: the template (and the upload template) against the input map.
+ * Staged styles: the style pipeline against what the app sends it, and each index pipeline against the mapped inputs.
+ */
+export async function validateItem(item: Pick<CatalogInput, "templateId" | "uploadTemplateId" | "indexTemplates" | "inputMap" | "outputKey">): Promise<ValidationReport> {
+  const t = item.indexTemplates;
+  if (!t) {
+    const reports: [string, ValidationReport][] = [["", await validateTemplate(item.templateId, item.inputMap, item.outputKey, "url")]];
+    if (item.uploadTemplateId) reports.push(["Upload template", await validateTemplate(item.uploadTemplateId, item.inputMap, item.outputKey, "upload")]);
+    return merge(reports);
+  }
+  const style = await validateTemplate(item.templateId, Object.fromEntries(STYLE_INPUTS.map((k) => [k, "x"])), item.outputKey);
+  // The app sends a style only the inputs it declares (staged.ts), so "sends X it doesn't declare" doesn't apply.
+  style.warnings = style.warnings.filter((w) => !w.startsWith("The input map sends"));
+  const reports: [string, ValidationReport][] = [
+    ["", style],
+    ["Gameplay index", await validateTemplate(t.gameplay, pick(item.inputMap, ["youtubeUrl", "playerName"]), "kills")],
+    ["Song index", await validateTemplate(t.song, pick(item.inputMap, ["musicUrl"]), "audio")],
+  ];
+  if (t.gameplayUpload) reports.push(["Gameplay index (uploads)", await validateTemplate(t.gameplayUpload, pick(item.inputMap, ["video", "playerName"]), "kills")]);
+  return merge(reports);
+}
+
 type Row = typeof catalogItems.$inferSelect;
 const snapshot = (r: Row) => {
   const { createdAt: _c, updatedAt: _u, ...rest } = r;
@@ -125,14 +164,15 @@ export async function saveCatalogItem(admin: Admin, id: string | null, raw: unkn
   const [before] = id ? await db.select().from(catalogItems).where(eq(catalogItems.id, id)) : [];
   if (id && !before) return { ok: false, error: { code: "not_found", message: "That catalog item doesn't exist any more." } };
 
-  const mapChanged = !before || JSON.stringify(before.inputMap) !== JSON.stringify(input.inputMap) || before.outputKey !== input.outputKey;
-  const report = mapChanged || before?.templateId !== input.templateId ? await validateTemplate(input.templateId, input.inputMap, input.outputKey, "url") : null;
+  const pipelinesChanged =
+    !before ||
+    JSON.stringify(before.inputMap) !== JSON.stringify(input.inputMap) ||
+    before.outputKey !== input.outputKey ||
+    before.templateId !== input.templateId ||
+    before.uploadTemplateId !== input.uploadTemplateId ||
+    JSON.stringify(before.indexTemplates) !== JSON.stringify(input.indexTemplates);
+  const report = pipelinesChanged ? await validateItem(input) : null;
   if (report && !report.ok) return { ok: false, error: { code: "validation", message: report.errors.join(" ") } };
-  if (input.uploadTemplateId && (mapChanged || before?.uploadTemplateId !== input.uploadTemplateId)) {
-    const up = await validateTemplate(input.uploadTemplateId, input.inputMap, input.outputKey, "upload");
-    if (!up.ok) return { ok: false, error: { code: "validation", message: `Upload template: ${up.errors.join(" ")}` } };
-    report?.warnings.push(...up.warnings.map((w) => `Upload template: ${w}`));
-  }
 
   try {
     const saved = await db.transaction(async (tx) => {

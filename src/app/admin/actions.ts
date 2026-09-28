@@ -12,7 +12,7 @@ import { env } from "@/config/env";
 import { adjustUserCredits, refundJobByAdmin, retryJob, setRole, setSuspended } from "@/server/admin/mutations";
 import { currentAdmin, isAdmin } from "@/server/admin/guard";
 import { resolveUserId } from "@/server/admin/queries";
-import { deleteCatalogItem, saveCatalogItem, validateTemplate, type ValidationReport } from "@/server/admin/catalog";
+import { deleteCatalogItem, saveCatalogItem, validateItem, type CatalogInput, type ValidationReport } from "@/server/admin/catalog";
 import { updateSettings } from "@/server/admin/billing";
 import { auth } from "@/server/auth";
 import { clientIp } from "@/server/ip";
@@ -131,7 +131,7 @@ export type ValidateState = { report: ValidationReport | null; message: string |
 
 function jsonField(form: FormData, name: string, label: string): { value?: unknown; error?: string } {
   const text = String(form.get(name) ?? "").trim();
-  if (!text) return { value: name === "inputMap" ? {} : [] };
+  if (!text) return { value: name === "inputMap" ? {} : name === "indexTemplates" ? null : [] };
   try {
     return { value: JSON.parse(text) };
   } catch (e) {
@@ -147,7 +147,12 @@ function catalogFromForm(form: FormData): { input?: Record<string, unknown>; err
     .map(Number);
   const prices: Record<string, number> = {};
   for (const [k, v] of form) if (k.startsWith("price:") && String(v).trim()) prices[k.slice(6)] = Number(v);
-  const json = { fields: jsonField(form, "fields", "Fields"), inputMap: jsonField(form, "inputMap", "Input map"), stageMap: jsonField(form, "stageMap", "Stage map") };
+  const json = {
+    fields: jsonField(form, "fields", "Fields"),
+    inputMap: jsonField(form, "inputMap", "Input map"),
+    stageMap: jsonField(form, "stageMap", "Stage map"),
+    indexTemplates: jsonField(form, "indexTemplates", "Index pipelines"),
+  };
   const bad = Object.values(json).find((j) => j.error);
   if (bad) return { error: bad.error };
   return {
@@ -157,6 +162,7 @@ function catalogFromForm(form: FormData): { input?: Record<string, unknown>; err
       description: String(form.get("description") ?? ""),
       templateId: String(form.get("templateId") ?? ""),
       uploadTemplateId: String(form.get("uploadTemplateId") ?? "").trim() || null,
+      indexTemplates: json.indexTemplates.value ?? null,
       enabled: form.get("enabled") === "on",
       beta: form.get("beta") === "on",
       sortOrder: Number(form.get("sortOrder") || 0),
@@ -178,15 +184,16 @@ export async function validateTemplateAction(_prev: ValidateState, form: FormDat
   if (map.error) return { report: null, message: map.error };
   const inputMap = (map.value ?? {}) as Record<string, unknown>;
   const outputKey = String(form.get("outputKey") ?? "montage").trim();
-  // Same checks as Save: each template only against the inputs its source fills in.
-  const report = await validateTemplate(templateId, inputMap, outputKey, "url");
-  const uploadTemplateId = String(form.get("uploadTemplateId") ?? "").trim();
-  if (uploadTemplateId) {
-    const up = await validateTemplate(uploadTemplateId, inputMap, outputKey, "upload");
-    report.ok &&= up.ok;
-    report.errors.push(...up.errors.map((e) => `Upload template: ${e}`));
-    report.warnings.push(...up.warnings.map((w) => `Upload template: ${w}`));
-  }
+  const index = jsonField(form, "indexTemplates", "Index pipelines");
+  if (index.error) return { report: null, message: index.error };
+  // Same checks as Save.
+  const report = await validateItem({
+    templateId,
+    uploadTemplateId: String(form.get("uploadTemplateId") ?? "").trim() || null,
+    indexTemplates: (index.value ?? null) as CatalogInput["indexTemplates"],
+    inputMap: inputMap as CatalogInput["inputMap"],
+    outputKey,
+  });
   return { report, message: null };
 }
 

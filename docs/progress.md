@@ -239,3 +239,16 @@ Built and tested with `AUTH_MODE=full`; ships with `AUTH_MODE=anonymous`, where 
 5. Account page: wrong current password → error; right one → "Password changed"; "Sign out on every device" → back at sign-in.
 6. In anonymous mode make a montage as a guest, switch to full, sign up in the same browser → the guest's video and credits are in the account.
 7. `AUTH_MODE=anonymous`: `/sign-in` is 404 and the site behaves as before; admin sign-in still works.
+
+## Staged styles: split pipelines in the app (2026-09-28)
+
+- **Pipelines** (`pipelines/`, ids in `pipelines/README.md`): gameplay-index (+ upload version), song-index, style-kill-montage, style-lyrical-kill-montage. Specs in `docs/edit-styles/`.
+- **Catalog:** a style with `indexTemplates` is staged: `templateId` is its style pipeline, fed by the index pipelines. Admin catalog has an "Index pipelines" field; Validate/Save check the style pipeline against what the app sends and each index pipeline against the mapped inputs. The seed makes Kill Montage and Lyrical Kill Montage staged, with a song-link field.
+- **Jobs:** a staged job starts gameplay-index and song-index in parallel (or reuses them), then the style run. `media_index` holds each index run, keyed by pipeline + input, so jobs for the same video/song share one run; a finished index is reused for an hour (Engine X outputs expire). The render phase is an ordinary run, so polling, retry, timeout and refunds are unchanged; progress counts both phases; a failed index fails the job with a gameplay- or song-specific message and a refund. Each job gets a random `variation` (where the slow and fast clips go).
+- **Mock:** knows the staged pipelines (by template id), their steps and outputs, so the whole flow runs locally with `ENGINEX_MODE=mock`.
+
+**Numbers:** 111 unit tests (6 new for staged jobs), `pipelines/check.py` 13 checks, `/` 135 KB.
+
+**To go live:** publish the five pipelines in Engine X, then set Kill Montage and Lyrical Kill Montage to the staged config in the admin catalog (or with the audited save script), and run one real job per style.
+
+**Manual checks (mock):** make a Kill Montage with a song link → stages go "Reading the kill feed" → "Planning your edit" → "Rendering your montage" → done; a second job with the same links goes straight to the render; player name "fail" → kill-feed error and refund; a song link containing "fail" → song error and refund.

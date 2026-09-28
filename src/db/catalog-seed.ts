@@ -3,29 +3,44 @@ import type { catalogItems } from "./schema";
 // Initial catalog (PLAN.md §0). After seeding, the admin Catalog page owns these rows.
 // stageMap matches the pipelines' engine step ids (smoke, 2026-09-26). Order = order in the pipeline;
 // while several steps run in parallel, the earliest stage listed wins.
+// Both styles are staged (docs/edit-styles/, pipelines/README.md): gameplay-index and song-index run in
+// parallel and are cached, then the style pipeline plans and renders.
+const INDEX = { gameplay: "tpl_5qece0gK2fgX", gameplayUpload: "tpl_ot0JpJ0pzOr7", song: "tpl_sfY_wbow51wN" };
+const FIELDS = [
+  { name: "playerName", label: "Your in-game name", type: "text" as const, required: true, max: 32, help: "Exactly as it shows in the kill feed" },
+  { name: "songUrl", label: "Song (YouTube link)", type: "url" as const, required: true, help: "The montage runs as long as the song, up to the length you pick" },
+];
+const INPUT_MAP = { youtubeUrl: "$source.url", video: "$source.key", playerName: "$fields.playerName", musicUrl: "$fields.songUrl", maxDurationSec: "$durationSec" };
+// Index-phase steps first (they take longest), then the render. While steps run in parallel, the earliest listed wins.
+const STAGE_MAP = [
+  { match: "download", label: "Downloading your video", only: "url" as const },
+  { match: "stamp_font", label: "Reading the kill feed" },
+  { match: "kill_feed", label: "Reading the kill feed" },
+  { match: "feed_frames", label: "Reading the kill feed" },
+  { match: "read_feed", label: "Reading the kill feed", itemSeconds: 10 },
+  { match: "find_kills", label: "Finding your kills" },
+  { match: "flex", label: "Picking your intro" },
+  { match: "music", label: "Getting your song" },
+  { match: "vocals", label: "Listening to the lyrics" },
+  { match: "lyrics", label: "Listening to the lyrics" },
+  { match: "plan", label: "Planning your edit" },
+  { match: "make_montage", label: "Rendering your montage" },
+];
+
 export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
   {
     slug: "kill-montage",
     title: "Kill Montage",
-    description: "Every kill from your match, cut into one fast vertical edit.",
-    templateId: "tpl_WexN4yE_mfh1", // v9: v8 (8 s clips) + downloads 8 fragments at a time
-    uploadTemplateId: "tpl_7fumxOvggmKG", // v8 for uploaded files: same edit, no download step
+    description: "A quick intro, then your kills back to back, cut to your song.",
+    templateId: "tpl_xf7oCU4999sK", // style-kill-montage
+    indexTemplates: INDEX,
     enabled: true,
     beta: false,
     sortOrder: 1,
     durations: [30, 60, 90],
-    fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32, help: "Exactly as it shows in the kill feed" }],
-    // One map for both sources: the link template gets youtubeUrl, the upload template video + videoTitle.
-    inputMap: { youtubeUrl: "$source.url", video: "$source.key", videoTitle: "$source.name", playerName: "$fields.playerName", durationSec: "$durationSec" },
-    stageMap: [
-      { match: "download", label: "Downloading your video", only: "url" },
-      { match: "stamp_font", label: "Reading the kill feed" },
-      { match: "kill_feed", label: "Reading the kill feed" },
-      { match: "feed_frames", label: "Reading the kill feed" },
-      { match: "read_feed", label: "Reading the kill feed", itemSeconds: 10 },
-      { match: "find_kills", label: "Finding your kills" },
-      { match: "make_montage", label: "Rendering your montage" },
-    ],
+    fields: FIELDS,
+    inputMap: INPUT_MAP,
+    stageMap: STAGE_MAP,
     outputKey: "montage",
     // ponytail: placeholder prices; set real ones in the admin once runMs per length is measured.
     prices: { "30": 300, "60": 450, "90": 600 },
@@ -33,44 +48,17 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
   {
     slug: "lyrical-kill-montage",
     title: "Lyrical Kill Montage",
-    description: "Your kills timed to a song, with the lyrics on screen.",
-    templateId: "tpl_fgi2j31DHK_M",
-    enabled: false, // hidden for now; admins can switch it on
+    description: "Your kills cut to your song, with its words on screen.",
+    templateId: "tpl_TAR3yOXmFDte", // style-lyrical-kill-montage
+    indexTemplates: INDEX,
+    enabled: true,
     beta: true,
     sortOrder: 2,
     durations: [30, 60, 90],
-    fields: [
-      { name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32, help: "Exactly as it shows in the kill feed" },
-      { name: "songUrl", label: "Song (YouTube link)", type: "url", required: true },
-      { name: "songRange", label: "Part of the song", type: "range", maxFrom: "durationSec" },
-      { name: "lyricsLrc", label: "Lyrics with timestamps (LRC)", type: "textarea", advanced: true },
-    ],
-    inputMap: {
-      youtubeUrl: "$source.url",
-      playerName: "$fields.playerName",
-      songUrl: "$fields.songUrl",
-      songStart: "$fields.songRange.start",
-      songEnd: "$fields.songRange.end",
-      lyricsLrc: "$fields.lyricsLrc",
-    },
-    stageMap: [
-      { match: "download", label: "Downloading your video and song" },
-      { match: "song_dl", label: "Downloading your video and song" },
-      { match: "stamp_font", label: "Reading the kill feed" },
-      { match: "kill_feed", label: "Reading the kill feed" },
-      { match: "feed_frames", label: "Reading the kill feed" },
-      { match: "read_feed", label: "Reading the kill feed", itemSeconds: 10 },
-      { match: "song_cut", label: "Finding the beat" },
-      { match: "bass_level", label: "Finding the beat" },
-      { match: "lrc_to_lines", label: "Syncing the lyrics" },
-      { match: "vox_filter", label: "Syncing the lyrics" },
-      { match: "auto_lyrics", label: "Syncing the lyrics" },
-      { match: "align_lyrics", label: "Syncing the lyrics" },
-      { match: "plan_edit", label: "Planning the edit" },
-      { match: "title_font", label: "Rendering your montage" },
-      { match: "make_montage", label: "Rendering your montage" },
-    ],
+    fields: FIELDS,
+    inputMap: INPUT_MAP,
+    stageMap: STAGE_MAP,
     outputKey: "montage",
-    prices: { "30": 600, "60": 900, "90": 1200 },
+    prices: { "30": 350, "60": 500, "90": 650 },
   },
 ];

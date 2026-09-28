@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { RunStep } from "@/server/enginex/types";
 import {
   boolean,
   check,
@@ -108,6 +109,11 @@ export type InputMap = Record<string, string | number | boolean>;
  * `only`: show this stage only for link or upload jobs (e.g. downloading happens only for links).
  */
 export type StageMapEntry = { match: string; label: string; itemSeconds?: number; only?: "url" | "upload" };
+/**
+ * A staged style (docs/edit-styles/README.md): the gameplay and the song are indexed by their own pipelines
+ * (results cached in media_index), then `templateId` is the style pipeline that plans and renders.
+ */
+export type IndexTemplates = { gameplay: string; gameplayUpload?: string | null; song: string };
 
 export const catalogItems = pgTable("catalog_items", {
   id: uuid().primaryKey().defaultRandom(),
@@ -117,6 +123,8 @@ export const catalogItems = pgTable("catalog_items", {
   templateId: text().notNull(),
   /** Optional pipeline for uploaded files (no download step). Null = uploads not offered for this style. */
   uploadTemplateId: text(),
+  /** Set for staged styles: the index pipelines that feed the style pipeline in templateId. */
+  indexTemplates: jsonb().$type<IndexTemplates>(),
   enabled: boolean().notNull().default(true),
   beta: boolean().notNull().default(false),
   sortOrder: integer().notNull().default(0),
@@ -165,6 +173,13 @@ export const jobs = pgTable(
     catalogSlug: text().notNull(),
     templateId: text().notNull(),
     templateVersion: text(),
+    /** Staged jobs: snapshot of the index pipelines, the index rows they use, and which phase they're in. */
+    indexTemplates: jsonb().$type<IndexTemplates>(),
+    gameplayIndexId: uuid(),
+    songIndexId: uuid(),
+    phase: text().$type<"index" | "render">(),
+    /** Steps the index phase took, so progress doesn't jump back when the render run starts. */
+    indexSteps: integer().notNull().default(0),
     input: jsonb().notNull(),
     source: jobSource().notNull(),
     sourceUrl: text(),
@@ -192,6 +207,37 @@ export const jobs = pgTable(
     index().on(t.userId, t.createdAt.desc()),
     index().on(t.status),
   ],
+);
+
+export const mediaIndexKind = pgEnum("media_index_kind", ["gameplay", "song"]);
+export const mediaIndexStatus = pgEnum("media_index_status", ["running", "succeeded", "failed"]);
+
+/**
+ * Results of the index pipelines (gameplay-index, song-index), shared by every job that uses the same
+ * pipeline and input. cacheKey = hash(template, source, player). Engine X outputs expire, so a row is reused
+ * only for a while after it finished (see staged.ts).
+ */
+export const mediaIndex = pgTable(
+  "media_index",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    kind: mediaIndexKind().notNull(),
+    cacheKey: text().notNull().unique(),
+    templateId: text().notNull(),
+    input: jsonb().$type<Record<string, string>>().notNull(),
+    runId: text(),
+    status: mediaIndexStatus().notNull().default("running"),
+    output: jsonb().$type<Record<string, unknown>>(),
+    /** The run's steps as last polled; each job labels them with its own catalog stageMap. */
+    steps: jsonb().$type<RunStep[]>().notNull().default([]),
+    stepsDone: integer().notNull().default(0),
+    stepsTotal: integer().notNull().default(0),
+    error: text(),
+    runMs: integer(),
+    startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [index().on(t.status)],
 );
 
 export const jobEvents = pgTable(

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/db";
-import { catalogItems, jobEvents, jobs } from "@/db/schema";
+import { catalogItems, jobEvents, jobs, mediaIndex } from "@/db/schema";
 import { progressOf, stageDetail, stageFor } from "@/server/catalog";
 import { refundJob } from "@/server/credits";
 import { enginex } from "@/server/enginex/client";
@@ -9,6 +9,7 @@ import { EngineXError, type Run } from "@/server/enginex/types";
 import { redis } from "@/server/redis";
 import { getSettings, type Settings } from "@/server/settings";
 import { isTransientFailure, noKillsMessage, publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
+import { advanceStaged, pollIndexes, startStaged } from "./staged";
 
 // Everything that moves a job through its life. Runs in the worker only (CLAUDE.md §7).
 // Every transition is a conditional UPDATE, so overlapping sweeps or two workers can't double-act.
@@ -20,12 +21,12 @@ const MAX_RETRIES = 1;
 const FAST_POLL_FOR_MS = 5 * 60_000;
 const SLOW_POLL_MS = 10_000;
 
-async function event(jobId: string, message: string, level: "info" | "warn" | "error" = "info") {
+export async function event(jobId: string, message: string, level: "info" | "warn" | "error" = "info") {
   await db.insert(jobEvents).values({ jobId, level, message });
 }
 
 /** Tells SSE listeners (web) that the job changed; they re-read the public view. */
-async function notify(jobId: string) {
+export async function notify(jobId: string) {
   await redis.publish(`job:${jobId}`, "update").catch(() => {});
 }
 
@@ -47,6 +48,17 @@ export async function startJob(jobId: string, now = Date.now()) {
     )
     .returning();
   if (!job) return;
+
+  if (job.indexTemplates) {
+    // Staged style: index the gameplay and the song first (staged.ts); the render run starts when both are done.
+    try {
+      await startStaged(job, now);
+    } catch (e) {
+      console.error("[startStaged]", e instanceof Error ? e.message : e);
+      await finishFailed(job, { errorRaw: `start: ${e instanceof Error ? e.message : String(e)}`, errorPublic: publicErrorFor(null), runMs: 0 });
+    }
+    return;
+  }
 
   try {
     const { runId } = await enginex().runPipeline(job.templateId, job.input as Record<string, unknown>, job.id);
@@ -109,7 +121,10 @@ export async function pollJob(job: Job, settings: Settings, stageMap: { match: s
     return finishFailed(job, { errorRaw: `timeout after ${settings.maxRunMinutes} min`, errorPublic: TIMEOUT_MESSAGE, runMs: elapsed(job, now) }, settings);
   }
 
-  const { done, total } = progressOf(run.steps);
+  // Staged jobs: the index phase's steps count too, so the bar keeps moving forward.
+  const p = progressOf(run.steps);
+  const done = p.done + job.indexSteps;
+  const total = p.total + job.indexSteps;
   const stage = stageFor(run.steps, stageMap, job.currentStage);
   const detail = stageDetail(run.steps, stageMap, stage);
   if (done === job.stepsDone && total === job.stepsTotal && stage === job.currentStage && detail === job.stageDetail) return;
@@ -125,11 +140,15 @@ const elapsed = (job: Job, now: number) => (job.startedAt ? now - job.startedAt.
 
 async function finishSucceeded(job: Job, run: Run, outputField: string, settings: Settings, now: number) {
   const output = run.output ?? {};
+  // Style pipelines report the kills inside their plan.
+  const plan = (output.plan && typeof output.plan === "object" ? output.plan : {}) as Record<string, unknown>;
+  const clipList = Array.isArray(output.clips) ? output.clips : Array.isArray(plan.clips) ? plan.clips : null;
+  const killCount = Number(output.totalKills ?? plan.totalKills);
   const outputKey = typeof output[outputField] === "string" ? (output[outputField] as string) : null;
   const runMs = run.runMs ?? elapsed(job, now);
   if (!outputKey) {
     // The pipeline skips rendering when it finds no kills: tell the user that, not "something went wrong".
-    const noKills = Number(output.totalKills) === 0 || (Array.isArray(output.clips) && output.clips.length === 0);
+    const noKills = killCount === 0 || (clipList !== null && clipList.length === 0);
     const name = String((job.input as Record<string, unknown>).playerName ?? "your name");
     return finishFailed(
       job,
@@ -137,8 +156,13 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
       settings,
     );
   }
-  const totalKills = Number(output.totalKills) || 0;
-  const clips = Array.isArray(output.clips) ? output.clips.length : null;
+  const totalKills = killCount || 0;
+  const clips = clipList ? clipList.length : null;
+  let title = typeof output.title === "string" ? output.title : null;
+  if (!title && job.gameplayIndexId) {
+    const [g] = await db.select({ output: mediaIndex.output }).from(mediaIndex).where(eq(mediaIndex.id, job.gameplayIndexId));
+    title = typeof g?.output?.title === "string" ? g.output.title : null;
+  }
 
   const finished = await db.transaction(async (tx) => {
     const [claimed] = await tx
@@ -146,7 +170,7 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
       .set({
         status: "succeeded",
         outputKey,
-        outputMeta: { totalKills, title: typeof output.title === "string" ? output.title : null, clips },
+        outputMeta: { totalKills, title, clips },
         runMs,
         computeCostPaise: costPaise(runMs, settings),
         stepsDone: job.stepsTotal || job.stepsDone,
@@ -163,7 +187,7 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
   if (finished) await notify(job.id);
 }
 
-async function finishFailed(
+export async function finishFailed(
   job: Job,
   f: { errorRaw: string; errorPublic: string; runMs: number; status?: "failed" | "canceled" },
   settings?: Settings,
@@ -195,6 +219,7 @@ const lastPolled = new Map<string, number>();
 /** Runs every 5 s in the worker: starts queued jobs, polls running ones. Also how the worker resumes after a restart. */
 export async function sweep(now = Date.now()) {
   const settings = await getSettings();
+  await pollIndexes(settings, now); // staged styles: each gameplay/song index is polled once, however many jobs share it
 
   const toStart = await db
     .select({ id: jobs.id })
@@ -217,7 +242,8 @@ export async function sweep(now = Date.now()) {
     await Promise.all(
       due.slice(i, i + 10).map(async ({ job, stageMap, outputKey }) => {
         lastPolled.set(job.id, now);
-        await pollJob(job, settings, stageMap, outputKey, now);
+        if (job.phase === "index") await advanceStaged(job, settings, stageMap, now);
+        else await pollJob(job, settings, stageMap, outputKey, now);
       }),
     );
   }

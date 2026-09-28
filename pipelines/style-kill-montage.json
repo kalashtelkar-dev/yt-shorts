@@ -1,0 +1,1783 @@
+{
+  "kind": "editor-api/pipeline",
+  "formatVersion": 1,
+  "source": {
+    "id": "tpl_x4p9irJIKNb-",
+    "version": 1
+  },
+  "name": "style-kill-montage",
+  "description": "Kill montage (docs/edit-styles/kill-montage.md) from a gameplay-index and a song-index: intro flex, mixed normal / 0.5x / 1.5x kill clips placed by a per-run variation, beat-synced, 9:16 blurred layout, flash + zoom (+ whip on speed-ups), song from its start, no text.",
+  "graph": {
+    "version": 1,
+    "nodes": [
+      {
+        "id": "video_in",
+        "kind": "input",
+        "name": "video",
+        "type": "file:video",
+        "sample": "",
+        "required": true,
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "kills_in",
+        "kind": "input",
+        "name": "kills",
+        "type": "text",
+        "sample": "{\"kills\":[{\"t\":51}],\"totalKills\":1}",
+        "required": true,
+        "position": {
+          "x": 300,
+          "y": 0
+        }
+      },
+      {
+        "id": "flex_in",
+        "kind": "input",
+        "name": "flex",
+        "type": "text",
+        "sample": "{\"flex\":[{\"start\":20,\"what\":\"knife out\"}]}",
+        "required": true,
+        "position": {
+          "x": 600,
+          "y": 0
+        }
+      },
+      {
+        "id": "game_dur",
+        "kind": "input",
+        "name": "gameDurationSec",
+        "type": "text",
+        "sample": "2400",
+        "required": true,
+        "position": {
+          "x": 900,
+          "y": 0
+        }
+      },
+      {
+        "id": "audio_in",
+        "kind": "input",
+        "name": "audio",
+        "type": "file:audio",
+        "sample": "",
+        "required": true,
+        "position": {
+          "x": 1200,
+          "y": 0
+        }
+      },
+      {
+        "id": "song_dur",
+        "kind": "input",
+        "name": "songDurationSec",
+        "type": "text",
+        "sample": "22",
+        "required": true,
+        "position": {
+          "x": 1500,
+          "y": 0
+        }
+      },
+      {
+        "id": "loudness_in",
+        "kind": "input",
+        "name": "loudness",
+        "type": "text",
+        "sample": "0.000000,-30.0",
+        "required": true,
+        "position": {
+          "x": 1800,
+          "y": 0
+        }
+      },
+      {
+        "id": "max_dur",
+        "kind": "input",
+        "name": "maxDurationSec",
+        "type": "text",
+        "sample": "60",
+        "required": true,
+        "position": {
+          "x": 0,
+          "y": 180
+        }
+      },
+      {
+        "id": "variation_in",
+        "kind": "input",
+        "name": "variation",
+        "type": "text",
+        "sample": "Put the slow-motion clip third and the speed-up clips early.",
+        "required": true,
+        "position": {
+          "x": 300,
+          "y": 180
+        }
+      },
+      {
+        "id": "llm",
+        "kind": "engine",
+        "engine": "llm",
+        "params": {
+          "use": "deepsoch-worker"
+        },
+        "operation": "connection",
+        "position": {
+          "x": 600,
+          "y": 180
+        }
+      },
+      {
+        "id": "kill_list",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-path",
+        "params": {
+          "path": "kills",
+          "fallback": "[]"
+        },
+        "position": {
+          "x": 900,
+          "y": 180
+        }
+      },
+      {
+        "id": "kill_times",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-map",
+        "params": {
+          "path": "t",
+          "dropEmpty": true
+        },
+        "position": {
+          "x": 1200,
+          "y": 180
+        }
+      },
+      {
+        "id": "lead_normal",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "number",
+        "params": {
+          "value": 2.5
+        },
+        "position": {
+          "x": 1500,
+          "y": 180
+        }
+      },
+      {
+        "id": "lead_slow",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "number",
+        "params": {
+          "value": 1.0
+        },
+        "position": {
+          "x": 1800,
+          "y": 180
+        }
+      },
+      {
+        "id": "zero_num",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "number",
+        "params": {
+          "value": 0
+        },
+        "position": {
+          "x": 0,
+          "y": 360
+        }
+      },
+      {
+        "id": "starts_normal_raw",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "subtract"
+        },
+        "position": {
+          "x": 300,
+          "y": 360
+        }
+      },
+      {
+        "id": "starts_slow_raw",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "subtract"
+        },
+        "position": {
+          "x": 600,
+          "y": 360
+        }
+      },
+      {
+        "id": "starts_normal",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "max"
+        },
+        "position": {
+          "x": 900,
+          "y": 360
+        }
+      },
+      {
+        "id": "starts_slow",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "max"
+        },
+        "position": {
+          "x": 1200,
+          "y": 360
+        }
+      },
+      {
+        "id": "starts_normal_csv",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "join",
+        "params": {
+          "separator": ", "
+        },
+        "position": {
+          "x": 1500,
+          "y": 360
+        }
+      },
+      {
+        "id": "starts_slow_csv",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "join",
+        "params": {
+          "separator": ", "
+        },
+        "position": {
+          "x": 1800,
+          "y": 360
+        }
+      },
+      {
+        "id": "starts_normal_alt",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "join",
+        "params": {
+          "separator": "|"
+        },
+        "position": {
+          "x": 0,
+          "y": 540
+        }
+      },
+      {
+        "id": "starts_slow_alt",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "join",
+        "params": {
+          "separator": "|"
+        },
+        "position": {
+          "x": 300,
+          "y": 540
+        }
+      },
+      {
+        "id": "plan",
+        "kind": "engine",
+        "engine": "llm",
+        "operation": "chat",
+        "params": {
+          "system": "You are a senior gaming video editor who cuts beat-synced kill montages. You answer only with valid JSON.",
+          "json": true,
+          "maxTokens": 16384,
+          "temperature": 0.2
+        },
+        "position": {
+          "x": 600,
+          "y": 540
+        }
+      },
+      {
+        "id": "clips",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-path",
+        "params": {
+          "path": "clips",
+          "fallback": "[]"
+        },
+        "position": {
+          "x": 900,
+          "y": 540
+        }
+      },
+      {
+        "id": "has_speed",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-filter",
+        "params": {
+          "path": "speed",
+          "op": "is-empty",
+          "invert": true
+        },
+        "position": {
+          "x": 1200,
+          "y": 540
+        }
+      },
+      {
+        "id": "len_max",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-filter",
+        "params": {
+          "path": "len",
+          "op": "less-or-equal",
+          "compareTo": "6.5"
+        },
+        "position": {
+          "x": 1500,
+          "y": 540
+        }
+      },
+      {
+        "id": "len_min",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-filter",
+        "params": {
+          "path": "len",
+          "op": "greater-or-equal",
+          "compareTo": "1"
+        },
+        "position": {
+          "x": 1800,
+          "y": 540
+        }
+      },
+      {
+        "id": "start_allowed",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-filter",
+        "params": {
+          "path": "start",
+          "op": "matches"
+        },
+        "position": {
+          "x": 0,
+          "y": 720
+        }
+      },
+      {
+        "id": "clip_id_range",
+        "kind": "engine",
+        "engine": "util",
+        "params": {
+          "keys": "id, start, len, speed, word"
+        },
+        "operation": "json-pick",
+        "position": {
+          "x": 300,
+          "y": 720
+        }
+      },
+      {
+        "id": "clip_id_range_text",
+        "kind": "engine",
+        "engine": "util",
+        "params": {
+          "indent": 0
+        },
+        "operation": "json-stringify",
+        "position": {
+          "x": 600,
+          "y": 720
+        }
+      },
+      {
+        "id": "clip_items_joined",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "join",
+        "params": {
+          "separator": ""
+        },
+        "position": {
+          "x": 900,
+          "y": 720
+        }
+      },
+      {
+        "id": "slow_filters",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "\\{(?=[^}]*\"id\":\"?(\\d+)\"?)(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"len\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"speed\":\"?0?\\.50*\"?[,}])[^}]*\\}",
+          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=2*(PTS-STARTPTS),framerate=fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.15*max(0,1-in/20)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.25:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,volume=0,apad=pad_dur=$3[a$1];"
+        },
+        "position": {
+          "x": 1200,
+          "y": 720
+        }
+      },
+      {
+        "id": "segment_filters",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "\\{(?=[^}]*\"id\":\"?(\\d+)\"?)(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"len\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"speed\":\"?1(?:\\.0+)?\"?[,}])[^}]*\\}",
+          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
+        },
+        "position": {
+          "x": 1500,
+          "y": 720
+        }
+      },
+      {
+        "id": "segment_labels",
+        "kind": "engine",
+        "engine": "util",
+        "params": {
+          "flags": "g",
+          "pattern": "\\{(?=[^}]*\"id\":\"?(\\d+)\"?)[^}]*\\}",
+          "replace": "[v$1][a$1]"
+        },
+        "operation": "regex",
+        "position": {
+          "x": 1800,
+          "y": 720
+        }
+      },
+      {
+        "id": "play_sum",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-aggregate",
+        "params": {
+          "op": "sum",
+          "path": "len"
+        },
+        "position": {
+          "x": 0,
+          "y": 900
+        }
+      },
+      {
+        "id": "slow_clips",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-filter",
+        "params": {
+          "path": "speed",
+          "op": "less",
+          "compareTo": "1"
+        },
+        "position": {
+          "x": 300,
+          "y": 900
+        }
+      },
+      {
+        "id": "slow_sum",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-aggregate",
+        "params": {
+          "op": "sum",
+          "path": "len"
+        },
+        "position": {
+          "x": 600,
+          "y": 900
+        }
+      },
+      {
+        "id": "play_time",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "add"
+        },
+        "position": {
+          "x": 900,
+          "y": 900
+        }
+      },
+      {
+        "id": "end_time",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "min"
+        },
+        "position": {
+          "x": 1200,
+          "y": 900
+        }
+      },
+      {
+        "id": "fade_len",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "number",
+        "params": {
+          "value": 0.8
+        },
+        "position": {
+          "x": 1500,
+          "y": 900
+        }
+      },
+      {
+        "id": "fade_start",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "subtract"
+        },
+        "position": {
+          "x": 1800,
+          "y": 900
+        }
+      },
+      {
+        "id": "ffmpeg_args",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "[\"-y\", \"-filter_complex\", \"{{a}}{{b}}concat=n={{c}}:v=1:a=1[vc][ga];[vc]fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];amovie='{in1}',asetpts=PTS-STARTPTS,aresample=48000[mus];[ga]volume=0.3[gad];[mus][gad]amix=inputs=2:duration=shortest:normalize=0,afade=t=in:st=0:d=0.3,afade=t=out:st={{f}}:d=0.8[a]\", \"-map\", \"[v]\", \"-map\", \"[a]\", \"-c:v\", \"{enc:h264}\", \"-preset\", \"p5\", \"-tune\", \"hq\", \"-rc\", \"vbr\", \"-cq\", \"20\", \"-b:v\", \"0\", \"-maxrate\", \"20M\", \"-bufsize\", \"40M\", \"-profile:v\", \"high\", \"-pix_fmt\", \"yuv420p\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{d}}\", \"montage.mp4\"]"
+        },
+        "position": {
+          "x": 0,
+          "y": 1080
+        }
+      },
+      {
+        "id": "args_json",
+        "kind": "engine",
+        "engine": "util",
+        "params": {
+          "fenced": false
+        },
+        "operation": "json-parse",
+        "position": {
+          "x": 300,
+          "y": 1080
+        }
+      },
+      {
+        "id": "args_list",
+        "kind": "engine",
+        "engine": "util",
+        "params": {},
+        "operation": "merge",
+        "position": {
+          "x": 600,
+          "y": 1080
+        }
+      },
+      {
+        "id": "zero",
+        "kind": "engine",
+        "engine": "util",
+        "params": {
+          "value": "0"
+        },
+        "operation": "text",
+        "position": {
+          "x": 900,
+          "y": 1080
+        }
+      },
+      {
+        "id": "has_clips",
+        "kind": "engine",
+        "engine": "util",
+        "params": {
+          "op": "greater"
+        },
+        "operation": "compare",
+        "position": {
+          "x": 1200,
+          "y": 1080
+        }
+      },
+      {
+        "id": "render_gate",
+        "kind": "engine",
+        "engine": "util",
+        "params": {},
+        "operation": "gate",
+        "position": {
+          "x": 1500,
+          "y": 1080
+        }
+      },
+      {
+        "id": "make_montage",
+        "kind": "engine",
+        "engine": "video",
+        "params": {
+          "tier": "gpu",
+          "output": "montage.mp4"
+        },
+        "operation": "custom",
+        "position": {
+          "x": 1800,
+          "y": 1080
+        }
+      },
+      {
+        "id": "kills_json",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-parse",
+        "params": {
+          "fenced": false
+        },
+        "position": {
+          "x": 0,
+          "y": 1260
+        }
+      },
+      {
+        "id": "flex_json",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-parse",
+        "params": {
+          "fenced": false
+        },
+        "position": {
+          "x": 300,
+          "y": 1260
+        }
+      },
+      {
+        "id": "flex_list",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-path",
+        "params": {
+          "path": "flex",
+          "fallback": "[]"
+        },
+        "position": {
+          "x": 600,
+          "y": 1260
+        }
+      },
+      {
+        "id": "flex_starts",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-map",
+        "params": {
+          "path": "start",
+          "dropEmpty": true
+        },
+        "position": {
+          "x": 900,
+          "y": 1260
+        }
+      },
+      {
+        "id": "flex_alt",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "join",
+        "params": {
+          "separator": "|"
+        },
+        "position": {
+          "x": 1200,
+          "y": 1260
+        }
+      },
+      {
+        "id": "starts_pattern",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "^({{a}}|{{b}}|{{c}})0*$"
+        },
+        "position": {
+          "x": 1500,
+          "y": 1260
+        }
+      },
+      {
+        "id": "plan_prompt",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "You are planning a 9:16 Valorant/CS2 kill montage: a short intro flex (no kill), then back-to-back kills at mixed speeds, cut to a song.\n\nTHE PLAYER'S KILLS in the gameplay recording, in recording seconds (K is when the kill-feed row appears; the real kill is up to 2 s before K):\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal and speed-up clips, in RECORDING seconds (each 2.5 s before one kill, same order as the kills, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: one clip per kill (kills less than 2 s apart share a clip). A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   - Normal: speed 1, start from CLIP STARTS, len 3 to 5 s.\n   - Speed-up: speed 1.5, start from CLIP STARTS, len 3 to 6 s (it plays for len / 1.5).\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS, len 1.5 to 2 s (it plays for 2 x len).\n   Use at least one slow-motion and one speed-up clip, at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. The clip playing across dropAtSec should be the strongest kill (a multi-kill if there is one). Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role. Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
+        },
+        "position": {
+          "x": 1800,
+          "y": 1260
+        }
+      },
+      {
+        "id": "kills_text",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-stringify",
+        "params": {
+          "indent": 0
+        },
+        "position": {
+          "x": 0,
+          "y": 1440
+        }
+      },
+      {
+        "id": "flex_text",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-stringify",
+        "params": {
+          "indent": 0
+        },
+        "position": {
+          "x": 300,
+          "y": 1440
+        }
+      },
+      {
+        "id": "cap",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "min"
+        },
+        "position": {
+          "x": 600,
+          "y": 1440
+        }
+      },
+      {
+        "id": "fast_filters",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "\\{(?=[^}]*\"id\":\"?(\\d+)\"?)(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"len\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"speed\":\"?1\\.50*\"?[,}])[^}]*\\}",
+          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=(PTS-STARTPTS)/1.5,fps=60,avgblur=sizeX=48:sizeY=1:enable='lt(t,0.07)',split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,atempo=1.5[a$1];"
+        },
+        "position": {
+          "x": 900,
+          "y": 1440
+        }
+      },
+      {
+        "id": "fast_clips",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-filter",
+        "params": {
+          "path": "speed",
+          "op": "greater",
+          "compareTo": "1"
+        },
+        "position": {
+          "x": 1200,
+          "y": 1440
+        }
+      },
+      {
+        "id": "fast_sum",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-aggregate",
+        "params": {
+          "op": "sum",
+          "path": "len"
+        },
+        "position": {
+          "x": 1500,
+          "y": 1440
+        }
+      },
+      {
+        "id": "three",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "number",
+        "params": {
+          "value": 3
+        },
+        "position": {
+          "x": 1800,
+          "y": 1440
+        }
+      },
+      {
+        "id": "fast_saving",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "divide"
+        },
+        "position": {
+          "x": 0,
+          "y": 1620
+        }
+      },
+      {
+        "id": "play_net",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "subtract"
+        },
+        "position": {
+          "x": 300,
+          "y": 1620
+        }
+      },
+      {
+        "id": "out",
+        "kind": "output",
+        "fields": [
+          "montage",
+          "plan"
+        ],
+        "position": {
+          "x": 600,
+          "y": 1620
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "llm.connection->plan.connection",
+        "from": {
+          "node": "llm",
+          "port": "connection"
+        },
+        "to": {
+          "node": "plan",
+          "port": "connection"
+        }
+      },
+      {
+        "id": "plan.json->clips.value",
+        "from": {
+          "node": "plan",
+          "port": "json"
+        },
+        "to": {
+          "node": "clips",
+          "port": "value"
+        }
+      },
+      {
+        "id": "start_allowed.items->clip_id_range.value",
+        "from": {
+          "node": "start_allowed",
+          "port": "items"
+        },
+        "to": {
+          "node": "clip_id_range",
+          "port": "value"
+        }
+      },
+      {
+        "id": "clip_id_range.value->clip_id_range_text.value",
+        "from": {
+          "node": "clip_id_range",
+          "port": "value"
+        },
+        "to": {
+          "node": "clip_id_range_text",
+          "port": "value"
+        }
+      },
+      {
+        "id": "ffmpeg_args.value->args_json.text",
+        "from": {
+          "node": "ffmpeg_args",
+          "port": "value"
+        },
+        "to": {
+          "node": "args_json",
+          "port": "text"
+        }
+      },
+      {
+        "id": "args_json.value->args_list.a",
+        "from": {
+          "node": "args_json",
+          "port": "value"
+        },
+        "to": {
+          "node": "args_list",
+          "port": "a"
+        }
+      },
+      {
+        "id": "zero.value->has_clips.b",
+        "from": {
+          "node": "zero",
+          "port": "value"
+        },
+        "to": {
+          "node": "has_clips",
+          "port": "b"
+        }
+      },
+      {
+        "id": "has_clips.result->render_gate.when",
+        "from": {
+          "node": "has_clips",
+          "port": "result"
+        },
+        "to": {
+          "node": "render_gate",
+          "port": "when"
+        }
+      },
+      {
+        "id": "args_list.value->render_gate.value",
+        "from": {
+          "node": "args_list",
+          "port": "value"
+        },
+        "to": {
+          "node": "render_gate",
+          "port": "value"
+        }
+      },
+      {
+        "id": "render_gate.value->make_montage.args",
+        "from": {
+          "node": "render_gate",
+          "port": "value"
+        },
+        "to": {
+          "node": "make_montage",
+          "port": "args"
+        }
+      },
+      {
+        "id": "clips.value->has_speed.value",
+        "from": {
+          "node": "clips",
+          "port": "value"
+        },
+        "to": {
+          "node": "has_speed",
+          "port": "value"
+        }
+      },
+      {
+        "id": "has_speed.items->len_max.value",
+        "from": {
+          "node": "has_speed",
+          "port": "items"
+        },
+        "to": {
+          "node": "len_max",
+          "port": "value"
+        }
+      },
+      {
+        "id": "len_max.items->len_min.value",
+        "from": {
+          "node": "len_max",
+          "port": "items"
+        },
+        "to": {
+          "node": "len_min",
+          "port": "value"
+        }
+      },
+      {
+        "id": "start_allowed.items->play_sum.value",
+        "from": {
+          "node": "start_allowed",
+          "port": "items"
+        },
+        "to": {
+          "node": "play_sum",
+          "port": "value"
+        }
+      },
+      {
+        "id": "start_allowed.items->slow_clips.value",
+        "from": {
+          "node": "start_allowed",
+          "port": "items"
+        },
+        "to": {
+          "node": "slow_clips",
+          "port": "value"
+        }
+      },
+      {
+        "id": "slow_clips.items->slow_sum.value",
+        "from": {
+          "node": "slow_clips",
+          "port": "items"
+        },
+        "to": {
+          "node": "slow_sum",
+          "port": "value"
+        }
+      },
+      {
+        "id": "play_sum.value->play_time.a",
+        "from": {
+          "node": "play_sum",
+          "port": "value"
+        },
+        "to": {
+          "node": "play_time",
+          "port": "a"
+        }
+      },
+      {
+        "id": "slow_sum.value->play_time.b",
+        "from": {
+          "node": "slow_sum",
+          "port": "value"
+        },
+        "to": {
+          "node": "play_time",
+          "port": "b"
+        }
+      },
+      {
+        "id": "end_time.value->fade_start.a",
+        "from": {
+          "node": "end_time",
+          "port": "value"
+        },
+        "to": {
+          "node": "fade_start",
+          "port": "a"
+        }
+      },
+      {
+        "id": "fade_len.value->fade_start.b",
+        "from": {
+          "node": "fade_len",
+          "port": "value"
+        },
+        "to": {
+          "node": "fade_start",
+          "port": "b"
+        }
+      },
+      {
+        "id": "fade_start.value->ffmpeg_args.f",
+        "from": {
+          "node": "fade_start",
+          "port": "value"
+        },
+        "to": {
+          "node": "ffmpeg_args",
+          "port": "f"
+        }
+      },
+      {
+        "id": "start_allowed.count->has_clips.a",
+        "from": {
+          "node": "start_allowed",
+          "port": "count"
+        },
+        "to": {
+          "node": "has_clips",
+          "port": "a"
+        }
+      },
+      {
+        "id": "start_allowed.count->ffmpeg_args.c",
+        "from": {
+          "node": "start_allowed",
+          "port": "count"
+        },
+        "to": {
+          "node": "ffmpeg_args",
+          "port": "c"
+        }
+      },
+      {
+        "id": "clip_id_range_text.value->clip_items_joined.value",
+        "from": {
+          "node": "clip_id_range_text",
+          "port": "value"
+        },
+        "to": {
+          "node": "clip_items_joined",
+          "port": "value"
+        }
+      },
+      {
+        "id": "kill_list.value->kill_times.value",
+        "from": {
+          "node": "kill_list",
+          "port": "value"
+        },
+        "to": {
+          "node": "kill_times",
+          "port": "value"
+        }
+      },
+      {
+        "id": "kill_times.items->starts_normal_raw.a",
+        "from": {
+          "node": "kill_times",
+          "port": "items"
+        },
+        "to": {
+          "node": "starts_normal_raw",
+          "port": "a"
+        }
+      },
+      {
+        "id": "lead_normal.value->starts_normal_raw.b",
+        "from": {
+          "node": "lead_normal",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_normal_raw",
+          "port": "b"
+        }
+      },
+      {
+        "id": "starts_normal_raw.value->starts_normal.a",
+        "from": {
+          "node": "starts_normal_raw",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_normal",
+          "port": "a"
+        }
+      },
+      {
+        "id": "zero_num.value->starts_normal.b",
+        "from": {
+          "node": "zero_num",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_normal",
+          "port": "b"
+        }
+      },
+      {
+        "id": "starts_normal.value->starts_normal_csv.value",
+        "from": {
+          "node": "starts_normal",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_normal_csv",
+          "port": "value"
+        }
+      },
+      {
+        "id": "starts_normal.value->starts_normal_alt.value",
+        "from": {
+          "node": "starts_normal",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_normal_alt",
+          "port": "value"
+        }
+      },
+      {
+        "id": "kill_times.items->starts_slow_raw.a",
+        "from": {
+          "node": "kill_times",
+          "port": "items"
+        },
+        "to": {
+          "node": "starts_slow_raw",
+          "port": "a"
+        }
+      },
+      {
+        "id": "lead_slow.value->starts_slow_raw.b",
+        "from": {
+          "node": "lead_slow",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_slow_raw",
+          "port": "b"
+        }
+      },
+      {
+        "id": "starts_slow_raw.value->starts_slow.a",
+        "from": {
+          "node": "starts_slow_raw",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_slow",
+          "port": "a"
+        }
+      },
+      {
+        "id": "zero_num.value->starts_slow.b",
+        "from": {
+          "node": "zero_num",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_slow",
+          "port": "b"
+        }
+      },
+      {
+        "id": "starts_slow.value->starts_slow_csv.value",
+        "from": {
+          "node": "starts_slow",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_slow_csv",
+          "port": "value"
+        }
+      },
+      {
+        "id": "starts_slow.value->starts_slow_alt.value",
+        "from": {
+          "node": "starts_slow",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_slow_alt",
+          "port": "value"
+        }
+      },
+      {
+        "id": "len_min.items->start_allowed.value",
+        "from": {
+          "node": "len_min",
+          "port": "items"
+        },
+        "to": {
+          "node": "start_allowed",
+          "port": "value"
+        }
+      },
+      {
+        "id": "clip_items_joined.value->segment_labels.text",
+        "from": {
+          "node": "clip_items_joined",
+          "port": "value"
+        },
+        "to": {
+          "node": "segment_labels",
+          "port": "text"
+        }
+      },
+      {
+        "id": "segment_filters.text->ffmpeg_args.a",
+        "from": {
+          "node": "segment_filters",
+          "port": "text"
+        },
+        "to": {
+          "node": "ffmpeg_args",
+          "port": "a"
+        }
+      },
+      {
+        "id": "segment_labels.text->ffmpeg_args.b",
+        "from": {
+          "node": "segment_labels",
+          "port": "text"
+        },
+        "to": {
+          "node": "ffmpeg_args",
+          "port": "b"
+        }
+      },
+      {
+        "id": "kills_in.value->kills_json.text",
+        "from": {
+          "node": "kills_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "kills_json",
+          "port": "text"
+        }
+      },
+      {
+        "id": "kills_json.value->kill_list.value",
+        "from": {
+          "node": "kills_json",
+          "port": "value"
+        },
+        "to": {
+          "node": "kill_list",
+          "port": "value"
+        }
+      },
+      {
+        "id": "flex_in.value->flex_json.text",
+        "from": {
+          "node": "flex_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "flex_json",
+          "port": "text"
+        }
+      },
+      {
+        "id": "flex_json.value->flex_list.value",
+        "from": {
+          "node": "flex_json",
+          "port": "value"
+        },
+        "to": {
+          "node": "flex_list",
+          "port": "value"
+        }
+      },
+      {
+        "id": "flex_list.value->flex_starts.value",
+        "from": {
+          "node": "flex_list",
+          "port": "value"
+        },
+        "to": {
+          "node": "flex_starts",
+          "port": "value"
+        }
+      },
+      {
+        "id": "flex_starts.items->flex_alt.value",
+        "from": {
+          "node": "flex_starts",
+          "port": "items"
+        },
+        "to": {
+          "node": "flex_alt",
+          "port": "value"
+        }
+      },
+      {
+        "id": "starts_normal_alt.value->starts_pattern.a",
+        "from": {
+          "node": "starts_normal_alt",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "starts_slow_alt.value->starts_pattern.b",
+        "from": {
+          "node": "starts_slow_alt",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_pattern",
+          "port": "b"
+        }
+      },
+      {
+        "id": "flex_alt.value->starts_pattern.c",
+        "from": {
+          "node": "flex_alt",
+          "port": "value"
+        },
+        "to": {
+          "node": "starts_pattern",
+          "port": "c"
+        }
+      },
+      {
+        "id": "starts_pattern.value->start_allowed.compareTo",
+        "from": {
+          "node": "starts_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "start_allowed",
+          "port": "compareTo"
+        }
+      },
+      {
+        "id": "kills_json.value->kills_text.value",
+        "from": {
+          "node": "kills_json",
+          "port": "value"
+        },
+        "to": {
+          "node": "kills_text",
+          "port": "value"
+        }
+      },
+      {
+        "id": "flex_list.value->flex_text.value",
+        "from": {
+          "node": "flex_list",
+          "port": "value"
+        },
+        "to": {
+          "node": "flex_text",
+          "port": "value"
+        }
+      },
+      {
+        "id": "song_dur.value->cap.a",
+        "from": {
+          "node": "song_dur",
+          "port": "value"
+        },
+        "to": {
+          "node": "cap",
+          "port": "a"
+        }
+      },
+      {
+        "id": "max_dur.value->cap.b",
+        "from": {
+          "node": "max_dur",
+          "port": "value"
+        },
+        "to": {
+          "node": "cap",
+          "port": "b"
+        }
+      },
+      {
+        "id": "kills_text.value->plan_prompt.a",
+        "from": {
+          "node": "kills_text",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "a"
+        }
+      },
+      {
+        "id": "game_dur.value->plan_prompt.f",
+        "from": {
+          "node": "game_dur",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "f"
+        }
+      },
+      {
+        "id": "flex_text.value->plan_prompt.m",
+        "from": {
+          "node": "flex_text",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "m"
+        }
+      },
+      {
+        "id": "starts_normal_alt.value->plan_prompt.k",
+        "from": {
+          "node": "starts_normal_alt",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "k"
+        }
+      },
+      {
+        "id": "starts_slow_alt.value->plan_prompt.l",
+        "from": {
+          "node": "starts_slow_alt",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "l"
+        }
+      },
+      {
+        "id": "song_dur.value->plan_prompt.g",
+        "from": {
+          "node": "song_dur",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "g"
+        }
+      },
+      {
+        "id": "loudness_in.value->plan_prompt.h",
+        "from": {
+          "node": "loudness_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "h"
+        }
+      },
+      {
+        "id": "cap.value->plan_prompt.i",
+        "from": {
+          "node": "cap",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "i"
+        }
+      },
+      {
+        "id": "variation_in.value->plan_prompt.n",
+        "from": {
+          "node": "variation_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan_prompt",
+          "port": "n"
+        }
+      },
+      {
+        "id": "plan_prompt.value->plan.prompt",
+        "from": {
+          "node": "plan_prompt",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan",
+          "port": "prompt"
+        }
+      },
+      {
+        "id": "clip_items_joined.value->slow_filters.text",
+        "from": {
+          "node": "clip_items_joined",
+          "port": "value"
+        },
+        "to": {
+          "node": "slow_filters",
+          "port": "text"
+        }
+      },
+      {
+        "id": "slow_filters.text->fast_filters.text",
+        "from": {
+          "node": "slow_filters",
+          "port": "text"
+        },
+        "to": {
+          "node": "fast_filters",
+          "port": "text"
+        }
+      },
+      {
+        "id": "fast_filters.text->segment_filters.text",
+        "from": {
+          "node": "fast_filters",
+          "port": "text"
+        },
+        "to": {
+          "node": "segment_filters",
+          "port": "text"
+        }
+      },
+      {
+        "id": "start_allowed.items->fast_clips.value",
+        "from": {
+          "node": "start_allowed",
+          "port": "items"
+        },
+        "to": {
+          "node": "fast_clips",
+          "port": "value"
+        }
+      },
+      {
+        "id": "fast_clips.items->fast_sum.value",
+        "from": {
+          "node": "fast_clips",
+          "port": "items"
+        },
+        "to": {
+          "node": "fast_sum",
+          "port": "value"
+        }
+      },
+      {
+        "id": "fast_sum.value->fast_saving.a",
+        "from": {
+          "node": "fast_sum",
+          "port": "value"
+        },
+        "to": {
+          "node": "fast_saving",
+          "port": "a"
+        }
+      },
+      {
+        "id": "three.value->fast_saving.b",
+        "from": {
+          "node": "three",
+          "port": "value"
+        },
+        "to": {
+          "node": "fast_saving",
+          "port": "b"
+        }
+      },
+      {
+        "id": "play_time.value->play_net.a",
+        "from": {
+          "node": "play_time",
+          "port": "value"
+        },
+        "to": {
+          "node": "play_net",
+          "port": "a"
+        }
+      },
+      {
+        "id": "fast_saving.value->play_net.b",
+        "from": {
+          "node": "fast_saving",
+          "port": "value"
+        },
+        "to": {
+          "node": "play_net",
+          "port": "b"
+        }
+      },
+      {
+        "id": "play_net.value->end_time.a",
+        "from": {
+          "node": "play_net",
+          "port": "value"
+        },
+        "to": {
+          "node": "end_time",
+          "port": "a"
+        }
+      },
+      {
+        "id": "cap.value->end_time.b",
+        "from": {
+          "node": "cap",
+          "port": "value"
+        },
+        "to": {
+          "node": "end_time",
+          "port": "b"
+        }
+      },
+      {
+        "id": "video_in.value->make_montage.input",
+        "from": {
+          "node": "video_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "make_montage",
+          "port": "input"
+        }
+      },
+      {
+        "id": "audio_in.value->make_montage.input",
+        "from": {
+          "node": "audio_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "make_montage",
+          "port": "input"
+        }
+      },
+      {
+        "id": "cap.value->ffmpeg_args.d",
+        "from": {
+          "node": "cap",
+          "port": "value"
+        },
+        "to": {
+          "node": "ffmpeg_args",
+          "port": "d"
+        }
+      },
+      {
+        "id": "make_montage.file->out.montage",
+        "from": {
+          "node": "make_montage",
+          "port": "file"
+        },
+        "to": {
+          "node": "out",
+          "port": "montage"
+        }
+      },
+      {
+        "id": "plan.json->out.plan",
+        "from": {
+          "node": "plan",
+          "port": "json"
+        },
+        "to": {
+          "node": "out",
+          "port": "plan"
+        }
+      }
+    ]
+  }
+}

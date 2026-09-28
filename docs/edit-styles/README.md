@@ -38,7 +38,7 @@ Each edit style is a written spec, and later its own pipeline.
 
 ## Proposed production architecture: split into stage pipelines
 
-Today one pipeline does everything in one run: about 107 nodes and 4–6 minutes. For production, split it by what can be reused:
+Built 2026-09-28 (`pipelines/`, ids in `pipelines/README.md`). Before that, one pipeline did everything in one run: about 107 nodes and 4–6 minutes. For production, split it by what can be reused:
 
 | Pipeline | Input | Output | Heavy steps | Reuse |
 |---|---|---|---|---|

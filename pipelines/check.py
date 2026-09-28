@@ -1,0 +1,52 @@
+"""Regression check for the style pipelines: builds each style's render command from fixed inputs with the
+emulator and asserts what it must contain. Run after changing build.py:  python3 pipelines/check.py"""
+import json, os, sys
+HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
+from emulate import run
+
+words = json.load(open(os.path.join(HERE, "fixtures", "words.json")))
+K = [10.75, 12.5, 18.0, 20.6, 25.0, 28.3, 34.4, 36.5, 45.8]
+kills = {"kills": [{"t": k} for k in K], "totalKills": len(K)}
+flex = {"flex": [{"start": 6.0, "what": "walking with the pistol"}]}
+def plan(flex_len, clips_extra=()):
+    return {"beatSec": 0.45, "dropAtSec": 6.4, "hook": "cool", "totalKills": 6, "notes": "fixture",
+            "clips": [{"id": 1, "start": 6.0, "len": flex_len, "speed": 1, "role": "flex"},
+                      {"id": 2, "start": 8.25, "len": 4.5, "speed": 1.5, "role": "kill"},
+                      {"id": 3, "start": 17.0, "len": 1.5, "speed": 0.5, "role": "kill"},
+                      {"id": 4, "start": 22.5, "len": 3, "speed": 1, "role": "kill"},
+                      {"id": 5, "start": 25.8, "len": 3.5, "speed": 1.5, "role": "kill"},
+                      {"id": 6, "start": 31.9, "len": 3, "speed": 1, "role": "kill"},
+                      {"id": 7, "start": 99.0, "len": 3, "speed": 1, "role": "kill"}, *clips_extra]}
+def build(name, p, song=17.9, cap=60, w=words):
+    g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    seeds = {("kills_in", "value"): json.dumps(kills), ("flex_in", "value"): json.dumps(flex), ("game_dur", "value"): "95",
+             ("song_dur", "value"): song, ("max_dur", "value"): cap, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
+             ("words_in", "value"): json.dumps(w), ("plan", "json"): p}
+    return run(g, seeds, ("render_gate", "value"))
+def fc(args): return args[args.index("-filter_complex") + 1]
+def t(args): return float(args[args.index("-t") + 1])
+def fade(args): return float(fc(args).split("fade=t=out:st=")[1].split(":")[0])
+
+failures = []
+def check(label, cond):
+    print(("ok   " if cond else "FAIL ") + label)
+    if not cond: failures.append(label)
+
+a = build("style-kill-montage", plan(3))
+check("kill montage: 6 clips (the invalid start 99 is dropped)", fc(a).count("amovie='{in0}'") == 6)
+check("kill montage: 2 speed-ups with whip blur", fc(a).count("atempo=1.5") == 2 and fc(a).count("avgblur") == 2)
+check("kill montage: 1 slow-motion clip, game audio muted", fc(a).count("setpts=2*") == 1 and fc(a).count("volume=0,apad") == 1)
+check("kill montage: no text", "drawtext" not in fc(a))
+check("kill montage: -t is the song length when under the cap", t(a) == 17.9)
+check("kill montage: fade 0.8 s before the play time (3 + 3 + 3 + 3 + 2.33 + 3)", abs(fade(a) - (17.333 - 0.8)) < 0.01)
+a = build("style-kill-montage", plan(3), song=120, cap=15)
+check("kill montage: capped at the chosen length", t(a) == 15 and abs(fade(a) - 14.2) < 0.01)
+check("kill montage: no clips -> no render", build("style-kill-montage", {**plan(3), "clips": []}) is None)
+
+b = build("style-lyrical-kill-montage", plan(1.25))
+check("lyrical: words shown one at a time, centred", fc(b).count("drawtext") > 20 and "y=h*0.875" not in fc(b) and "y=h*0.5-text_h/2" in fc(b))
+check("lyrical: the hook word is bigger", fc(b).count("fontsize=170") >= 1)
+check("lyrical: only words sung before the montage ends", all(float(x.split(",")[0]) <= 15.59 for x in fc(b).split("between(t,")[1:]))
+check("lyrical: no song words -> renders without text", "drawtext" not in fc(build("style-lyrical-kill-montage", plan(1.25), w=[])))
+check("lyrical: a slur is never shown", "igga" not in fc(b).lower())
+sys.exit(1 if failures else 0)

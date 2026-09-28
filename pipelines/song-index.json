@@ -1,0 +1,241 @@
+{
+  "kind": "editor-api/pipeline",
+  "formatVersion": 1,
+  "source": {
+    "id": "tpl_x4p9irJIKNb-",
+    "version": 1
+  },
+  "name": "song-index",
+  "description": "Song link -> audio file, duration, loudness every 0.25 s (beats/drop), and English word timestamps from the separated vocals. Cache per song; feeds every style-* pipeline.",
+  "graph": {
+    "version": 1,
+    "nodes": [
+      {
+        "id": "music_url",
+        "kind": "input",
+        "name": "musicUrl",
+        "type": "text",
+        "sample": "https://www.youtube.com/watch?v=V-2ToWpNx9s",
+        "required": true,
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "music",
+        "kind": "engine",
+        "engine": "media-fetch",
+        "operation": "audio",
+        "params": {
+          "tier": "cpu",
+          "codec": "m4a",
+          "retries": 5,
+          "fragmentRetries": 10,
+          "concurrentFragments": 8
+        },
+        "position": {
+          "x": 300,
+          "y": 0
+        }
+      },
+      {
+        "id": "music_file",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "pick",
+        "params": {
+          "index": 0
+        },
+        "position": {
+          "x": 600,
+          "y": 0
+        }
+      },
+      {
+        "id": "music_loudness",
+        "kind": "engine",
+        "engine": "video",
+        "operation": "custom",
+        "params": {
+          "bin": "ffprobe",
+          "tier": "cpu",
+          "args": [
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "amovie='{in0}',aresample=8000,asetnsamples=n=2000:p=0,astats=metadata=1:reset=1",
+            "-show_entries",
+            "frame=pts_time:frame_tags=lavfi.astats.Overall.RMS_level",
+            "-of",
+            "csv=p=0"
+          ]
+        },
+        "position": {
+          "x": 900,
+          "y": 0
+        }
+      },
+      {
+        "id": "vocals",
+        "kind": "engine",
+        "engine": "transcribe",
+        "operation": "separate",
+        "params": {
+          "model": "vocals",
+          "stems": [
+            "vocals"
+          ],
+          "format": "wav"
+        },
+        "position": {
+          "x": 1200,
+          "y": 0
+        }
+      },
+      {
+        "id": "lyrics",
+        "kind": "engine",
+        "engine": "transcribe",
+        "operation": "words",
+        "params": {
+          "model": "large-v3",
+          "language": "en"
+        },
+        "position": {
+          "x": 1500,
+          "y": 0
+        }
+      },
+      {
+        "id": "out",
+        "kind": "output",
+        "fields": [
+          "audio",
+          "durationSec",
+          "loudness",
+          "words",
+          "title"
+        ],
+        "position": {
+          "x": 1800,
+          "y": 0
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "music.files->music_file.list",
+        "from": {
+          "node": "music",
+          "port": "files"
+        },
+        "to": {
+          "node": "music_file",
+          "port": "list"
+        }
+      },
+      {
+        "id": "music_file.value->music_loudness.input",
+        "from": {
+          "node": "music_file",
+          "port": "value"
+        },
+        "to": {
+          "node": "music_loudness",
+          "port": "input"
+        }
+      },
+      {
+        "id": "music_file.value->vocals.input",
+        "from": {
+          "node": "music_file",
+          "port": "value"
+        },
+        "to": {
+          "node": "vocals",
+          "port": "input"
+        }
+      },
+      {
+        "id": "vocals.vocals->lyrics.input",
+        "from": {
+          "node": "vocals",
+          "port": "vocals"
+        },
+        "to": {
+          "node": "lyrics",
+          "port": "input"
+        }
+      },
+      {
+        "id": "music_url.value->music.url",
+        "from": {
+          "node": "music_url",
+          "port": "value"
+        },
+        "to": {
+          "node": "music",
+          "port": "url"
+        }
+      },
+      {
+        "id": "music_file.value->out.audio",
+        "from": {
+          "node": "music_file",
+          "port": "value"
+        },
+        "to": {
+          "node": "out",
+          "port": "audio"
+        }
+      },
+      {
+        "id": "music.duration->out.durationSec",
+        "from": {
+          "node": "music",
+          "port": "duration"
+        },
+        "to": {
+          "node": "out",
+          "port": "durationSec"
+        }
+      },
+      {
+        "id": "music_loudness.stdout->out.loudness",
+        "from": {
+          "node": "music_loudness",
+          "port": "stdout"
+        },
+        "to": {
+          "node": "out",
+          "port": "loudness"
+        }
+      },
+      {
+        "id": "lyrics.words->out.words",
+        "from": {
+          "node": "lyrics",
+          "port": "words"
+        },
+        "to": {
+          "node": "out",
+          "port": "words"
+        }
+      },
+      {
+        "id": "music.title->out.title",
+        "from": {
+          "node": "music",
+          "port": "title"
+        },
+        "to": {
+          "node": "out",
+          "port": "title"
+        }
+      }
+    ]
+  }
+}

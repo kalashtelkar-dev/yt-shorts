@@ -102,6 +102,7 @@ if (cmd === "get" && a) {
   const url = JSON.stringify(r.data).match(/"(https?:\/\/[^"]+)"/)?.[1]; // first link, whatever the response shape
   if (!url) { console.error(`HTTP ${r.status}: no signed URL in the response`); process.exit(1); }
   const res = await fetch(url, { signal: AbortSignal.timeout(300_000) });
+  if (!res.ok) { console.error(`HTTP ${res.status}: the file isn't available (outputs expire)`); process.exit(1); }
   writeFileSync(b, Buffer.from(await res.arrayBuffer()));
   console.log(`HTTP ${res.status}, saved ${b}`);
 } else {

@@ -199,3 +199,17 @@ Built by `.pipelines/build-edit-studio-v7.py` (local) from v6. Validated: compil
 **Tested** with `.pipelines/emulate.py` on the real v8 run (`run_aed2834c…`): the interpreter reproduces v8's render command exactly; v9's clips, cut words, slow motion and transitions are identical; the only differences are the removed bottom captions (20 → 0) and the new end handling (fade still at 21.2 s for this run).
 
 Utility nodes ("no job") run inside the scheduler in milliseconds; the run time is in the engine jobs (download, kill-feed strips, OCR, lyrics, analysis, render).
+
+## 18. Stage pipelines (2026-09-28): gameplay-index, song-index, style-kill-montage, style-lyrical-kill-montage
+
+**Status:** all five imported, waiting to be published. Source of truth is now `pipelines/` in the repo (built by `pipelines/build.py`, checked by `pipelines/check.py`).
+
+| Pipeline | Id |
+|---|---|
+| gameplay-index | `tpl_5qece0gK2fgX` |
+| gameplay-index-upload | `tpl_ot0JpJ0pzOr7` |
+| song-index | `tpl_sfY_wbow51wN` |
+| style-kill-montage | `tpl_xf7oCU4999sK` |
+| style-lyrical-kill-montage | `tpl_TAR3yOXmFDte` |
+
+Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision model (gameplay-index), flex clip + 1.5× speed-up clips with a whip blur, per-run `variation`, `maxDurationSec` cap, and (lyrical) every sung word centred and glowing with the hook bigger. Both styles' render commands were built with the emulator and rendered with a real ffmpeg 7.1 on stand-in media (exit 0, 1080×1920, 60 fps, audio).

@@ -1,0 +1,350 @@
+[
+{
+"end": 0.652,
+"word": "I'm",
+"score": 0.689,
+"start": 0.491
+},
+{
+"end": 0.872,
+"word": "so",
+"score": 0.754,
+"start": 0.692
+},
+{
+"end": 1.192,
+"word": "cool",
+"score": 0.715,
+"start": 0.932
+},
+{
+"end": 1.332,
+"word": "with",
+"score": 0.334,
+"start": 1.212
+},
+{
+"end": 1.432,
+"word": "my",
+"score": 0.513,
+"start": 1.352
+},
+{
+"end": 1.873,
+"word": "fashion",
+"score": 0.53,
+"start": 1.452
+},
+{
+"end": 2.093,
+"word": "pink",
+"score": 0.812,
+"start": 1.893
+},
+{
+"end": 2.633,
+"word": "lipstick",
+"score": 0.65,
+"start": 2.133
+},
+{
+"end": 2.793,
+"word": "and",
+"score": 0.286,
+"start": 2.693
+},
+{
+"end": 3.074,
+"word": "my",
+"score": 0.926,
+"start": 2.873
+},
+{
+"end": 3.314,
+"word": "knee",
+"score": 0.713,
+"start": 3.114
+},
+{
+"end": 3.554,
+"word": "rolls",
+"score": 0.623,
+"start": 3.334
+},
+{
+"end": 3.994,
+"word": "down",
+"score": 0.884,
+"start": 3.634
+},
+{
+"end": 4.194,
+"word": "All",
+"score": 0.777,
+"start": 4.094
+},
+{
+"end": 4.295,
+"word": "the",
+"score": 0.926,
+"start": 4.214
+},
+{
+"end": 4.515,
+"word": "boys",
+"score": 0.824,
+"start": 4.355
+},
+{
+"end": 4.675,
+"word": "say",
+"score": 0.86,
+"start": 4.535
+},
+{
+"end": 5.135,
+"word": "wow,",
+"score": 0.562,
+"start": 4.695
+},
+{
+"end": 5.656,
+"word": "wow,",
+"score": 0.614,
+"start": 5.255
+},
+{
+"end": 5.896,
+"word": "girls",
+"score": 0.348,
+"start": 5.716
+},
+{
+"end": 6.076,
+"word": "in",
+"score": 0.446,
+"start": 5.996
+},
+{
+"end": 6.196,
+"word": "the",
+"score": 0.85,
+"start": 6.116
+},
+{
+"end": 6.396,
+"word": "back",
+"score": 0.481,
+"start": 6.236
+},
+{
+"end": 6.637,
+"word": "say",
+"score": 0.58,
+"start": 6.416
+},
+{
+"end": 7.077,
+"word": "wow,",
+"score": 0.739,
+"start": 6.677
+},
+{
+"end": 7.557,
+"word": "wow",
+"score": 0.596,
+"start": 7.177
+},
+{
+"end": 7.998,
+"word": "Into",
+"score": 0.677,
+"start": 7.717
+},
+{
+"end": 8.098,
+"word": "the",
+"score": 0.862,
+"start": 8.018
+},
+{
+"end": 8.518,
+"word": "party",
+"score": 0.616,
+"start": 8.158
+},
+{
+"end": 8.838,
+"word": "call",
+"score": 0.603,
+"start": 8.558
+},
+{
+"end": 8.998,
+"word": "me",
+"score": 0.478,
+"start": 8.878
+},
+{
+"end": 9.479,
+"word": "dandy",
+"score": 0.658,
+"start": 9.119
+},
+{
+"end": 9.959,
+"word": "candy",
+"score": 0.764,
+"start": 9.519
+},
+{
+"end": 10.26,
+"word": "cause",
+"score": 0.648,
+"start": 9.999
+},
+{
+"end": 10.46,
+"word": "I'm",
+"score": 0.255,
+"start": 10.32
+},
+{
+"end": 10.98,
+"word": "high,",
+"score": 0.557,
+"start": 10.54
+},
+{
+"end": 11.421,
+"word": "high",
+"score": 0.435,
+"start": 11.02
+},
+{
+"end": 12.101,
+"word": "I'm",
+"score": 0.751,
+"start": 11.941
+},
+{
+"end": 12.341,
+"word": "so",
+"score": 0.81,
+"start": 12.121
+},
+{
+"end": 12.822,
+"word": "super",
+"score": 0.578,
+"start": 12.401
+},
+{
+"end": 13.322,
+"word": "duper",
+"score": 0.574,
+"start": 12.862
+},
+{
+"end": 13.803,
+"word": "duper",
+"score": 0.571,
+"start": 13.362
+},
+{
+"end": 14.043,
+"word": "on",
+"score": 0.658,
+"start": 13.903
+},
+{
+"end": 14.243,
+"word": "the",
+"score": 0.698,
+"start": 14.063
+},
+{
+"end": 14.523,
+"word": "run",
+"score": 0.858,
+"start": 14.303
+},
+{
+"end": 14.923,
+"word": "going",
+"score": 0.613,
+"start": 14.563
+},
+{
+"end": 15.284,
+"word": "round",
+"score": 0.696,
+"start": 15.044
+},
+{
+"end": 15.884,
+"word": "I'm",
+"score": 0.419,
+"start": 15.684
+},
+{
+"end": 16.144,
+"word": "so",
+"score": 0.676,
+"start": 15.944
+},
+{
+"end": 16.425,
+"word": "cool",
+"score": 0.712,
+"start": 16.205
+},
+{
+"end": 16.565,
+"word": "with",
+"score": 0.393,
+"start": 16.445
+},
+{
+"end": 16.685,
+"word": "my",
+"score": 0.266,
+"start": 16.585
+},
+{
+"end": 17.105,
+"word": "awesome",
+"score": 0.644,
+"start": 16.725
+},
+{
+"end": 17.345,
+"word": "big",
+"score": 0.733,
+"start": 17.165
+},
+{
+"end": 17.586,
+"word": "tits",
+"score": 0.511,
+"start": 17.386
+},
+{
+"end": 17.846,
+"word": "on",
+"score": 0.729,
+"start": 17.706
+},
+{
+"end": 18.246,
+"word": "the",
+"score": 0.472,
+"start": 17.886
+},
+{
+"end": 18.767,
+"word": "ground",
+"score": 0.352,
+"start": 18.306
+}
+]

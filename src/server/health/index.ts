@@ -1,8 +1,6 @@
 import "server-only";
-import { and, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { env } from "@/config/env";
-import { db } from "@/db";
-import { catalogItems, incidents, probeDaily, probeResults } from "@/db/schema";
+import { db } from "@/db/client";
 import type { ProbeStatus } from "@/lib/uptime";
 import { incidentAction } from "./incidents";
 import { enginex } from "@/server/enginex/client";
@@ -46,7 +44,7 @@ let engineCache: { at: number; engines: string[] } | null = null;
 export async function usedEngines(): Promise<string[]> {
   if (engineCache && Date.now() - engineCache.at < ENGINE_CACHE_MS) return engineCache.engines;
   const client = enginex();
-  const items = await db.select({ templateId: catalogItems.templateId }).from(catalogItems).where(eq(catalogItems.enabled, true));
+  const items = await db.catalogItem.findMany({ select: { templateId: true }, where: { enabled: true } });
   const [fleet, pipelines] = await Promise.all([client.fleetStatus(), Promise.allSettled(items.map((i) => client.getPipeline(i.templateId)))]);
   const engines = new Set<string>();
   for (const p of pipelines) {
@@ -97,51 +95,49 @@ export async function runHealthSweep(now = new Date()) {
 
   const day = now.toISOString().slice(0, 10);
   const [prevRows, openRows] = await Promise.all([
-    db.execute<{ probe_id: string; status: ProbeStatus; checked_at: Date }>(sql`
-      select distinct on (probe_id) probe_id, status, checked_at from probe_results
-      where checked_at > now() - interval '5 minutes' order by probe_id, checked_at desc`),
-    db.select().from(incidents).where(isNull(incidents.resolvedAt)),
+    db.$queryRaw<{ probe_id: string; status: ProbeStatus; checked_at: Date }[]>`
+      select distinct on (probe_id) probe_id, status::text as status, checked_at from probe_results
+      where checked_at > now() - interval '5 minutes' order by probe_id, checked_at desc`,
+    db.incident.findMany({ where: { resolvedAt: null } }),
   ]);
   const prevBy = new Map(prevRows.map((r) => [r.probe_id, { status: r.status, at: new Date(r.checked_at) }]));
   const openBy = new Map(openRows.map((i) => [i.probeId, i]));
 
-  await db.transaction(async (tx) => {
-    await tx.insert(probeResults).values(
-      results.map(({ probe, result }) => ({ probeId: probe.id, status: result.status, latencyMs: result.latencyMs, message: result.message ?? null, checkedAt: now })),
-    );
+  await db.$transaction(async (tx) => {
+    await tx.probeResult.createMany({
+      data: results.map(({ probe, result }) => ({ probeId: probe.id, status: result.status, latencyMs: result.latencyMs, message: result.message ?? null, checkedAt: now })),
+    });
     for (const { probe, result } of results) {
       const open = openBy.get(probe.id) ?? null;
       const action = incidentAction(prevBy.get(probe.id) ?? null, { status: result.status, at: now }, open);
       if (action?.kind === "open") {
-        await tx.insert(incidents).values({ probeId: probe.id, severity: action.severity, startedAt: action.startedAt, lastMessage: result.message ?? null }).onConflictDoNothing();
+        // The partial unique index (one open incident per probe) turns a duplicate into a no-op.
+        await tx.incident.createMany({ data: { probeId: probe.id, severity: action.severity, startedAt: action.startedAt, lastMessage: result.message ?? null }, skipDuplicates: true });
       } else if (action?.kind === "update" && open) {
-        await tx.update(incidents).set({ severity: action.severity, lastMessage: result.message ?? open.lastMessage }).where(eq(incidents.id, open.id));
+        await tx.incident.updateMany({ where: { id: open.id }, data: { severity: action.severity, lastMessage: result.message ?? open.lastMessage } });
       } else if (action?.kind === "resolve" && open) {
-        await tx.update(incidents).set({ resolvedAt: action.resolvedAt }).where(eq(incidents.id, open.id));
+        await tx.incident.updateMany({ where: { id: open.id }, data: { resolvedAt: action.resolvedAt } });
       }
 
       if (result.status === "not_configured") continue;
       const add = { checks: 1, up: result.status === "up" ? 1 : 0, degraded: result.status === "degraded" ? 1 : 0, down: result.status === "down" ? 1 : 0 };
-      await tx
-        .insert(probeDaily)
-        .values({ probeId: probe.id, day, ...add })
-        .onConflictDoUpdate({
-          target: [probeDaily.probeId, probeDaily.day],
-          set: {
-            checks: sql`${probeDaily.checks} + ${add.checks}`,
-            up: sql`${probeDaily.up} + ${add.up}`,
-            degraded: sql`${probeDaily.degraded} + ${add.degraded}`,
-            down: sql`${probeDaily.down} + ${add.down}`,
-          },
-        });
+      // Raw SQL: Prisma's upsert can't increment from the existing row in one statement.
+      await tx.$executeRaw`
+        insert into probe_daily (probe_id, day, checks, up, degraded, down)
+        values (${probe.id}, ${day}, ${add.checks}, ${add.up}, ${add.degraded}, ${add.down})
+        on conflict (probe_id, day) do update set
+          checks = probe_daily.checks + excluded.checks,
+          up = probe_daily.up + excluded.up,
+          degraded = probe_daily.degraded + excluded.degraded,
+          down = probe_daily.down + excluded.down`;
     }
   });
 
   if (now.getTime() - lastCleanup > 3_600_000) {
     lastCleanup = now.getTime();
-    await db.delete(probeResults).where(lt(probeResults.checkedAt, new Date(now.getTime() - RAW_KEEP_DAYS * 86_400_000)));
-    await db.delete(probeDaily).where(lt(probeDaily.day, new Date(now.getTime() - DAILY_KEEP_DAYS * 86_400_000).toISOString().slice(0, 10)));
-    await db.delete(incidents).where(and(isNotNull(incidents.resolvedAt), lt(incidents.resolvedAt, new Date(now.getTime() - DAILY_KEEP_DAYS * 86_400_000))));
+    await db.probeResult.deleteMany({ where: { checkedAt: { lt: new Date(now.getTime() - RAW_KEEP_DAYS * 86_400_000) } } });
+    await db.probeDaily.deleteMany({ where: { day: { lt: new Date(now.getTime() - DAILY_KEEP_DAYS * 86_400_000).toISOString().slice(0, 10) } } });
+    await db.incident.deleteMany({ where: { resolvedAt: { not: null, lt: new Date(now.getTime() - DAILY_KEEP_DAYS * 86_400_000) } } });
   }
   return results;
 }

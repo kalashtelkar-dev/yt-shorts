@@ -1,7 +1,5 @@
-import { eq, inArray } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@/db";
-import { catalogItems, jobs, mediaIndex, users } from "@/db/schema";
+import { db } from "@/db/client";
 import { getBalance, grant } from "@/server/credits";
 import { startJob, sweep } from "./lifecycle";
 import { signedVideo } from "./public";
@@ -22,25 +20,21 @@ let catalogItemId: string;
 let tag: string;
 
 async function newJob(opts: { playerName?: string; musicUrl?: string; style?: string } = {}) {
-  {
-    const [job] = await db
-      .insert(jobs)
-      .values({
-        userId,
-        catalogItemId,
-        catalogSlug: "kill-montage",
-        templateId: opts.style ?? "tpl_P0krMNymIjdb",
-        indexTemplates: INDEX,
-        input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
-        source: "url",
-        durationSec: 30,
-        maxCredits: 300,
-      })
-      .returning();
-    return job;
-  }
+  return db.job.create({
+    data: {
+      userId,
+      catalogItemId,
+      catalogSlug: "kill-montage",
+      templateId: opts.style ?? "tpl_P0krMNymIjdb",
+      indexTemplates: INDEX,
+      input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
+      source: "url",
+      durationSec: 30,
+      maxCredits: 300,
+    },
+  });
 }
-const load = async (id: string) => (await db.select().from(jobs).where(eq(jobs.id, id)))[0];
+const load = (id: string) => db.job.findUniqueOrThrow({ where: { id } });
 const at = (ms: number) => vi.setSystemTime(T0 + ms);
 const tick = async (ms: number) => {
   at(ms);
@@ -52,11 +46,8 @@ beforeEach(async () => {
   at(0);
   tag = crypto.randomUUID();
   userId = crypto.randomUUID();
-  await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
-  const [item] = await db
-    .insert(catalogItems)
-    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_P0krMNymIjdb", indexTemplates: INDEX, stageMap })
-    .returning({ id: catalogItems.id });
+  await db.user.create({ data: { id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true } });
+  const item = await db.catalogItem.create({ data: { slug: `s-${tag}`, title: "t", templateId: "tpl_P0krMNymIjdb", indexTemplates: INDEX, stageMap }, select: { id: true } });
   catalogItemId = item.id;
   await grant(userId, 2000, "test");
 });
@@ -68,7 +59,7 @@ describe("staged styles (mock Engine X)", () => {
     await startJob(job.id, T0);
     let row = await load(job.id);
     expect(row).toMatchObject({ status: "running", phase: "index", runId: null });
-    const indexes = await db.select().from(mediaIndex).where(inArray(mediaIndex.id, [row.gameplayIndexId!, row.songIndexId!]));
+    const indexes = await db.mediaIndex.findMany({ where: { id: { in: [row.gameplayIndexId!, row.songIndexId!] } } });
     expect(indexes.map((r) => r.kind).sort()).toEqual(["gameplay", "song"]);
     expect(indexes.every((r) => r.runId?.startsWith("mock-"))).toBe(true);
 
@@ -77,7 +68,7 @@ describe("staged styles (mock Engine X)", () => {
     const twinRow = await load(twin.id);
     expect(twinRow.gameplayIndexId).not.toBe(row.gameplayIndexId); // nothing shared between jobs: its own download and kills
     expect(twinRow.songIndexId).not.toBe(row.songIndexId); // and its own song
-    const twinIdx = await db.select().from(mediaIndex).where(inArray(mediaIndex.id, [twinRow.gameplayIndexId!, twinRow.songIndexId!]));
+    const twinIdx = await db.mediaIndex.findMany({ where: { id: { in: [twinRow.gameplayIndexId!, twinRow.songIndexId!] } } });
     expect(twinIdx.every((r) => r.runId?.startsWith("mock-") && !indexes.some((o) => o.runId === r.runId))).toBe(true); // new runs
 
     await tick(8_000); // gameplay-index is reading the kill feed
@@ -115,7 +106,7 @@ describe("staged styles (mock Engine X)", () => {
     await startJob(again.id, T0 + 60_000);
     const fresh = await load(again.id);
     expect(fresh.gameplayIndexId).not.toBe(done.gameplayIndexId);
-    const [g] = await db.select().from(mediaIndex).where(eq(mediaIndex.id, fresh.gameplayIndexId!));
+    const g = await db.mediaIndex.findUniqueOrThrow({ where: { id: fresh.gameplayIndexId! } });
     expect(g).toMatchObject({ status: "running" }); // indexing from scratch
     await tick(61_000);
     expect((await load(again.id)).phase).toBe("index"); // it waits for its own index, no shortcut

@@ -1,4 +1,15 @@
-import type { catalogItems } from "./schema";
+import type { Prisma } from "@/generated/prisma/client";
+import type { CatalogField, CreditRange, IndexTemplates, InputMap, StageMapEntry } from "./types";
+
+// A catalog insert with the JSON columns typed (scripts/catalog-sync.mts reads them).
+type JsonColumns = "fields" | "inputMap" | "stageMap" | "creditRanges" | "indexTemplates";
+export type CatalogSeedItem = Omit<Prisma.CatalogItemCreateManyInput, JsonColumns> & {
+  fields: CatalogField[];
+  inputMap: InputMap;
+  stageMap: StageMapEntry[];
+  creditRanges: Record<string, CreditRange>;
+  indexTemplates?: IndexTemplates | null;
+};
 
 // Initial catalog (PLAN.md §0). After seeding, the admin Catalog page owns these rows.
 // stageMap matches the pipelines' engine step ids (smoke, 2026-09-26). Order = order in the pipeline;
@@ -31,7 +42,7 @@ const STAGE_MAP = [
   { match: "final_cut", label: "Adding your song" },
 ];
 
-export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
+export const catalogSeed: CatalogSeedItem[] = [
   {
     slug: "kill-montage",
     title: "Kill Montage",

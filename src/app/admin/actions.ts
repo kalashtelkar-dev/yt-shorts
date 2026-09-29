@@ -3,9 +3,7 @@
 import { APIError } from "better-auth/api";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema";
+import { db } from "@/db/client";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { env } from "@/config/env";
@@ -50,7 +48,7 @@ export async function signInAction(_prev: FormState, form: FormData): Promise<Fo
     throw e;
   }
   // The request still carries the old cookie, so check the signed-in user directly.
-  const [row] = await db.select({ role: users.role, isAnonymous: users.isAnonymous, suspendedAt: users.suspendedAt }).from(users).where(eq(users.id, userId));
+  const row = await db.user.findUnique({ where: { id: userId }, select: { role: true, isAnonymous: true, suspendedAt: true } });
   if (!isAdmin(row)) {
     await recordFailure(failKey, 900);
     console.warn("[admin sign-in] not an admin account:", userId);

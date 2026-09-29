@@ -7,9 +7,7 @@ import { z } from "zod";
 import { env } from "@/config/env";
 import { auth } from "@/server/auth";
 import { clientIp } from "@/server/ip";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema";
+import { db } from "@/db/client";
 import { applyHeldPassword, clearPendingEmail, codeErrorMessage, holdPassword, markCodeSent, pendingEmail, pendingSignupNonce, sendCode, setPendingEmail } from "@/server/otp";
 import { failuresUnder, recordFailure, underLimit } from "@/server/redis";
 import { getViewer, welcomeCredits } from "@/server/session";
@@ -41,7 +39,7 @@ export async function signUpAction(_prev: AuthState, form: FormData): Promise<Au
   }
   const addr = await ip();
   if (!(await underLimit(`signup:ip:${addr}`, 10, 3600))) return { ok: false, message: "Too many sign-ups from this network. Try again in an hour.", email: typed };
-  const [existing] = await db.select({ emailVerified: users.emailVerified }).from(users).where(eq(users.email, parsed.data.email));
+  const existing = await db.user.findUnique({ where: { email: parsed.data.email }, select: { emailVerified: true } });
   try {
     // For an email that already has an account Better Auth answers the same way and doesn't store the
     // password, so this page never reveals who has an account.

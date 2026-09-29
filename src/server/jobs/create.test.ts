@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { db } from "@/db";
-import { catalogItems, jobs, users } from "@/db/schema";
+import { db } from "@/db/client";
 import type { SessionUser } from "@/server/auth";
 import { availableCredits, getBalance, grant } from "@/server/credits";
 import { redis } from "@/server/redis";
@@ -14,18 +12,20 @@ const url = "https://www.youtube.com/watch?v=2LnFuREmbpk";
 
 beforeEach(async () => {
   const id = crypto.randomUUID();
-  await db.insert(users).values({ id, name: "t", email: `${id}@test.local`, isAnonymous: true });
+  await db.user.create({ data: { id, name: "t", email: `${id}@test.local`, isAnonymous: true } });
   user = { id, suspendedAt: null } as SessionUser;
   slug = `km-${id}`;
-  await db.insert(catalogItems).values({
-    slug,
-    title: "Kill Montage",
-    templateId: "tpl_t",
-    uploadTemplateId: "tpl_upload",
-    durations: [30, 60, 90],
-    creditRanges: { "30": { min: 40, max: 100 }, "60": { min: 80, max: 200 } }, // 90 has no range
-    fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32 }],
-    inputMap: { youtubeUrl: "$source.url", video: "$source.key", videoTitle: "$source.name", playerName: "$fields.playerName" },
+  await db.catalogItem.create({
+    data: {
+      slug,
+      title: "Kill Montage",
+      templateId: "tpl_t",
+      uploadTemplateId: "tpl_upload",
+      durations: [30, 60, 90],
+      creditRanges: { "30": { min: 40, max: 100 }, "60": { min: 80, max: 200 } }, // 90 has no range
+      fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32 }],
+      inputMap: { youtubeUrl: "$source.url", video: "$source.key", videoTitle: "$source.name", playerName: "$fields.playerName" },
+    },
   });
   await grant(id, 250, "test");
 });
@@ -34,7 +34,7 @@ describe("createJob", () => {
   it("charges nothing up front, holds the top of the range, snapshots the template and stores the mapped input", async () => {
     const r = await createJob(user, { catalogSlug: slug, url, durationSec: 60, fields: { playerName: "  Aqua " } });
     expect(r.ok).toBe(true);
-    const [job] = await db.select().from(jobs).where(eq(jobs.userId, user.id));
+    const job = await db.job.findFirst({ where: { userId: user.id } });
     expect(job).toMatchObject({ status: "queued", templateId: "tpl_t", chargedCredits: 0, maxCredits: 200, input: { youtubeUrl: url, playerName: "Aqua" } });
     expect(await getBalance(user.id)).toBe(250);
     expect(await availableCredits(user.id)).toBe(50);
@@ -107,7 +107,7 @@ describe("uploads", () => {
     const key = issued.ok ? issued.data.key : "";
     const r = await createJob(user, { catalogSlug: slug, source: "upload", upload: { key, name: "ranked game.mp4" }, durationSec: 30, fields: { playerName: "Aqua" } });
     expect(r.ok).toBe(true);
-    const [job] = await db.select().from(jobs).where(eq(jobs.userId, user.id));
+    const job = await db.job.findFirst({ where: { userId: user.id } });
     expect(job).toMatchObject({ source: "upload", uploadKey: key, sourceUrl: null, templateId: "tpl_upload", input: { video: key, videoTitle: "ranked game", playerName: "Aqua" } });
 
     await redis.del(`upload:${key}`);

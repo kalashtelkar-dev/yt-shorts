@@ -4,3 +4,5 @@ allowBuilds:
   sharp: true
   "@tailwindcss/oxide": true
   msgpackr-extract: false
+  '@prisma/engines': true
+  prisma: true

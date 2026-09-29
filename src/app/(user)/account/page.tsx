@@ -1,4 +1,3 @@
-import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
@@ -8,8 +7,7 @@ import { ChangePasswordForm } from "@/components/auth-forms";
 import { BillingDetailsForm, BuyCredits } from "@/components/buy-credits";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { env } from "@/config/env";
-import { db } from "@/db";
-import { catalogItems } from "@/db/schema";
+import { db } from "@/db/client";
 import { purchaseAmounts, stateName } from "@/lib/billing";
 import { formatCredits } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -32,11 +30,11 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     availableCredits(viewer.id),
     getBillingProfile(viewer.id),
     getSettings(),
-    db
-      .select({ title: catalogItems.title, durations: catalogItems.durations, creditRanges: catalogItems.creditRanges })
-      .from(catalogItems)
-      .where(eq(catalogItems.enabled, true))
-      .orderBy(asc(catalogItems.sortOrder)),
+    db.catalogItem.findMany({
+      select: { title: true, durations: true, creditRanges: true },
+      where: { enabled: true },
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
   const held = balance - available;
   // "That makes about": each style at its shortest length.

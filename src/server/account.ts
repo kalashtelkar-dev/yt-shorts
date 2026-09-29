@@ -1,7 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { jobs } from "@/db/schema";
+import { db } from "@/db/client";
 import { transferBalance } from "./credits";
 
 /**
@@ -11,8 +9,8 @@ import { transferBalance } from "./credits";
  */
 export async function mergeGuest(guestId: string, userId: string): Promise<void> {
   if (guestId === userId) return;
-  await db.transaction(async (tx) => {
-    await tx.update(jobs).set({ userId }).where(eq(jobs.userId, guestId));
+  await db.$transaction(async (tx) => {
+    await tx.job.updateMany({ where: { userId: guestId }, data: { userId } });
     await transferBalance(tx, guestId, userId, "Moved from your guest session");
   });
 }

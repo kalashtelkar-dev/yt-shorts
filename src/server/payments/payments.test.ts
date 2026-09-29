@@ -1,8 +1,7 @@
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@/db";
-import { creditLedger, invoices, payments, settings, users } from "@/db/schema";
+import { db } from "@/db/client";
 import { getBalance } from "@/server/credits";
+import { getSettings } from "@/server/settings";
 import { confirmPurchase, getInvoice, saveBillingProfile, startPurchase } from ".";
 
 // Checkout with the mock provider, which signs payments the way Razorpay does.
@@ -16,8 +15,8 @@ let user: { id: string; email: string; isAnonymous: boolean };
 beforeEach(async () => {
   const id = crypto.randomUUID();
   user = { id, email: `${id}@test.local`, isAnonymous: false };
-  await db.insert(users).values({ id, name: "t", email: user.email, isAnonymous: false });
-  const [s] = await db.select().from(settings).where(eq(settings.id, 1));
+  await db.user.create({ data: { id, name: "t", email: user.email, isAnonymous: false } });
+  const s = await getSettings();
   expect(s).toMatchObject({ sellPaisePerCredit: 20, minPurchasePaise: 10_000 }); // ₹0.20 a credit, ₹100 minimum
 });
 
@@ -53,12 +52,12 @@ describe("buying credits", () => {
     expect(a).toMatchObject({ ok: true, data: { credits: 500 } });
     expect(b).toMatchObject({ ok: true });
     expect(await getBalance(user.id)).toBe(500);
-    expect(await db.select().from(creditLedger).where(eq(creditLedger.userId, user.id))).toHaveLength(1);
+    expect(await db.creditLedger.count({ where: { userId: user.id } })).toBe(1);
 
-    const [inv] = await db.select().from(invoices).where(eq(invoices.userId, user.id));
+    const inv = await db.invoice.findFirstOrThrow({ where: { userId: user.id } });
     expect(inv.number).toMatch(/^INV-\d{4}-\d{4,}$/);
     expect(inv).toMatchObject({ credits: 500, taxablePaise: 8475, cgstPaise: 762, sgstPaise: 763, igstPaise: 0, totalPaise: 10_000 });
-    const [p] = await db.select().from(payments).where(eq(payments.userId, user.id));
+    const p = await db.payment.findFirstOrThrow({ where: { userId: user.id } });
     expect(p.status).toBe("paid");
     expect(await getInvoice(inv.id, user.id)).not.toBeNull();
     expect(await getInvoice(inv.id, crypto.randomUUID())).toBeNull(); // someone else's invoice looks missing
@@ -67,7 +66,7 @@ describe("buying credits", () => {
   it("charges IGST to buyers in another state", async () => {
     await saveBillingProfile(user.id, { stateCode: "27" });
     await (await buy(150)).confirm();
-    const [inv] = await db.select().from(invoices).where(eq(invoices.userId, user.id));
+    const inv = await db.invoice.findFirstOrThrow({ where: { userId: user.id } });
     expect(inv).toMatchObject({ credits: 750, cgstPaise: 0, sgstPaise: 0, igstPaise: 15_000 - 12_712, totalPaise: 15_000 });
   });
 

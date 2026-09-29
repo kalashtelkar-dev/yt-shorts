@@ -1,8 +1,7 @@
 import "server-only";
-import { asc, count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
-import { adminAuditLog, catalogItems, catalogRevisions, jobs, users } from "@/db/schema";
+import { db, type CatalogItemRow } from "@/db/client";
+import { Prisma } from "@/generated/prisma/client";
 import type { ActionResult } from "@/lib/jobs";
 import { checkExpression, sourceOf } from "@/server/catalog";
 import { STYLE_INPUTS } from "@/server/jobs/staged";
@@ -147,10 +146,9 @@ export async function validateItem(item: Pick<CatalogInput, "templateId" | "uplo
   return merge(reports);
 }
 
-type Row = typeof catalogItems.$inferSelect;
-const snapshot = (r: Row) => {
+const snapshot = (r: CatalogItemRow) => {
   const { createdAt: _c, updatedAt: _u, ...rest } = r;
-  return rest;
+  return rest as Prisma.InputJsonValue;
 };
 
 /**
@@ -164,7 +162,7 @@ export async function saveCatalogItem(admin: Admin, id: string | null, raw: unkn
     return { ok: false, error: { code: "invalid", message: `${i.path.join(".") || "Form"}: ${i.message}`, field: String(i.path[0] ?? "") } };
   }
   const input = parsed.data;
-  const [before] = id ? await db.select().from(catalogItems).where(eq(catalogItems.id, id)) : [];
+  const before = id ? await db.catalogItem.findUnique({ where: { id } }) : null;
   if (id && !before) return { ok: false, error: { code: "not_found", message: "That catalog item doesn't exist any more." } };
 
   const pipelinesChanged =
@@ -178,23 +176,25 @@ export async function saveCatalogItem(admin: Admin, id: string | null, raw: unkn
   if (report && !report.ok) return { ok: false, error: { code: "validation", message: report.errors.join(" ") } };
 
   try {
-    const saved = await db.transaction(async (tx) => {
-      const [row] = before
-        ? await tx.update(catalogItems).set(input).where(eq(catalogItems.id, before.id)).returning()
-        : await tx.insert(catalogItems).values(input).returning();
-      await tx.insert(catalogRevisions).values({ catalogItemId: row.id, snapshot: snapshot(row), changedBy: admin.id });
-      await tx.insert(adminAuditLog).values({
-        adminId: admin.id,
-        action: before ? "catalog.update" : "catalog.create",
-        target: `catalog:${row.id}`,
-        before: before ? snapshot(before) : null,
-        after: snapshot(row),
+    const data = { ...input, indexTemplates: input.indexTemplates ?? Prisma.DbNull };
+    const saved = await db.$transaction(async (tx) => {
+      const row = before ? await tx.catalogItem.update({ where: { id: before.id }, data }) : await tx.catalogItem.create({ data });
+      await tx.catalogRevision.create({ data: { catalogItemId: row.id, snapshot: snapshot(row), changedBy: admin.id } });
+      await tx.adminAuditLog.create({
+        data: {
+          adminId: admin.id,
+          action: before ? "catalog.update" : "catalog.create",
+          target: `catalog:${row.id}`,
+          before: before ? snapshot(before) : Prisma.DbNull,
+          after: snapshot(row),
+        },
       });
       return row;
     });
     return { ok: true, data: { id: saved.id, report } };
   } catch (e) {
-    if (String((e as Error & { cause?: unknown }).cause ?? e).includes("catalog_items_slug_unique")) {
+    // The slug is the only unique column an admin sets.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return { ok: false, error: { code: "invalid", message: "Another item already uses that slug.", field: "slug" } };
     }
     throw e;
@@ -203,18 +203,18 @@ export async function saveCatalogItem(admin: Admin, id: string | null, raw: unkn
 
 /** Items that have jobs can't be deleted (job history points at them); disable them instead. */
 export async function deleteCatalogItem(admin: Admin, id: string): Promise<ActionResult<null>> {
-  return db.transaction(async (tx) => {
-    const [row] = await tx.select().from(catalogItems).where(eq(catalogItems.id, id));
+  return db.$transaction(async (tx) => {
+    const row = await tx.catalogItem.findUnique({ where: { id } });
     if (!row) return { ok: false as const, error: { code: "not_found", message: "That catalog item doesn't exist." } };
-    const [{ n }] = await tx.select({ n: count() }).from(jobs).where(eq(jobs.catalogItemId, id));
+    const n = await tx.job.count({ where: { catalogItemId: id } });
     if (n > 0) return { ok: false as const, error: { code: "in_use", message: `${n} job${n === 1 ? "" : "s"} use this item. Switch it off instead of deleting it.` } };
-    await tx.insert(adminAuditLog).values({ adminId: admin.id, action: "catalog.delete", target: `catalog:${id}`, before: snapshot(row), after: null });
-    await tx.delete(catalogItems).where(eq(catalogItems.id, id));
+    await tx.adminAuditLog.create({ data: { adminId: admin.id, action: "catalog.delete", target: `catalog:${id}`, before: snapshot(row), after: Prisma.DbNull } });
+    await tx.catalogItem.delete({ where: { id } });
     return { ok: true as const, data: null };
   });
 }
 
-type PipelineRow = Pick<typeof catalogItems.$inferSelect, "title" | "enabled" | "templateId" | "uploadTemplateId" | "indexTemplates">;
+type PipelineRow = Pick<CatalogItemRow, "title" | "enabled" | "templateId" | "uploadTemplateId" | "indexTemplates">;
 export const PIPELINE_GROUPS = ["Style", "Upload (one-run styles)", "Gameplay from a link", "Gameplay from an upload", "Song"] as const;
 export type PipelineGroup = { group: (typeof PIPELINE_GROUPS)[number]; pipelines: { templateId: string; usedBy: string[] }[] };
 
@@ -239,19 +239,19 @@ export function pipelinesInUse(items: PipelineRow[]): PipelineGroup[] {
 }
 
 export async function listCatalog() {
-  return db.select().from(catalogItems).orderBy(asc(catalogItems.sortOrder), asc(catalogItems.title));
+  return db.catalogItem.findMany({ orderBy: [{ sortOrder: "asc" }, { title: "asc" }] });
 }
 
 export async function catalogItemWithRevisions(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  const [item] = await db.select().from(catalogItems).where(eq(catalogItems.id, id));
+  const item = await db.catalogItem.findUnique({ where: { id } });
   if (!item) return null;
-  const revisions = await db
-    .select({ id: catalogRevisions.id, snapshot: catalogRevisions.snapshot, createdAt: catalogRevisions.createdAt, email: users.email })
-    .from(catalogRevisions)
-    .leftJoin(users, eq(users.id, catalogRevisions.changedBy))
-    .where(eq(catalogRevisions.catalogItemId, id))
-    .orderBy(desc(catalogRevisions.createdAt))
-    .limit(20);
+  const rows = await db.catalogRevision.findMany({
+    where: { catalogItemId: id },
+    select: { id: true, snapshot: true, createdAt: true, changedByUser: { select: { email: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+  const revisions = rows.map(({ changedByUser, ...r }) => ({ ...r, email: changedByUser?.email ?? null }));
   return { item, revisions };
 }

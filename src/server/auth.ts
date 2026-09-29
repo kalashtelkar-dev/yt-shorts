@@ -1,12 +1,10 @@
 import "server-only";
 import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { anonymous, emailOTP } from "better-auth/plugins";
-import { and, eq } from "drizzle-orm";
 import { env } from "@/config/env";
-import { db } from "@/db";
-import * as schema from "@/db/schema";
+import { db } from "@/db/client";
 import { mergeGuest } from "./account";
 import { sendOtpEmail } from "./email";
 
@@ -20,7 +18,8 @@ export const auth = betterAuth({
   appName: "MontageAI",
   baseURL: env.APP_URL,
   secret: env.BETTER_AUTH_SECRET ?? "dev-only-secret-change-me-dev-only-secret",
-  database: drizzleAdapter(db, { provider: "pg", usePlural: true, schema }),
+  // Models User/Session/Account/Verification → db.user, db.session… (fields already use Better Auth's names).
+  database: prismaAdapter(db, { provider: "postgresql" }),
   user: {
     additionalFields: {
       role: { type: "string", input: false, defaultValue: "user" },
@@ -42,9 +41,9 @@ export const auth = betterAuth({
         // Bootstrap: verified, non-anonymous accounts whose email is in ADMIN_EMAILS become admins.
         after: async (session) => {
           if (!env.ADMIN_EMAILS.length) return;
-          const [user] = await db.select().from(schema.users).where(eq(schema.users.id, session.userId));
+          const user = await db.user.findUnique({ where: { id: session.userId } });
           if (user && !user.isAnonymous && user.emailVerified && user.role !== "admin" && env.ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-            await db.update(schema.users).set({ role: "admin" }).where(and(eq(schema.users.id, user.id), eq(schema.users.role, "user")));
+            await db.user.updateMany({ where: { id: user.id, role: "user" }, data: { role: "admin" } });
           }
         },
       },

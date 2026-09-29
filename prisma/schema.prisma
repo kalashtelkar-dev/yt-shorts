@@ -1,0 +1,503 @@
+// The database schema. Tables and columns are snake_case in Postgres, camelCase in TypeScript (@map).
+// Every change is a migration: `pnpm db:migrate:dev --name <what>` (CLAUDE.md §7).
+// Not expressible here, kept in migration SQL: the credit_ledger append-only trigger and the settings single-row check.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Better Auth (core tables + anonymous plugin + our role/suspension fields) ──
+
+enum UserRole {
+  user
+  admin
+
+  @@map("user_role")
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique(map: "users_email_unique")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  image         String?
+  isAnonymous   Boolean   @default(false) @map("is_anonymous")
+  role          UserRole  @default(user)
+  suspendedAt   DateTime? @map("suspended_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sessions         Session[]
+  accounts         Account[]
+  jobs             Job[]
+  balance          UserBalance?
+  ledger           CreditLedger[]    @relation("LedgerUser")
+  ledgerByAdmin    CreditLedger[]    @relation("LedgerAdmin")
+  payments         Payment[]
+  billingProfile   BillingProfile?
+  invoices         Invoice[]
+  auditEntries     AdminAuditLog[]
+  catalogRevisions CatalogRevision[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique(map: "sessions_token_unique")
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sessions_user_id_users_id_fk")
+
+  @@index([userId], map: "sessions_user_id_index")
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "accounts_user_id_users_id_fk")
+
+  @@index([userId], map: "accounts_user_id_index")
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([identifier], map: "verifications_identifier_index")
+  @@map("verifications")
+}
+
+// ── Catalog ──
+
+model CatalogItem {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug             String   @unique(map: "catalog_items_slug_unique")
+  title            String
+  description      String   @default("")
+  templateId       String   @map("template_id")
+  /// Optional pipeline for uploaded files (no download step). Null = uploads not offered for this style.
+  uploadTemplateId String?  @map("upload_template_id")
+  /// Staged styles: the index pipelines that feed the style pipeline in templateId (IndexTemplates).
+  indexTemplates   Json?    @map("index_templates")
+  enabled          Boolean  @default(true)
+  beta             Boolean  @default(false)
+  sortOrder        Int      @default(0) @map("sort_order")
+  durations        Int[]    @default([30, 60, 90])
+  /// CatalogField[]
+  fields           Json     @default("[]")
+  /// InputMap
+  inputMap         Json     @default("{}") @map("input_map")
+  /// StageMapEntry[]
+  stageMap         Json     @default("[]") @map("stage_map")
+  outputKey        String   @default("montage") @map("output_key")
+  /// Expected credits per length, e.g. {"30": {"min": 150, "max": 420}}: users see the range and need `max` to start.
+  creditRanges     Json     @default("{}") @map("credit_ranges")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  revisions CatalogRevision[]
+  jobs      Job[]
+
+  @@map("catalog_items")
+}
+
+model CatalogRevision {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  catalogItemId String      @map("catalog_item_id") @db.Uuid
+  snapshot      Json
+  changedBy     String?     @map("changed_by")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  catalogItem   CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "catalog_revisions_catalog_item_id_catalog_items_id_fk")
+  changedByUser User?       @relation(fields: [changedBy], references: [id], onUpdate: NoAction, map: "catalog_revisions_changed_by_users_id_fk")
+
+  @@index([catalogItemId, createdAt], map: "catalog_revisions_catalog_item_id_created_at_index")
+  @@map("catalog_revisions")
+}
+
+// ── Jobs ──
+
+enum JobStatus {
+  queued
+  starting
+  running
+  succeeded
+  failed
+  canceled
+
+  @@map("job_status")
+}
+
+enum JobSource {
+  url
+  upload
+
+  @@map("job_source")
+}
+
+enum EventLevel {
+  info
+  warn
+  error
+
+  @@map("event_level")
+}
+
+model Job {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String      @map("user_id")
+  catalogItemId    String      @map("catalog_item_id") @db.Uuid
+  // Snapshot at start; never re-read from the catalog later.
+  catalogSlug      String      @map("catalog_slug")
+  templateId       String      @map("template_id")
+  templateVersion  String?     @map("template_version")
+  /// Staged jobs: snapshot of the index pipelines (IndexTemplates), the index rows they use, and which phase they're in.
+  indexTemplates   Json?       @map("index_templates")
+  gameplayIndexId  String?     @map("gameplay_index_id") @db.Uuid
+  songIndexId      String?     @map("song_index_id") @db.Uuid
+  /// "index" | "render"
+  phase            String?
+  /// Steps the index phase took, so progress doesn't jump back when the render run starts.
+  indexSteps       Int         @default(0) @map("index_steps")
+  input            Json
+  source           JobSource
+  sourceUrl        String?     @map("source_url")
+  uploadKey        String?     @map("upload_key")
+  durationSec      Int         @map("duration_sec")
+  status           JobStatus   @default(queued)
+  runId            String?     @unique(map: "jobs_runId_unique") @map("run_id")
+  stepsTotal       Int         @default(0) @map("steps_total")
+  stepsDone        Int         @default(0) @map("steps_done")
+  currentStage     String?     @map("current_stage")
+  stageDetail      String?     @map("stage_detail")
+  retries          Int         @default(0)
+  outputKey        String?     @map("output_key")
+  outputMeta       Json?       @map("output_meta")
+  errorPublic      String?     @map("error_public")
+  errorRaw         String?     @map("error_raw")
+  runMs            Int?        @map("run_ms")
+  /// Credits used, charged after the job succeeds (0 until then, and for failed jobs).
+  chargedCredits   Int         @default(0) @map("charged_credits")
+  /// The top of the range at start: held against the balance while the job runs, so parallel jobs can't overspend.
+  maxCredits       Int         @default(0) @map("max_credits")
+  computeCostPaise Int?        @map("compute_cost_paise")
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  startedAt        DateTime?   @map("started_at") @db.Timestamptz(6)
+  finishedAt       DateTime?   @map("finished_at") @db.Timestamptz(6)
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "jobs_user_id_users_id_fk")
+  catalogItem      CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "jobs_catalog_item_id_catalog_items_id_fk")
+
+  events JobEvent[]
+  ledger CreditLedger[]
+
+  @@index([userId, createdAt(sort: Desc)], map: "jobs_user_id_created_at_index")
+  @@index([status], map: "jobs_status_index")
+  @@map("jobs")
+}
+
+enum MediaIndexKind {
+  gameplay
+  song
+
+  @@map("media_index_kind")
+}
+
+enum MediaIndexStatus {
+  running
+  succeeded
+  failed
+
+  @@map("media_index_status")
+}
+
+/// Results of the index pipelines (gameplay-index, song-index). cacheKey = hash(template, source, player).
+model MediaIndex {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind       MediaIndexKind
+  cacheKey   String           @unique(map: "media_index_cacheKey_unique") @map("cache_key")
+  templateId String           @map("template_id")
+  /// Record<string, string>
+  input      Json
+  runId      String?          @map("run_id")
+  status     MediaIndexStatus @default(running)
+  /// Record<string, unknown>
+  output     Json?
+  /// The run's steps as last polled (RunStep[]); each job labels them with its own catalog stageMap.
+  steps      Json             @default("[]")
+  stepsDone  Int              @default(0) @map("steps_done")
+  stepsTotal Int              @default(0) @map("steps_total")
+  error      String?
+  runMs      Int?             @map("run_ms")
+  startedAt  DateTime         @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime?        @map("finished_at") @db.Timestamptz(6)
+
+  @@index([status], map: "media_index_status_index")
+  @@map("media_index")
+}
+
+model JobEvent {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId     String     @map("job_id") @db.Uuid
+  level     EventLevel @default(info)
+  message   String
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  job       Job        @relation(fields: [jobId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "job_events_job_id_jobs_id_fk")
+
+  @@index([jobId, createdAt], map: "job_events_job_id_created_at_index")
+  @@map("job_events")
+}
+
+// ── Credits ──
+
+enum LedgerKind {
+  grant
+  admin_add
+  admin_remove
+  reserve
+  release
+  charge
+  purchase
+  refund
+  /// a guest's balance moving to the account they signed up with (a pair of rows, − and +)
+  transfer
+
+  @@map("ledger_kind")
+}
+
+/// Append-only: a trigger (migration 0_init) rejects UPDATE and DELETE. Corrections are new rows.
+/// Jobs use "charge" after they succeed (older jobs were charged at start and refunded on failure);
+/// "purchase" is a paid top-up (paymentId set); reserve/release are unused legacy kinds.
+model CreditLedger {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String     @map("user_id")
+  delta     Int
+  kind      LedgerKind
+  jobId     String?    @map("job_id") @db.Uuid
+  /// One purchase row per payment, however many times the webhook and the browser both confirm it.
+  paymentId String?    @unique(map: "credit_ledger_payment_id_index", where: raw("(payment_id IS NOT NULL)")) @map("payment_id") @db.Uuid
+  adminId   String?    @map("admin_id")
+  reason    String?
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User       @relation("LedgerUser", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "credit_ledger_user_id_users_id_fk")
+  admin     User?      @relation("LedgerAdmin", fields: [adminId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "credit_ledger_admin_id_users_id_fk")
+  job       Job?       @relation(fields: [jobId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "credit_ledger_job_id_jobs_id_fk")
+  payment   Payment?   @relation(fields: [paymentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "credit_ledger_payment_id_payments_id_fk")
+
+  // One charge and at most one refund per job: makes lifecycle steps idempotent in the DB.
+  @@unique([jobId, kind], map: "credit_ledger_job_id_kind_index", where: raw("(job_id IS NOT NULL)"))
+  @@index([userId, createdAt], map: "credit_ledger_user_id_created_at_index")
+  @@map("credit_ledger")
+}
+
+model UserBalance {
+  userId    String   @id @map("user_id")
+  balance   Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_balances_user_id_users_id_fk")
+
+  @@map("user_balances")
+}
+
+// ── Settings (single row, id = 1; a check constraint in migration 0_init) ──
+
+model Settings {
+  id                       Int      @id @default(1)
+  costPaisePerSecond       Int      @default(20) @map("cost_paise_per_second")
+  /// What users pay per credit, GST included.
+  sellPaisePerCredit       Int      @default(20) @map("sell_paise_per_credit")
+  /// Smallest top-up, GST included.
+  minPurchasePaise         Int      @default(10000) @map("min_purchase_paise")
+  maxPurchasePaise         Int      @default(500000) @map("max_purchase_paise")
+  gstRateBps               Int      @default(1800) @map("gst_rate_bps")
+  /// The business on tax invoices (Seller). Snapshotted onto each invoice.
+  seller                   Json     @default("{}")
+  starterCredits           Int      @default(600) @map("starter_credits")
+  maxUploadMb              Int      @default(2048) @map("max_upload_mb")
+  maxConcurrentJobsPerUser Int      @default(2) @map("max_concurrent_jobs_per_user")
+  maxRunMinutes            Int      @default(60) @map("max_run_minutes")
+  updatedAt                DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("settings")
+}
+
+// ── Payments and tax invoices ──
+
+enum PaymentStatus {
+  created
+  paid
+  failed
+
+  @@map("payment_status")
+}
+
+/// One checkout: created before the payment sheet opens, marked paid once the provider's signature checks out.
+model Payment {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String        @map("user_id")
+  /// 'razorpay' | 'mock'
+  provider          String
+  providerOrderId   String        @unique(map: "payments_providerOrderId_unique") @map("provider_order_id")
+  providerPaymentId String?       @unique(map: "payments_providerPaymentId_unique") @map("provider_payment_id")
+  /// GST included
+  amountPaise       Int           @map("amount_paise")
+  credits           Int
+  status            PaymentStatus @default(created)
+  method            String?
+  raw               Json?
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  paidAt            DateTime?     @map("paid_at") @db.Timestamptz(6)
+  user              User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payments_user_id_users_id_fk")
+
+  ledger  CreditLedger?
+  invoice Invoice?
+
+  @@index([userId, createdAt(sort: Desc)], map: "payments_user_id_created_at_index")
+  @@index([status, createdAt(sort: Desc)], map: "payments_status_created_at_index")
+  @@map("payments")
+}
+
+/// Buyer details for tax invoices, asked once at the first purchase.
+model BillingProfile {
+  userId    String   @id @map("user_id")
+  /// GST state code, e.g. "29" for Karnataka
+  stateCode String   @map("state_code")
+  legalName String?  @map("legal_name")
+  gstin     String?
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "billing_profiles_user_id_users_id_fk")
+
+  @@map("billing_profiles")
+}
+
+/// A tax invoice per paid payment. Seller and buyer are snapshots, so later edits don't change old invoices.
+model Invoice {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// INV-<financial year>-<4+ digits>
+  number       String   @unique(map: "invoices_number_unique")
+  userId       String   @map("user_id")
+  paymentId    String   @unique(map: "invoices_paymentId_unique") @map("payment_id") @db.Uuid
+  /// Seller
+  seller       Json
+  /// { email, legalName, gstin, stateCode }
+  buyer        Json
+  credits      Int
+  taxablePaise Int      @map("taxable_paise")
+  cgstPaise    Int      @default(0) @map("cgst_paise")
+  sgstPaise    Int      @default(0) @map("sgst_paise")
+  igstPaise    Int      @default(0) @map("igst_paise")
+  totalPaise   Int      @map("total_paise")
+  gstRateBps   Int      @map("gst_rate_bps")
+  issuedAt     DateTime @default(now()) @map("issued_at") @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_user_id_users_id_fk")
+  payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_payment_id_payments_id_fk")
+
+  @@index([userId, issuedAt(sort: Desc)], map: "invoices_user_id_issued_at_index")
+  @@map("invoices")
+}
+
+/// Next invoice number per financial year, taken with one atomic upsert … RETURNING.
+model InvoiceCounter {
+  /// the year the financial year starts (April)
+  fy   Int @id
+  last Int @default(0)
+
+  @@map("invoice_counters")
+}
+
+// ── Admin audit ──
+
+model AdminAuditLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId   String   @map("admin_id")
+  action    String
+  target    String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "admin_audit_log_admin_id_users_id_fk")
+
+  @@index([createdAt(sort: Desc)], map: "admin_audit_log_created_at_index")
+  @@map("admin_audit_log")
+}
+
+// ── Service health (PLAN.md §6) ──
+
+enum ProbeStatus {
+  up
+  degraded
+  down
+  not_configured
+
+  @@map("probe_status")
+}
+
+/// Raw checks, kept 8 days (enough for the 24 h and 7 d views).
+model ProbeResult {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  probeId   String      @map("probe_id")
+  status    ProbeStatus
+  latencyMs Int?        @map("latency_ms")
+  message   String?
+  checkedAt DateTime    @default(now()) @map("checked_at") @db.Timestamptz(6)
+
+  @@index([probeId, checkedAt(sort: Desc)], map: "probe_results_probe_id_checked_at_index")
+  @@index([checkedAt], map: "probe_results_checked_at_index")
+  @@map("probe_results")
+}
+
+/// Daily rollup, updated on every check and kept 90 days (the 90 d view).
+model ProbeDaily {
+  probeId  String @map("probe_id")
+  /// YYYY-MM-DD (UTC)
+  day      String
+  checks   Int    @default(0)
+  up       Int    @default(0)
+  degraded Int    @default(0)
+  down     Int    @default(0)
+
+  @@id([probeId, day], map: "probe_daily_probe_id_day_pk")
+  @@map("probe_daily")
+}
+
+/// A probe failing 2 checks in a row opens an incident; 2 good checks in a row resolve it.
+model Incident {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// At most one open incident per probe, enforced by the database.
+  probeId     String      @unique(map: "incidents_probe_id_index", where: raw("(resolved_at IS NULL)")) @map("probe_id")
+  /// 'degraded' or 'down' (escalates to down, never back)
+  severity    ProbeStatus
+  startedAt   DateTime    @map("started_at") @db.Timestamptz(6)
+  resolvedAt  DateTime?   @map("resolved_at") @db.Timestamptz(6)
+  lastMessage String?     @map("last_message")
+  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([startedAt(sort: Desc)], map: "incidents_started_at_index")
+  @@map("incidents")
+}

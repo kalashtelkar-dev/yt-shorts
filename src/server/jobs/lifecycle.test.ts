@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { db } from "@/db";
-import { catalogItems, creditLedger, jobEvents, jobs, users } from "@/db/schema";
+import { db } from "@/db/client";
 import { getBalance, grant } from "@/server/credits";
 import { getSettings } from "@/server/settings";
 import { pollJob, startJob, sweep } from "./lifecycle";
@@ -17,22 +15,20 @@ let catalogItemId: string;
 
 /** A job as createJob leaves it: nothing charged, the top of its range held. */
 async function newJob(playerName: string, maxCredits = 120) {
-  const [job] = await db
-    .insert(jobs)
-    .values({ userId, catalogItemId, catalogSlug: "kill-montage", templateId: "tpl_t", input: { youtubeUrl: "https://youtu.be/x", playerName }, source: "url", durationSec: 60, maxCredits })
-    .returning();
-  return job;
+  return db.job.create({
+    data: { userId, catalogItemId, catalogSlug: "kill-montage", templateId: "tpl_t", input: { youtubeUrl: "https://youtu.be/x", playerName }, source: "url", durationSec: 60, maxCredits },
+  });
 }
 
-const load = async (id: string) => (await db.select().from(jobs).where(eq(jobs.id, id)))[0];
+const load = (id: string) => db.job.findUniqueOrThrow({ where: { id } });
 const at = (ms: number) => vi.setSystemTime(T0 + ms);
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   at(0);
   userId = crypto.randomUUID();
-  await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
-  const [item] = await db.insert(catalogItems).values({ slug: `t-${userId}`, title: "t", templateId: "tpl_t", stageMap }).returning({ id: catalogItems.id });
+  await db.user.create({ data: { id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true } });
+  const item = await db.catalogItem.create({ data: { slug: `t-${userId}`, title: "t", templateId: "tpl_t", stageMap }, select: { id: true } });
   catalogItemId = item.id;
   await grant(userId, 600, "test");
 });
@@ -79,7 +75,7 @@ describe("job lifecycle (mock Engine X)", () => {
     expect(row.errorRaw).toMatch(/137/);
     expect(row.computeCostPaise).toBeGreaterThan(0);
     expect(await getBalance(userId)).toBe(600);
-    const events = await db.select().from(jobEvents).where(eq(jobEvents.jobId, job.id));
+    const events = await db.jobEvent.findMany({ where: { jobId: job.id } });
     expect(events.some((e) => e.level === "error" && !/137/.test(e.message))).toBe(true);
   });
 
@@ -94,7 +90,7 @@ describe("job lifecycle (mock Engine X)", () => {
     expect(row.status).toBe("failed");
     expect(row.errorPublic).toMatch(/too long/);
     expect(await getBalance(userId)).toBe(600);
-    const ledger = await db.select().from(creditLedger).where(eq(creditLedger.jobId, job.id));
+    const ledger = await db.creditLedger.findMany({ where: { jobId: job.id } });
     expect(ledger).toHaveLength(0);
   });
 

@@ -1,1 +1,0 @@
-ALTER TABLE "catalog_items" ADD COLUMN "upload_template_id" text;

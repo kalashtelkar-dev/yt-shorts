@@ -1,32 +1,24 @@
 import "server-only";
-import { and, asc, desc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { catalogItems, jobEvents, jobs } from "@/db/schema";
+import { db, type JobRow } from "@/db/client";
+import type { JobStatus } from "@/generated/prisma/client";
 import { enginex } from "@/server/enginex/client";
 import type { LibraryItem, PublicJob, PublicStatus } from "@/lib/jobs";
 
 // What users may see about a job (CLAUDE.md §4.8): friendly stages and errors only.
 // Never run ids, template ids, step names or raw errors.
 
-const toPublicStatus = (s: (typeof jobs.$inferSelect)["status"]): PublicStatus =>
+const toPublicStatus = (s: JobStatus): PublicStatus =>
   s === "queued" ? "queued" : s === "starting" || s === "running" ? "running" : s === "succeeded" ? "succeeded" : "failed";
 
 /** The job if `userId` owns it, else null (so other people's job ids look like missing pages). */
 export async function getPublicJob(jobId: string, userId: string): Promise<PublicJob | null> {
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) return null;
-  const [row] = await db
-    .select({ job: jobs, title: catalogItems.title, stageMap: catalogItems.stageMap })
-    .from(jobs)
-    .innerJoin(catalogItems, eq(catalogItems.id, jobs.catalogItemId))
-    .where(and(eq(jobs.id, jobId), eq(jobs.userId, userId)));
-  if (!row) return null;
-  const { job } = row;
-  const events = await db
-    .select({ at: jobEvents.createdAt, message: jobEvents.message, level: jobEvents.level })
-    .from(jobEvents)
-    .where(eq(jobEvents.jobId, jobId))
-    .orderBy(asc(jobEvents.createdAt))
-    .limit(100);
+  const found = await db.job.findFirst({ where: { id: jobId, userId }, include: { catalogItem: { select: { title: true, stageMap: true } } } });
+  if (!found) return null;
+  const { catalogItem: row, ...job } = found;
+  const events = (
+    await db.jobEvent.findMany({ where: { jobId }, select: { createdAt: true, message: true, level: true }, orderBy: { createdAt: "asc" }, take: 100 })
+  ).map(({ createdAt, ...e }) => ({ at: createdAt, ...e }));
   const meta = (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null };
   const status = toPublicStatus(job.status);
   return {
@@ -50,15 +42,11 @@ export async function getPublicJob(jobId: string, userId: string): Promise<Publi
 }
 
 export async function listJobs(userId: string, limit = 50): Promise<LibraryItem[]> {
-  const rows = await db
-    .select({ job: jobs, title: catalogItems.title })
-    .from(jobs)
-    .innerJoin(catalogItems, eq(catalogItems.id, jobs.catalogItemId))
-    .where(eq(jobs.userId, userId))
-    .orderBy(desc(jobs.createdAt))
-    .limit(limit);
-  const metaOf = (job: typeof jobs.$inferSelect) => (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null; thumbnailKey?: unknown };
-  const thumbOf = (job: typeof jobs.$inferSelect) => {
+  const rows = (
+    await db.job.findMany({ where: { userId }, include: { catalogItem: { select: { title: true } } }, orderBy: { createdAt: "desc" }, take: limit })
+  ).map(({ catalogItem, ...job }) => ({ job, title: catalogItem.title }));
+  const metaOf = (job: JobRow) => (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null; thumbnailKey?: unknown };
+  const thumbOf = (job: JobRow) => {
     const k = metaOf(job).thumbnailKey;
     return job.status === "succeeded" && typeof k === "string" ? k : null;
   };
@@ -86,12 +74,9 @@ export async function listJobs(userId: string, limit = 50): Promise<LibraryItem[
 
 /** Fresh signed links to the finished video and its cover still, every time (never stored). */
 export async function signedVideo(jobId: string, userId: string): Promise<{ url: string; poster: string | null } | null> {
-  const [job] = await db
-    .select({ outputKey: jobs.outputKey, meta: jobs.outputMeta })
-    .from(jobs)
-    .where(and(eq(jobs.id, jobId), eq(jobs.userId, userId), eq(jobs.status, "succeeded")));
+  const job = await db.job.findFirst({ where: { id: jobId, userId, status: "succeeded" }, select: { outputKey: true, outputMeta: true } });
   if (!job?.outputKey) return null;
-  const thumbnailKey = (job.meta as { thumbnailKey?: unknown } | null)?.thumbnailKey;
+  const thumbnailKey = (job.outputMeta as { thumbnailKey?: unknown } | null)?.thumbnailKey;
   const keys = typeof thumbnailKey === "string" ? [job.outputKey, thumbnailKey] : [job.outputKey];
   const urls = await enginex().signOutput(keys, 3600);
   const url = urls[job.outputKey];

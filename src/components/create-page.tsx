@@ -1,8 +1,6 @@
 import "server-only";
-import { asc, eq } from "drizzle-orm";
 import { CreateForm } from "@/components/create-form";
-import { db } from "@/db";
-import { catalogItems } from "@/db/schema";
+import { db } from "@/db/client";
 import type { CatalogOption } from "@/lib/jobs";
 import { env } from "@/config/env";
 import { availableCredits } from "@/server/credits";
@@ -13,21 +11,11 @@ import { getSettings } from "@/server/settings";
 export async function CreatePage() {
   const [viewer, rows] = await Promise.all([
     getViewer(),
-    db
-      .select({
-        slug: catalogItems.slug,
-        title: catalogItems.title,
-        description: catalogItems.description,
-        beta: catalogItems.beta,
-        durations: catalogItems.durations,
-        creditRanges: catalogItems.creditRanges,
-        fields: catalogItems.fields,
-        uploadTemplateId: catalogItems.uploadTemplateId,
-        indexTemplates: catalogItems.indexTemplates,
-      })
-      .from(catalogItems)
-      .where(eq(catalogItems.enabled, true))
-      .orderBy(asc(catalogItems.sortOrder)),
+    db.catalogItem.findMany({
+      select: { slug: true, title: true, description: true, beta: true, durations: true, creditRanges: true, fields: true, uploadTemplateId: true, indexTemplates: true },
+      where: { enabled: true },
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
   const [settings, balance, available] = await Promise.all([getSettings(), viewerBalance(viewer), viewer ? availableCredits(viewer.id) : Promise.resolve(0)]);
   const needsAccount = env.AUTH_MODE === "full" && (!viewer || !!viewer.isAnonymous);

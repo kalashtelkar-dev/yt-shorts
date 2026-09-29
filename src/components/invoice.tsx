@@ -1,5 +1,6 @@
 import { LogoMark } from "@/components/logo";
-import type { invoices, payments } from "@/db/schema";
+import type { InvoiceRow } from "@/db/client";
+import type { Payment } from "@/generated/prisma/client";
 import { rupeesInWords, stateName } from "@/lib/billing";
 import { formatCredits, formatRupees as rupees } from "@/lib/format";
 import { PrintButton } from "./print-button";
@@ -7,8 +8,7 @@ import { PrintButton } from "./print-button";
 // A GST tax invoice for one credit purchase (paid, so there are no bank details or due date). Printed or saved
 // as PDF from the browser. Seller and buyer come from the snapshots taken when it was issued.
 
-type Invoice = typeof invoices.$inferSelect;
-type Payment = typeof payments.$inferSelect;
+type Invoice = InvoiceRow;
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
 

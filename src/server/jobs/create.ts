@@ -1,9 +1,9 @@
 import "server-only";
 import { randomInt } from "node:crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
-import { catalogItems, jobEvents, jobs, users, type CatalogField } from "@/db/schema";
+import { db } from "@/db/client";
+import type { CatalogField } from "@/db/types";
+import { Prisma } from "@/generated/prisma/client";
 import { MapInputError, mapInput } from "@/server/catalog";
 import { checkStartGate, InsufficientCreditsError } from "@/server/credits";
 import { enqueueStart } from "@/server/queue";
@@ -79,10 +79,10 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   }
 
   // Read from the DB: the session cookie cache can be up to 5 minutes old.
-  const [fresh] = await db.select({ suspendedAt: users.suspendedAt }).from(users).where(eq(users.id, user.id));
+  const fresh = await db.user.findUnique({ where: { id: user.id }, select: { suspendedAt: true } });
   if (fresh?.suspendedAt ?? user.suspendedAt) return fail("suspended", "Your account is paused, so you can't make new montages. Contact support if this looks wrong.");
 
-  const [item] = await db.select().from(catalogItems).where(and(eq(catalogItems.slug, input.catalogSlug), eq(catalogItems.enabled, true)));
+  const item = await db.catalogItem.findFirst({ where: { slug: input.catalogSlug, enabled: true } });
   if (!item) return fail("unavailable", "That style isn't available right now. Pick another one.");
   if (!item.durations.includes(input.durationSec)) return fail("invalid", "Pick one of the lengths shown.", "durationSec");
   if (input.source === "upload") {
@@ -117,10 +117,7 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   }
 
   const settings = await getSettings();
-  const [{ active }] = await db
-    .select({ active: sql<number>`count(*)::int` })
-    .from(jobs)
-    .where(and(eq(jobs.userId, user.id), inArray(jobs.status, ["queued", "starting", "running"])));
+  const active = await db.job.count({ where: { userId: user.id, status: { in: ["queued", "starting", "running"] } } });
   if (active >= settings.maxConcurrentJobsPerUser) {
     return fail("busy", `You already have ${active} montage${active === 1 ? "" : "s"} in progress. Wait for one to finish, then try again.`);
   }
@@ -130,25 +127,25 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
 
   let jobId: string;
   try {
-    jobId = await db.transaction(async (tx) => {
+    jobId = await db.$transaction(async (tx) => {
       await checkStartGate(tx, user.id, range.max);
-      const [job] = await tx
-        .insert(jobs)
-        .values({
+      const job = await tx.job.create({
+        data: {
           userId: user.id,
           catalogItemId: item.id,
           catalogSlug: item.slug,
           templateId, // snapshot: later catalog edits don't touch this job
-          indexTemplates: item.indexTemplates,
+          indexTemplates: item.indexTemplates ?? Prisma.DbNull,
           input: pipelineInput,
           source: input.source,
           sourceUrl,
           uploadKey: input.upload?.key ?? null,
           durationSec: input.durationSec,
           maxCredits: range.max,
-        })
-        .returning({ id: jobs.id });
-      await tx.insert(jobEvents).values({ jobId: job.id, message: "Queued" });
+        },
+        select: { id: true },
+      });
+      await tx.jobEvent.create({ data: { jobId: job.id, message: "Queued" } });
       return job.id;
     });
   } catch (e) {

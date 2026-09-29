@@ -16,7 +16,7 @@ export default defineConfig({
     fileParallelism: false,
     env: {
       ENGINEX_MODE: "mock",
-      DATABASE_URL: "postgres://montage:montage@localhost:5432/montage_test",
+      DATABASE_URL: `postgres://montage:montage@localhost:5432/${process.env.TEST_DB ?? "montage_test"}`,
       REDIS_URL: "redis://localhost:6379/1",
     },
   },

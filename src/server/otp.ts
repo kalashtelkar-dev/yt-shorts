@@ -1,10 +1,8 @@
 import "server-only";
-import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { env } from "@/config/env";
-import { db } from "@/db";
-import { users } from "@/db/schema";
+import { db } from "@/db/client";
 import type { ActionResult } from "@/lib/jobs";
 import { auth } from "./auth";
 import { redis, underLimit } from "./redis";
@@ -37,7 +35,7 @@ export async function sendCode(email: string, purpose: CodePurpose, ip: string):
     await auth.api.requestPasswordResetEmailOTP({ body: { email } });
   } else {
     // Only unverified accounts get sign-up codes; a verified one signs in with its password.
-    const [user] = await db.select({ emailVerified: users.emailVerified }).from(users).where(eq(users.email, email));
+    const user = await db.user.findUnique({ where: { email }, select: { emailVerified: true } });
     if (user && !user.emailVerified) await auth.api.sendVerificationOTP({ body: { email, type: "email-verification" } });
   }
   return { ok: true, data: null };

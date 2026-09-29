@@ -1,8 +1,8 @@
 import "server-only";
-import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
-import { adminAuditLog, catalogItems, settings, type CreditRange } from "@/db/schema";
+import { db } from "@/db/client";
+import type { CreditRange } from "@/db/types";
+import type { Prisma } from "@/generated/prisma/client";
 import { GSTIN_RE } from "@/lib/billing";
 import type { ActionResult } from "@/lib/jobs";
 import { getSettings } from "@/server/settings";
@@ -44,10 +44,12 @@ export async function updateSettings(admin: Admin, raw: unknown): Promise<Action
     return { ok: false, error: { code: "invalid", message: `${String(i.path[0] ?? "Form")}: ${i.message}`, field: String(i.path[0] ?? "") } };
   }
   const before = await getSettings();
-  await db.transaction(async (tx) => {
-    await tx.update(settings).set(parsed.data).where(eq(settings.id, 1));
+  await db.$transaction(async (tx) => {
+    await tx.settings.update({ where: { id: 1 }, data: parsed.data });
     const { updatedAt: _b, ...prev } = before;
-    await tx.insert(adminAuditLog).values({ adminId: admin.id, action: "settings.update", target: "settings", before: prev, after: parsed.data });
+    await tx.adminAuditLog.create({
+      data: { adminId: admin.id, action: "settings.update", target: "settings", before: prev as Prisma.InputJsonValue, after: parsed.data as Prisma.InputJsonValue },
+    });
   });
   return { ok: true, data: null };
 }
@@ -72,7 +74,7 @@ export type CostRow = {
  */
 export async function costReport(days = 30) {
   const s = await getSettings();
-  const result = await db.execute<{
+  const result = await db.$queryRaw<{
     slug: string;
     duration_sec: number;
     jobs: number;
@@ -81,7 +83,7 @@ export async function costReport(days = 30) {
     cost_paise: number;
     failed_cost_paise: number;
     net_credits: number;
-  }>(sql`
+  }[]>`
     select j.catalog_slug as slug, j.duration_sec,
       count(*)::int as jobs,
       count(*) filter (where j.status = 'succeeded')::int as succeeded,
@@ -95,8 +97,8 @@ export async function costReport(days = 30) {
     where j.created_at >= now() - make_interval(days => ${days})
       and j.status in ('succeeded', 'failed', 'canceled')
     group by j.catalog_slug, j.duration_sec
-    order by j.catalog_slug, j.duration_sec`);
-  const items = await db.select({ slug: catalogItems.slug, title: catalogItems.title, creditRanges: catalogItems.creditRanges }).from(catalogItems);
+    order by j.catalog_slug, j.duration_sec`;
+  const items = await db.catalogItem.findMany({ select: { slug: true, title: true, creditRanges: true } });
   const bySlug = new Map(items.map((i) => [i.slug, i]));
 
   const rows: CostRow[] = result.map((r) => ({

@@ -1,7 +1,6 @@
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { db } from "@/db";
-import { adminAuditLog, catalogItems, jobs, users } from "@/db/schema";
+import { db } from "@/db/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { chargeForUsage, getBalance, grant } from "@/server/credits";
 import { isAdmin, type Admin } from "./guard";
 import { adjustUserCredits, refundJobByAdmin, retryJob, setRole, setSuspended } from "./mutations";
@@ -10,23 +9,23 @@ let admin: Admin;
 let userId: string;
 let catalogItemId: string;
 
-const newUser = async (over: Partial<typeof users.$inferInsert> = {}) => {
+const newUser = async (over: Partial<Prisma.UserCreateInput> = {}) => {
   const id = crypto.randomUUID();
-  await db.insert(users).values({ id, name: "t", email: `${id}@test.local`, ...over });
+  await db.user.create({ data: { id, name: "t", email: `${id}@test.local`, ...over } });
   return id;
 };
-const auditFor = (target: string) => db.select().from(adminAuditLog).where(eq(adminAuditLog.target, target));
+const auditFor = (target: string) => db.adminAuditLog.findMany({ where: { target } });
 
 /** A finished job: a succeeded one paid `used` credits for its editing time; a failed one paid nothing. */
 async function finishedJob(status: "succeeded" | "failed", used = 100) {
-  return db.transaction(async (tx) => {
-    const [job] = await tx
-      .insert(jobs)
-      .values({ userId, catalogItemId, catalogSlug: "t", templateId: "tpl_old", input: { playerName: "x" }, source: "url", durationSec: 30, maxCredits: used, status })
-      .returning({ id: jobs.id });
+  return db.$transaction(async (tx) => {
+    const job = await tx.job.create({
+      data: { userId, catalogItemId, catalogSlug: "t", templateId: "tpl_old", input: { playerName: "x" }, source: "url", durationSec: 30, maxCredits: used, status },
+      select: { id: true },
+    });
     if (status === "succeeded") {
       const charged = await chargeForUsage(tx, userId, job.id, used);
-      await tx.update(jobs).set({ chargedCredits: charged }).where(eq(jobs.id, job.id));
+      await tx.job.update({ where: { id: job.id }, data: { chargedCredits: charged } });
     }
     return job.id;
   });
@@ -35,7 +34,7 @@ async function finishedJob(status: "succeeded" | "failed", used = 100) {
 beforeEach(async () => {
   admin = { id: await newUser({ role: "admin" }), email: "a@test.local", name: "a" };
   userId = await newUser();
-  const [item] = await db.insert(catalogItems).values({ slug: `t-${userId}`, title: "t", templateId: "tpl_new" }).returning({ id: catalogItems.id });
+  const item = await db.catalogItem.create({ data: { slug: `t-${userId}`, title: "t", templateId: "tpl_new" }, select: { id: true } });
   catalogItemId = item.id;
   await grant(userId, 500, "test");
 });
@@ -79,7 +78,7 @@ describe("admin mutations", () => {
     const old = await finishedJob("failed");
     const r = await retryJob(admin, old);
     expect(r.ok).toBe(true);
-    const [job] = await db.select().from(jobs).where(eq(jobs.id, r.ok ? r.data.jobId : ""));
+    const job = await db.job.findUnique({ where: { id: r.ok ? r.data.jobId : "" } });
     expect(job).toMatchObject({ status: "queued", templateId: "tpl_new", chargedCredits: 0, input: { playerName: "x" } });
     expect(await getBalance(userId)).toBe(500); // the failed job cost nothing, and the retry is free
   });
@@ -93,7 +92,7 @@ describe("admin mutations", () => {
     const guest = await newUser({ isAnonymous: true });
     expect(await setRole(admin, guest, "admin")).toMatchObject({ ok: false, error: { code: "anonymous" } });
     expect(await setSuspended(admin, userId, true)).toMatchObject({ ok: true });
-    const [u] = await db.select().from(users).where(eq(users.id, userId));
+    const u = await db.user.findUniqueOrThrow({ where: { id: userId } });
     expect(u.suspendedAt).not.toBeNull();
     expect((await auditFor(`user:${userId}`)).map((l) => l.action)).toEqual(["user.suspend"]);
   });

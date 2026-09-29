@@ -11,15 +11,16 @@ You are building a Next.js web app that turns gameplay videos into edited vertic
 
 ## 2. Stack (don't swap without asking)
 
-Next.js 15 App Router · TypeScript `strict` · Tailwind v4 · shadcn/ui · Drizzle ORM + PostgreSQL · Better Auth (anonymous, email+password, email OTP) · BullMQ + Redis · Nodemailer (SMTP) + React Email · zod · @xyflow/react · Vitest · pnpm. (No automated e2e; the user tests flows manually.)
+Next.js 15 App Router · TypeScript `strict` · Tailwind v4 · shadcn/ui · Prisma 7 (`@prisma/adapter-pg`) + PostgreSQL · Better Auth (anonymous, email+password, email OTP) · BullMQ + Redis · Nodemailer (SMTP) + React Email · zod · @xyflow/react · Vitest · pnpm. (No automated e2e; the user tests flows manually.)
 
 ## 3. Commands
 
 ```bash
 pnpm dev            # web
 pnpm worker:dev     # worker (BullMQ processors + health sweep)
-pnpm db:generate    # drizzle migration from schema changes
-pnpm db:migrate
+pnpm db:generate    # new migration from prisma/schema.prisma changes (prisma migrate dev --create-only --name <what>)
+pnpm db:migrate     # apply migrations (prisma migrate deploy)
+pnpm db:studio      # browse the tables
 pnpm db:seed        # catalog items + settings defaults
 pnpm lint && pnpm typecheck && pnpm test   # must pass before you say a task is done
 pnpm enginex:smoke  # checks Engine X connectivity and prints pipeline inputs
@@ -75,7 +76,8 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - Validate uploads by MIME type and extension (mp4/mov/mkv/webm), with the size limit taken from `settings.maxUploadMb`.
 - Validate URLs with zod: `https` only, and an allowlist of hosts (YouTube by default). Never fetch user-supplied URLs from the web server.
 - Catalog `inputMap` supports only `$source.url`, `$fields.<name>[.<sub>]`, `$durationSec`, and literals. **Never use `eval`, `new Function`, or template-string code execution.**
-- Use `snake_case` in the DB and `camelCase` in TypeScript (Drizzle handles the mapping). Every schema change is a migration.
+- Use `snake_case` in the DB and `camelCase` in TypeScript (`@map`/`@@map` in `prisma/schema.prisma`). Every schema change is a migration. Import the client as `db` from `src/db/client.ts` (JSON columns come back typed, shapes in `src/db/types.ts`); the generated client lives in `src/generated/prisma` (git-ignored, made by `pnpm install`).
+- Raw SQL only where Prisma can't express it (row locks `FOR UPDATE`, `ON CONFLICT … DO UPDATE` expressions, date bucketing), always as tagged templates (`$queryRaw\`…${value}\``), never the `Unsafe` variants. Cast counts and sums to `::int` (Postgres returns bigint). Guarded updates (`where status = …`) use `updateMany` and check `count`: Prisma's `update()` throws when no row matches. The ledger trigger and the settings check live in migration SQL.
 
 ## 8. UI rules
 

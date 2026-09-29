@@ -1,4 +1,3 @@
-import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Full-auth flows run against the real Better Auth config with AUTH_MODE=full; emails are captured.
@@ -12,8 +11,7 @@ vi.mock("@/server/email", () => ({
   mailer: () => ({}),
 }));
 
-import { db } from "@/db";
-import { catalogItems, creditLedger, jobs, users, verifications } from "@/db/schema";
+import { db } from "@/db/client";
 import { mergeGuest } from "./account";
 import { auth } from "./auth";
 import { adjustCredits, chargeForUsage, getBalance, grant, grantStarterOnce, refundJob } from "./credits";
@@ -43,7 +41,7 @@ describe("sign-up codes", () => {
     expect(sent[0]).toMatchObject({ to: email, purpose: "email-verification" });
     expect(lastCode()).toMatch(/^\d{6}$/);
 
-    const [row] = await db.select().from(verifications).where(eq(verifications.identifier, `email-verification-otp-${email}`));
+    const row = (await db.verification.findFirst({ where: { identifier: `email-verification-otp-${email}` } }))!;
     expect(row.value).not.toContain(lastCode()); // hashed at rest
     const minutes = (row.expiresAt.getTime() - Date.now()) / 60_000;
     expect(minutes).toBeGreaterThan(9.9);
@@ -154,15 +152,15 @@ describe("guest → account", () => {
     const res = await auth.api.signInAnonymous({ headers: new Headers(), returnHeaders: true });
     const guestId = res.response!.user.id;
     const cookie = res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
-    const [item] = await db.insert(catalogItems).values({ slug: `t-${guestId}`, title: "t", templateId: "tpl_t" }).returning({ id: catalogItems.id });
+    const item = await db.catalogItem.create({ data: { slug: `t-${guestId}`, title: "t", templateId: "tpl_t" }, select: { id: true } });
     await grant(guestId, 500, "Starter credits");
-    const jobId = await db.transaction(async (tx) => {
-      const [job] = await tx
-        .insert(jobs)
-        .values({ userId: guestId, catalogItemId: item.id, catalogSlug: "t", templateId: "tpl_t", input: {}, source: "url", durationSec: 30, maxCredits: 200, status: "succeeded" })
-        .returning({ id: jobs.id });
+    const jobId = await db.$transaction(async (tx) => {
+      const job = await tx.job.create({
+        data: { userId: guestId, catalogItemId: item.id, catalogSlug: "t", templateId: "tpl_t", input: {}, source: "url", durationSec: 30, maxCredits: 200, status: "succeeded" },
+        select: { id: true },
+      });
       // A finished montage that used 200 credits of editing time.
-      await tx.update(jobs).set({ chargedCredits: await chargeForUsage(tx, guestId, job.id, 200) }).where(eq(jobs.id, job.id));
+      await tx.job.update({ where: { id: job.id }, data: { chargedCredits: await chargeForUsage(tx, guestId, job.id, 200) } });
       return job.id;
     });
     return { guestId, cookie, jobId };
@@ -176,9 +174,9 @@ describe("guest → account", () => {
 
     expect(await getBalance(guestId)).toBe(0);
     expect(await getBalance(userId)).toBe(300);
-    const [job] = await db.select({ userId: jobs.userId }).from(jobs).where(eq(jobs.id, jobId));
+    const job = (await db.job.findUnique({ where: { id: jobId }, select: { userId: true } }))!;
     expect(job.userId).toBe(userId);
-    const transfers = await db.select({ delta: creditLedger.delta }).from(creditLedger).where(and(eq(creditLedger.kind, "transfer"), eq(creditLedger.reason, "Moved from your guest session")));
+    const transfers = await db.creditLedger.findMany({ where: { kind: "transfer", reason: "Moved from your guest session" }, select: { delta: true } });
     expect(transfers.map((t) => t.delta)).toEqual(expect.arrayContaining([-300, 300]));
 
     // A refund after the move lands on the account, not the guest.
@@ -186,12 +184,12 @@ describe("guest → account", () => {
     expect(await getBalance(userId)).toBe(500);
     expect(await getBalance(guestId)).toBe(0);
     // The guest row stays (its ledger rows reference it).
-    expect(await db.select({ id: users.id }).from(users).where(eq(users.id, guestId))).toHaveLength(1);
+    expect(await db.user.count({ where: { id: guestId } })).toBe(1);
   });
 
   it("a guest who spent everything can't claim starter credits again as an account", async () => {
     const { guestId, cookie } = await guestWithJob();
-    await db.transaction((tx) => adjustCredits(tx, guestId, guestId, -300, "spent")); // balance now 0
+    await db.$transaction((tx) => adjustCredits(tx, guestId, guestId, -300, "spent")); // balance now 0
     await auth.api.signUpEmail({ body: { email, password, name: "t" } });
     const { user } = await verify(lastCode(), new Headers({ cookie }));
     expect(await getBalance(user.id)).toBe(0);
@@ -208,7 +206,7 @@ describe("guest → account", () => {
 describe("welcome credits", () => {
   const account = async (addr: string) => {
     const id = crypto.randomUUID();
-    await db.insert(users).values({ id, name: "t", email: addr });
+    await db.user.create({ data: { id, name: "t", email: addr } });
     return { id, email: addr };
   };
 
@@ -224,7 +222,7 @@ describe("welcome credits", () => {
 
   it("aren't granted after an admin already added credits (the balance on screen is real)", async () => {
     const a = await account(`${crypto.randomUUID()}@test.local`);
-    await db.transaction((tx) => adjustCredits(tx, a.id, a.id, 600, "requested"));
+    await db.$transaction((tx) => adjustCredits(tx, a.id, a.id, 600, "requested"));
     expect(await welcomeCredits(a, ip)).toBe(false);
     expect(await getBalance(a.id)).toBe(600);
   });
@@ -233,7 +231,7 @@ describe("welcome credits", () => {
 describe("starter credits for accounts", () => {
   it("are granted once, even under concurrency, and never after other credits", async () => {
     const id = crypto.randomUUID();
-    await db.insert(users).values({ id, name: "t", email: `${id}@test.local` });
+    await db.user.create({ data: { id, name: "t", email: `${id}@test.local` } });
     const results = await Promise.all([grantStarterOnce(id, 300), grantStarterOnce(id, 300), grantStarterOnce(id, 300)]);
     expect(results.filter(Boolean)).toHaveLength(1);
     expect(await getBalance(id)).toBe(300);

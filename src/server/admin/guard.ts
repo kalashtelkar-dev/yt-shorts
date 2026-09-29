@@ -1,13 +1,12 @@
 import "server-only";
-import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { db } from "@/db";
-import { users } from "@/db/schema";
+import { db } from "@/db/client";
+import type { User } from "@/generated/prisma/client";
 import { getViewer } from "@/server/session";
 
 export type Admin = { id: string; email: string; name: string };
 
-type UserRow = Pick<typeof users.$inferSelect, "role" | "isAnonymous" | "suspendedAt">;
+type UserRow = Pick<User, "role" | "isAnonymous" | "suspendedAt">;
 
 /** Admin = a real (non-anonymous), non-suspended account with role 'admin' (CLAUDE.md §6). */
 export const isAdmin = (u: UserRow | undefined | null) => !!u && u.role === "admin" && !u.isAnonymous && !u.suspendedAt;
@@ -16,11 +15,11 @@ export const isAdmin = (u: UserRow | undefined | null) => !!u && u.role === "adm
 export async function currentAdmin(): Promise<Admin | null> {
   const viewer = await getViewer();
   if (!viewer) return null;
-  const [row] = await db
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role, isAnonymous: users.isAnonymous, suspendedAt: users.suspendedAt })
-    .from(users)
-    .where(eq(users.id, viewer.id));
-  return isAdmin(row) ? { id: row.id, email: row.email, name: row.name } : null;
+  const row = await db.user.findUnique({
+    where: { id: viewer.id },
+    select: { id: true, email: true, name: true, role: true, isAnonymous: true, suspendedAt: true },
+  });
+  return row && isAdmin(row) ? { id: row.id, email: row.email, name: row.name } : null;
 }
 
 /** For admin pages and layouts: sends non-admins to the sign-in page. */

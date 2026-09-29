@@ -1,15 +1,13 @@
 import "server-only";
-import { and, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { creditLedger, jobs, userBalances } from "@/db/schema";
+import { db, type Tx } from "@/db/client";
+import type { LedgerKind } from "@/generated/prisma/client";
 
 // The only code that changes balances (CLAUDE.md §5). Every change runs in one transaction:
 // lock the balance row, check idempotency, insert the ledger row, update the cached balance.
 // Jobs pay for the editing time they use, after they succeed: to start, the balance minus what the user's
 // other unfinished jobs hold must cover the top of the job's range. Failed jobs cost nothing.
 
-export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-type Kind = (typeof creditLedger.$inferInsert)["kind"];
+export type { Tx };
 
 export class InsufficientCreditsError extends Error {
   constructor(
@@ -21,11 +19,11 @@ export class InsufficientCreditsError extends Error {
   }
 }
 
-type Entry = { userId: string; delta: number; kind: Kind; jobId?: string; paymentId?: string; adminId?: string; reason?: string };
+type Entry = { userId: string; delta: number; kind: LedgerKind; jobId?: string; paymentId?: string; adminId?: string; reason?: string };
 
 async function lockBalance(tx: Tx, userId: string): Promise<number> {
-  await tx.insert(userBalances).values({ userId, balance: 0 }).onConflictDoNothing();
-  const [row] = await tx.select({ balance: userBalances.balance }).from(userBalances).where(eq(userBalances.userId, userId)).for("update");
+  await tx.$executeRaw`insert into user_balances (user_id) values (${userId}) on conflict do nothing`;
+  const [row] = await tx.$queryRaw<{ balance: number }[]>`select balance from user_balances where user_id = ${userId} for update`;
   return row.balance;
 }
 
@@ -33,34 +31,22 @@ async function lockBalance(tx: Tx, userId: string): Promise<number> {
 async function apply(tx: Tx, e: Entry): Promise<boolean> {
   if (!Number.isInteger(e.delta)) throw new Error("Credit deltas must be integers");
   const balance = await lockBalance(tx, e.userId);
-  if (e.jobId) {
-    const [dup] = await tx
-      .select({ id: creditLedger.id })
-      .from(creditLedger)
-      .where(and(eq(creditLedger.jobId, e.jobId), eq(creditLedger.kind, e.kind)));
-    if (dup) return false;
-  }
-  if (e.paymentId) {
-    const [dup] = await tx.select({ id: creditLedger.id }).from(creditLedger).where(eq(creditLedger.paymentId, e.paymentId));
-    if (dup) return false;
-  }
+  if (e.jobId && (await tx.creditLedger.findFirst({ where: { jobId: e.jobId, kind: e.kind }, select: { id: true } }))) return false;
+  if (e.paymentId && (await tx.creditLedger.findFirst({ where: { paymentId: e.paymentId }, select: { id: true } }))) return false;
   if (e.delta < 0 && balance + e.delta < 0) throw new InsufficientCreditsError(-e.delta, balance);
-  await tx.insert(creditLedger).values({ userId: e.userId, delta: e.delta, kind: e.kind, jobId: e.jobId, paymentId: e.paymentId, adminId: e.adminId, reason: e.reason });
-  await tx
-    .update(userBalances)
-    .set({ balance: sql`${userBalances.balance} + ${e.delta}` })
-    .where(eq(userBalances.userId, e.userId));
+  await tx.creditLedger.create({ data: { userId: e.userId, delta: e.delta, kind: e.kind, jobId: e.jobId, paymentId: e.paymentId, adminId: e.adminId, reason: e.reason } });
+  await tx.userBalance.update({ where: { userId: e.userId }, data: { balance: { increment: e.delta } } });
   return true;
 }
 
 export async function getBalance(userId: string): Promise<number> {
-  const [row] = await db.select({ balance: userBalances.balance }).from(userBalances).where(eq(userBalances.userId, userId));
+  const row = await db.userBalance.findUnique({ where: { userId }, select: { balance: true } });
   return row?.balance ?? 0;
 }
 
 export async function grant(userId: string, amount: number, reason: string) {
   if (amount <= 0) return;
-  await db.transaction((tx) => apply(tx, { userId, delta: amount, kind: "grant", reason }));
+  await db.$transaction((tx) => apply(tx, { userId, delta: amount, kind: "grant", reason }));
 }
 
 /**
@@ -69,16 +55,15 @@ export async function grant(userId: string, amount: number, reason: string) {
  */
 export async function grantStarterOnce(userId: string, amount: number): Promise<boolean> {
   if (amount <= 0) return false;
-  return db.transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     await lockBalance(tx, userId);
-    const [any] = await tx.select({ id: creditLedger.id }).from(creditLedger).where(eq(creditLedger.userId, userId)).limit(1);
+    const any = await tx.creditLedger.findFirst({ where: { userId }, select: { id: true } });
     return any ? false : apply(tx, { userId, delta: amount, kind: "grant", reason: "Starter credits" });
   });
 }
 
 export async function hasCreditHistory(userId: string): Promise<boolean> {
-  const [any] = await db.select({ id: creditLedger.id }).from(creditLedger).where(eq(creditLedger.userId, userId)).limit(1);
-  return !!any;
+  return !!(await db.creditLedger.findFirst({ where: { userId }, select: { id: true } }));
 }
 
 /**
@@ -90,8 +75,7 @@ export async function transferBalance(tx: Tx, fromUserId: string, toUserId: stri
   // Lock both rows in a fixed order so two merges can't deadlock.
   for (const id of [fromUserId, toUserId].sort()) await lockBalance(tx, id);
   const amount = await lockBalance(tx, fromUserId);
-  const [history] = await tx.select({ id: creditLedger.id }).from(creditLedger).where(eq(creditLedger.userId, fromUserId)).limit(1);
-  if (!history) return 0;
+  if (!(await tx.creditLedger.findFirst({ where: { userId: fromUserId }, select: { id: true } }))) return 0;
   await apply(tx, { userId: fromUserId, delta: -amount, kind: "transfer", reason });
   await apply(tx, { userId: toUserId, delta: amount, kind: "transfer", reason });
   return amount;
@@ -100,12 +84,9 @@ export async function transferBalance(tx: Tx, fromUserId: string, toUserId: stri
 const ACTIVE = ["queued", "starting", "running"] as const;
 
 /** Credits the user's unfinished jobs hold: each holds the top of its range until it's settled. */
-async function heldCredits(tx: Tx | typeof db, userId: string): Promise<number> {
-  const [row] = await tx
-    .select({ held: sql<number>`coalesce(sum(${jobs.maxCredits}), 0)::int` })
-    .from(jobs)
-    .where(and(eq(jobs.userId, userId), inArray(jobs.status, [...ACTIVE])));
-  return row.held;
+async function heldCredits(tx: Tx, userId: string): Promise<number> {
+  const { _sum } = await tx.job.aggregate({ _sum: { maxCredits: true }, where: { userId, status: { in: [...ACTIVE] } } });
+  return _sum.maxCredits ?? 0;
 }
 
 /** Balance minus what running jobs hold: what a new job may count on. */
@@ -148,12 +129,13 @@ export async function addPurchase(tx: Tx, userId: string, paymentId: string, cre
 export async function refundJob(jobId: string, reason = "Job did not finish", tx?: Tx, adminId?: string): Promise<boolean> {
   const run = async (t: Tx) => {
     // Locked, so a guest → account merge (which moves jobs) can't send this refund to the old owner.
-    const [job] = await t.select({ userId: jobs.userId, chargedCredits: jobs.chargedCredits }).from(jobs).where(eq(jobs.id, jobId)).for("update");
+    const [job] = await t.$queryRaw<{ userId: string; chargedCredits: number }[]>`
+      select user_id as "userId", charged_credits as "chargedCredits" from jobs where id = ${jobId}::uuid for update`;
     if (!job) throw new Error(`Job ${jobId} not found`);
     if (job.chargedCredits <= 0) return false;
     return apply(t, { userId: job.userId, delta: job.chargedCredits, kind: "refund", jobId, adminId, reason });
   };
-  return tx ? run(tx) : db.transaction(run);
+  return tx ? run(tx) : db.$transaction(run);
 }
 
 /** Admin adjustment with a required reason. Removing more than the balance is refused. */

@@ -1,12 +1,10 @@
 import "server-only";
-import { asc, eq } from "drizzle-orm";
 import Image from "next/image";
 import Link from "next/link";
 import { CreditCalculator } from "@/components/credit-calculator";
 import { buttonVariants } from "@/components/ui/button";
 import { brand } from "@/config/brand";
-import { db } from "@/db";
-import { catalogItems } from "@/db/schema";
+import { db } from "@/db/client";
 import { formatCredits } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getSettings } from "@/server/settings";
@@ -18,11 +16,11 @@ import keyArt from "../../public/create-preview.jpg";
  */
 export async function Landing() {
   const [items, s] = await Promise.all([
-    db
-      .select({ title: catalogItems.title, description: catalogItems.description, durations: catalogItems.durations, creditRanges: catalogItems.creditRanges })
-      .from(catalogItems)
-      .where(eq(catalogItems.enabled, true))
-      .orderBy(asc(catalogItems.sortOrder)),
+    db.catalogItem.findMany({
+      select: { title: true, description: true, durations: true, creditRanges: true },
+      where: { enabled: true },
+      orderBy: { sortOrder: "asc" },
+    }),
     getSettings(),
   ]);
   // Each style at its shortest length, for "what ₹X gets you".

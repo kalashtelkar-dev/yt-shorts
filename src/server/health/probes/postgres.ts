@@ -1,6 +1,5 @@
 import "server-only";
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db } from "@/db/client";
 import type { Probe } from "../types";
 
 export const postgresProbe: Probe = {
@@ -10,7 +9,7 @@ export const postgresProbe: Probe = {
   critical: true,
   degradedMs: 250,
   async run() {
-    await db.execute(sql`select 1`);
+    await db.$queryRaw`select 1`;
     return { status: "up" };
   },
 };

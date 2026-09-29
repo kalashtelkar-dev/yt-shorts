@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { db } from "@/db";
-import { adminAuditLog, catalogItems, catalogRevisions, jobs, settings, users } from "@/db/schema";
+import { db } from "@/db/client";
 import { costReport, updateSettings } from "./billing";
 import { deleteCatalogItem, pipelinesInUse, saveCatalogItem, validateTemplate } from "./catalog";
 import type { Admin } from "./guard";
@@ -27,7 +25,7 @@ const base = () => ({
 
 beforeEach(async () => {
   const id = crypto.randomUUID();
-  await db.insert(users).values({ id, name: "a", email: `${id}@test.local`, role: "admin" });
+  await db.user.create({ data: { id, name: "a", email: `${id}@test.local`, role: "admin" } });
   admin = { id, email: `${id}@test.local`, name: "a" };
   slug = `km-${id.slice(0, 8)}`;
 });
@@ -81,15 +79,20 @@ describe("saveCatalogItem", () => {
 
     const swapped = await saveCatalogItem(admin, id, { ...input, templateId: "tpl_new" });
     expect(swapped.ok).toBe(true);
-    const [row] = await db.select().from(catalogItems).where(eq(catalogItems.id, id));
+    const row = await db.catalogItem.findUniqueOrThrow({ where: { id } });
     expect(row.templateId).toBe("tpl_new");
-    expect(await db.select().from(catalogRevisions).where(eq(catalogRevisions.catalogItemId, id))).toHaveLength(2);
-    const audit = await db.select().from(adminAuditLog).where(eq(adminAuditLog.target, `catalog:${id}`));
+    expect(await db.catalogRevision.findMany({ where: { catalogItemId: id } })).toHaveLength(2);
+    const audit = await db.adminAuditLog.findMany({ where: { target: `catalog:${id}` } });
     expect(audit.map((a) => a.action).sort()).toEqual(["catalog.create", "catalog.update"]);
 
     expect(await saveCatalogItem(admin, id, { ...input, templateId: "tpl_missing" })).toMatchObject({ ok: false });
-    const [still] = await db.select().from(catalogItems).where(eq(catalogItems.id, id));
+    const still = await db.catalogItem.findUniqueOrThrow({ where: { id } });
     expect(still.templateId).toBe("tpl_new");
+  });
+
+  it("refuses a slug another item uses", async () => {
+    await db.catalogItem.create({ data: { slug, title: "t", templateId: "tpl_ok" } });
+    expect(await saveCatalogItem(admin, null, base())).toMatchObject({ ok: false, error: { code: "invalid", field: "slug" } });
   });
 
   it.each([
@@ -106,15 +109,15 @@ describe("saveCatalogItem", () => {
   });
 
   it("won't delete an item that jobs used", async () => {
-    const [item] = await db.insert(catalogItems).values({ slug, title: "t", templateId: "tpl_ok" }).returning();
-    await db.insert(jobs).values({ userId: admin.id, catalogItemId: item.id, catalogSlug: slug, templateId: "tpl_ok", input: {}, source: "url", durationSec: 30 });
+    const item = await db.catalogItem.create({ data: { slug, title: "t", templateId: "tpl_ok" } });
+    await db.job.create({ data: { userId: admin.id, catalogItemId: item.id, catalogSlug: slug, templateId: "tpl_ok", input: {}, source: "url", durationSec: 30 } });
     expect(await deleteCatalogItem(admin, item.id)).toMatchObject({ ok: false, error: { code: "in_use" } });
   });
 });
 
 describe("billing", () => {
   it("updates settings with an audit entry, and validates", async () => {
-    const [before] = await db.select().from(settings).where(eq(settings.id, 1));
+    const before = await db.settings.findUnique({ where: { id: 1 } });
     const next = {
       costPaisePerSecond: 30,
       sellPaisePerCredit: 50,
@@ -129,24 +132,24 @@ describe("billing", () => {
     };
     expect(await updateSettings(admin, next)).toMatchObject({ ok: true });
     expect(await updateSettings(admin, { ...next, maxRunMinutes: 1 })).toMatchObject({ ok: false });
-    const log = await db.select().from(adminAuditLog).where(eq(adminAuditLog.adminId, admin.id));
+    const log = await db.adminAuditLog.findMany({ where: { adminId: admin.id } });
     expect(log[0]).toMatchObject({ action: "settings.update", after: next });
     expect(await updateSettings(admin, { ...next, seller: { gstin: "not-a-gstin" } })).toMatchObject({ ok: false });
     expect(await updateSettings(admin, { ...next, minPurchasePaise: 600_000 })).toMatchObject({ ok: false });
     if (before) {
       const { id: _id, updatedAt: _u, ...rest } = before;
-      await db.update(settings).set(rest).where(eq(settings.id, 1)); // the tests share the dev database
+      await db.settings.update({ where: { id: 1 }, data: rest }); // the tests share the dev database
     }
   });
 
   it("reports cost and net credits per style and length", async () => {
-    const [item] = await db.insert(catalogItems).values({ slug, title: "Report test", templateId: "tpl_ok", creditRanges: { "30": { min: 120, max: 300 } } }).returning();
+    const item = await db.catalogItem.create({ data: { slug, title: "Report test", templateId: "tpl_ok", creditRanges: { "30": { min: 120, max: 300 } } } });
     const common = { userId: admin.id, catalogItemId: item.id, catalogSlug: slug, templateId: "tpl_ok", input: {}, source: "url" as const, durationSec: 30 };
-    await db.insert(jobs).values([
+    await db.job.createMany({ data: [
       { ...common, status: "succeeded", runMs: 100_000, computeCostPaise: 3000, chargedCredits: 300 },
       { ...common, status: "succeeded", runMs: 200_000, computeCostPaise: 6000, chargedCredits: 300 },
       { ...common, status: "failed", runMs: 50_000, computeCostPaise: 1500, chargedCredits: 300 },
-    ]);
+    ] });
     const row = (await costReport(30)).rows.find((r) => r.slug === slug)!;
     expect(row).toMatchObject({ jobs: 3, succeeded: 2, medianRunMs: 150_000, costPaise: 10_500, failedCostPaise: 1500, netCredits: 600, range: { min: 120, max: 300 } });
   });

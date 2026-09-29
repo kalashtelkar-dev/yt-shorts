@@ -1,7 +1,5 @@
-import { sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
-import { db } from "@/db";
-import { probeResults } from "@/db/schema";
+import { beforeAll, describe, expect, it } from "vitest";
+import { db } from "@/db/client";
 import { runProbe, usedEngines } from ".";
 import { healthView } from "./queries";
 import type { Probe, SweepContext } from "./types";
@@ -26,13 +24,18 @@ describe("runProbe", () => {
 });
 
 describe("health view", () => {
+  // The test DB starts empty: one enabled style whose (mock) pipeline graph names the engines.
+  beforeAll(async () => {
+    await db.catalogItem.create({ data: { slug: `health-${crypto.randomUUID()}`, title: "t", templateId: "tpl_health", enabled: true } });
+  });
+
   it("only lists engines the enabled pipelines use", async () => {
     // mock pipeline graph uses ytdlp, ffmpeg, ocr, vllm
     expect(await usedEngines()).toEqual(["ffmpeg", "ocr", "vllm", "ytdlp"]);
   });
 
   it("buckets checks and applies the 99% rule", async () => {
-    await db.delete(probeResults).where(sql`probe_id = 'postgres'`);
+    await db.probeResult.deleteMany({ where: { probeId: "postgres" } });
     const now = Date.now();
     // Last 15 min: 29 up + 1 down (< 99%) → down bucket; the bucket before: all up.
     const rows = [
@@ -40,7 +43,7 @@ describe("health view", () => {
       { probeId: "postgres", status: "down" as const, checkedAt: new Date(now - 2000) },
       ...Array.from({ length: 30 }, (_, i) => ({ probeId: "postgres", status: "up" as const, checkedAt: new Date(now - 16 * 60_000 - i * 20_000) })),
     ];
-    await db.insert(probeResults).values(rows);
+    await db.probeResult.createMany({ data: rows });
     const v = await healthView("24h");
     const pg = v.probes.find((p) => p.id === "postgres")!;
     expect(pg.buckets.at(-1)).toBe("down");

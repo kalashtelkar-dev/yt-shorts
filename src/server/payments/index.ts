@@ -1,8 +1,7 @@
 import "server-only";
-import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
-import { billingProfiles, invoiceCounters, invoices, payments, users } from "@/db/schema";
+import { db } from "@/db/client";
+import { Prisma, type Payment } from "@/generated/prisma/client";
 import { creditsForPaise, financialYear, GST_STATES, GSTIN_RE, invoiceNumber, splitGst } from "@/lib/billing";
 import type { ActionResult } from "@/lib/jobs";
 import { addPurchase, type Tx } from "@/server/credits";
@@ -31,8 +30,7 @@ export const billingProfileInput = z.strictObject({
 });
 
 export async function getBillingProfile(userId: string) {
-  const [p] = await db.select().from(billingProfiles).where(eq(billingProfiles.userId, userId));
-  return p ?? null;
+  return db.billingProfile.findUnique({ where: { userId } });
 }
 
 export async function saveBillingProfile(userId: string, raw: unknown): Promise<ActionResult<null>> {
@@ -44,10 +42,7 @@ export async function saveBillingProfile(userId: string, raw: unknown): Promise<
   const v = parsed.data;
   // A GSTIN's first two digits are its state: they must match the state picked, or the tax split would be wrong.
   if (v.gstin && v.gstin.slice(0, 2) !== v.stateCode) return fail("invalid", "That GSTIN is registered in another state. Pick the state it belongs to.", "gstin");
-  await db
-    .insert(billingProfiles)
-    .values({ userId, ...v })
-    .onConflictDoUpdate({ target: billingProfiles.userId, set: { ...v, updatedAt: new Date() } });
+  await db.billingProfile.upsert({ where: { userId }, create: { userId, ...v }, update: v });
   return { ok: true, data: null };
 }
 
@@ -72,7 +67,7 @@ export async function startPurchase(user: { id: string; email: string; isAnonymo
   if (!amount.success || amountPaise < s.minPurchasePaise || amountPaise > s.maxPurchasePaise) {
     return fail("invalid", `Pick an amount between ₹${s.minPurchasePaise / 100} and ₹${s.maxPurchasePaise / 100}.`, "amount");
   }
-  const [fresh] = await db.select({ suspendedAt: users.suspendedAt }).from(users).where(eq(users.id, user.id));
+  const fresh = await db.user.findUnique({ where: { id: user.id }, select: { suspendedAt: true } });
   if (fresh?.suspendedAt) return fail("suspended", "Your account is paused, so you can't buy credits. Contact support if this looks wrong.");
   if (!(await getBillingProfile(user.id))) return fail("profile_needed", "Tell us your state first; it goes on your tax invoice.");
   if (!(await underLimit(`purchase:${user.id}`, PURCHASE_STARTS_PER_HOUR, 3600))) return fail("rate_limited", "Too many payment attempts. Try again in an hour.");
@@ -88,7 +83,7 @@ export async function startPurchase(user: { id: string; email: string; isAnonymo
     console.error("[startPurchase]", e instanceof PaymentsError ? e.message : "order failed");
     return fail("provider", "We couldn't open the payment page. Try again in a minute.");
   }
-  await db.insert(payments).values({ id, userId: user.id, provider: provider.name, providerOrderId: orderId, amountPaise, credits });
+  await db.payment.create({ data: { id, userId: user.id, provider: provider.name, providerOrderId: orderId, amountPaise, credits } });
   const mockPaymentId = `pay_mock_${id.replaceAll("-", "").slice(0, 14)}`;
   return {
     ok: true,
@@ -111,7 +106,7 @@ export async function confirmPurchase(userId: string, raw: unknown): Promise<Act
   const parsed = confirmInput.safeParse(raw);
   if (!parsed.success) return fail("invalid", "That payment couldn't be checked. If money left your account, contact support.");
   const { orderId, paymentId, signature } = parsed.data;
-  const [p] = await db.select().from(payments).where(and(eq(payments.providerOrderId, orderId), eq(payments.userId, userId)));
+  const p = await db.payment.findFirst({ where: { providerOrderId: orderId, userId } });
   if (!p) return fail("not_found", "We couldn't find that payment. If money left your account, contact support.");
   if (!paymentsProvider().verifyPayment({ orderId, paymentId, signature })) {
     return fail("signature", "That payment couldn't be verified. If money left your account, contact support with the payment id.");
@@ -137,40 +132,40 @@ export async function handleWebhook(rawBody: string, signature: string): Promise
  * locked and a second call finds it paid (the ledger's unique paymentId backs this up). Null if the order is unknown.
  */
 export async function markPaid(orderId: string, providerPaymentId: string, method: string | null, raw: unknown): Promise<{ invoiceId: string } | null> {
-  return db.transaction(async (tx) => {
-    const [p] = await tx.select().from(payments).where(eq(payments.providerOrderId, orderId)).for("update");
-    if (!p) return null;
+  return db.$transaction(async (tx) => {
+    const [locked] = await tx.$queryRaw<{ id: string }[]>`select id from payments where provider_order_id = ${orderId} for update`;
+    if (!locked) return null;
+    const p = await tx.payment.findUniqueOrThrow({ where: { id: locked.id } });
     if (p.status === "paid") {
-      const [inv] = await tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.paymentId, p.id));
+      const inv = await tx.invoice.findUniqueOrThrow({ where: { paymentId: p.id }, select: { id: true } });
       return { invoiceId: inv.id };
     }
-    await tx
-      .update(payments)
-      .set({ status: "paid", providerPaymentId, method, raw: raw ?? p.raw, paidAt: new Date() })
-      .where(eq(payments.id, p.id));
+    await tx.payment.update({
+      where: { id: p.id },
+      data: { status: "paid", providerPaymentId, method, paidAt: new Date(), ...(raw != null && { raw: raw as Prisma.InputJsonValue }) },
+    });
     await addPurchase(tx, p.userId, p.id, p.credits);
     const invoiceId = await issueInvoice(tx, p);
     return { invoiceId };
   });
 }
 
-async function issueInvoice(tx: Tx, p: typeof payments.$inferSelect): Promise<string> {
-  const s = await getSettings();
-  const [profile] = await tx.select().from(billingProfiles).where(eq(billingProfiles.userId, p.userId));
-  const [user] = await tx.select({ email: users.email }).from(users).where(eq(users.id, p.userId));
+async function issueInvoice(tx: Tx, p: Payment): Promise<string> {
+  // Read inside the transaction: getSettings() would take a second pool connection while this one is held.
+  const s = await tx.settings.findUniqueOrThrow({ where: { id: 1 } });
+  const profile = await tx.billingProfile.findUnique({ where: { userId: p.userId } });
+  const user = await tx.user.findUnique({ where: { id: p.userId }, select: { email: true } });
   const buyerState = profile?.stateCode ?? s.seller.stateCode ?? "29";
   const split = splitGst(p.amountPaise, s.gstRateBps, buyerState === (s.seller.stateCode ?? "29"));
   const issuedAt = new Date();
   const fy = financialYear(issuedAt);
   // One atomic statement: two invoices can never get the same number.
-  const [{ last }] = await tx
-    .insert(invoiceCounters)
-    .values({ fy, last: 1 })
-    .onConflictDoUpdate({ target: invoiceCounters.fy, set: { last: sql`${invoiceCounters.last} + 1` } })
-    .returning({ last: invoiceCounters.last });
-  const [inv] = await tx
-    .insert(invoices)
-    .values({
+  const [{ last }] = await tx.$queryRaw<{ last: number }[]>`
+    insert into invoice_counters (fy, last) values (${fy}, 1)
+    on conflict (fy) do update set last = invoice_counters.last + 1
+    returning last`;
+  const inv = await tx.invoice.create({
+    data: {
       number: invoiceNumber(fy, last),
       userId: p.userId,
       paymentId: p.id,
@@ -184,8 +179,9 @@ async function issueInvoice(tx: Tx, p: typeof payments.$inferSelect): Promise<st
       totalPaise: split.totalPaise,
       gstRateBps: s.gstRateBps,
       issuedAt,
-    })
-    .returning({ id: invoices.id });
+    },
+    select: { id: true },
+  });
   return inv.id;
 }
 
@@ -194,22 +190,19 @@ async function issueInvoice(tx: Tx, p: typeof payments.$inferSelect): Promise<st
 /** An invoice with its payment, for its owner (userId) or an admin (null). */
 export async function getInvoice(id: string, userId: string | null) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  const [row] = await db
-    .select({ invoice: invoices, payment: payments })
-    .from(invoices)
-    .innerJoin(payments, eq(payments.id, invoices.paymentId))
-    .where(userId ? and(eq(invoices.id, id), eq(invoices.userId, userId)) : eq(invoices.id, id));
-  return row ?? null;
+  const row = await db.invoice.findFirst({ where: userId ? { id, userId } : { id }, include: { payment: true } });
+  if (!row) return null;
+  const { payment, ...invoice } = row;
+  return { invoice, payment };
 }
 
 export async function listPayments(page: number, size = 20) {
-  const rows = await db
-    .select({ payment: payments, email: users.email, isAnonymous: users.isAnonymous, invoiceId: invoices.id, invoiceNumber: invoices.number })
-    .from(payments)
-    .innerJoin(users, eq(users.id, payments.userId))
-    .leftJoin(invoices, eq(invoices.paymentId, payments.id))
-    .orderBy(desc(payments.createdAt))
-    .limit(size + 1)
-    .offset(page * size);
+  const found = await db.payment.findMany({
+    include: { user: { select: { email: true, isAnonymous: true } }, invoice: { select: { id: true, number: true } } },
+    orderBy: { createdAt: "desc" },
+    take: size + 1,
+    skip: page * size,
+  });
+  const rows = found.map(({ user, invoice, ...payment }) => ({ payment, email: user.email, isAnonymous: user.isAnonymous, invoiceId: invoice?.id ?? null, invoiceNumber: invoice?.number ?? null }));
   return { rows: rows.slice(0, size), hasMore: rows.length > size };
 }

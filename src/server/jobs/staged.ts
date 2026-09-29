@@ -1,8 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { and, eq, inArray, lt, or } from "drizzle-orm";
-import { db } from "@/db";
-import { jobs, mediaIndex, type StageMapEntry } from "@/db/schema";
+import { db, type JobRow, type MediaIndexRow } from "@/db/client";
+import type { StageMapEntry } from "@/db/types";
+import { Prisma } from "@/generated/prisma/client";
 import { progressOf, stageDetail, stageFor } from "@/server/catalog";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError } from "@/server/enginex/types";
@@ -16,8 +16,8 @@ import { lyricItems } from "./lyrics";
 // in parallel, and the results are shared through media_index; then the style pipeline plans and renders.
 // The render phase is an ordinary run (job.runId), so polling, retry, timeout and refunds are unchanged.
 
-type Job = typeof jobs.$inferSelect;
-type IndexRow = typeof mediaIndex.$inferSelect;
+type Job = JobRow;
+type IndexRow = MediaIndexRow;
 type Kind = IndexRow["kind"];
 
 // Nothing is shared between jobs (the user's call, 2026-09-29): every job downloads, finds kills and indexes the song
@@ -50,14 +50,11 @@ export function indexInputs(job: Pick<Job, "id" | "input" | "source" | "indexTem
 async function startIndexRun(row: IndexRow) {
   try {
     const { runId } = await enginex().runPipeline(row.templateId, row.input, `idx-${row.id}`);
-    await db.update(mediaIndex).set({ runId }).where(and(eq(mediaIndex.id, row.id), eq(mediaIndex.status, "running")));
+    await db.mediaIndex.updateMany({ where: { id: row.id, status: "running" }, data: { runId } });
   } catch (e) {
     const err = e instanceof EngineXError ? e : new EngineXError("unknown", String(e), false);
     if (err.retryable) return; // no runId yet: pollIndexes re-sends with the same key
-    await db
-      .update(mediaIndex)
-      .set({ status: "failed", error: `start: ${err.code}: ${err.message}`, finishedAt: new Date() })
-      .where(eq(mediaIndex.id, row.id));
+    await db.mediaIndex.updateMany({ where: { id: row.id }, data: { status: "failed", error: `start: ${err.code}: ${err.message}`, finishedAt: new Date() } });
   }
 }
 
@@ -68,26 +65,22 @@ async function startIndexRun(row: IndexRow) {
 export async function ensureIndex(kind: Kind, templateId: string, input: Record<string, string>, parts: string[], now = Date.now()): Promise<IndexRow> {
   const key = cacheKey(kind, templateId, parts);
   const at = new Date(now);
-  const [claimed] = await db
-    .insert(mediaIndex)
-    .values({ kind, cacheKey: key, templateId, input, startedAt: at })
-    .onConflictDoUpdate({
-      target: mediaIndex.cacheKey,
-      set: { status: "running", runId: null, output: null, error: null, steps: [], stepsDone: 0, stepsTotal: 0, input, startedAt: at, finishedAt: null, runMs: null },
-      setWhere: or(
-        eq(mediaIndex.status, "failed"),
-        and(eq(mediaIndex.status, "succeeded"), lt(mediaIndex.finishedAt, new Date(now - REUSE_MS))),
-        and(eq(mediaIndex.status, "running"), lt(mediaIndex.startedAt, new Date(now - STALE_RUN_MS))),
-      ),
-    })
-    .returning();
+  // Raw: Prisma's upsert can't make the update conditional (ON CONFLICT … DO UPDATE … WHERE).
+  const [claimed] = await db.$queryRaw<{ id: string }[]>`
+    insert into media_index (kind, cache_key, template_id, input, started_at)
+    values (${kind}::media_index_kind, ${key}, ${templateId}, ${JSON.stringify(input)}::jsonb, ${at})
+    on conflict (cache_key) do update set
+      status = 'running', run_id = null, output = null, error = null, steps = '[]'::jsonb, steps_done = 0, steps_total = 0,
+      input = excluded.input, started_at = excluded.started_at, finished_at = null, run_ms = null
+    where media_index.status = 'failed'
+      or (media_index.status = 'succeeded' and media_index.finished_at < ${new Date(now - REUSE_MS)})
+      or (media_index.status = 'running' and media_index.started_at < ${new Date(now - STALE_RUN_MS)})
+    returning id`;
   if (claimed) {
-    await startIndexRun(claimed);
-    const [row] = await db.select().from(mediaIndex).where(eq(mediaIndex.id, claimed.id));
-    return row;
+    await startIndexRun(await db.mediaIndex.findUniqueOrThrow({ where: { id: claimed.id } }));
+    return db.mediaIndex.findUniqueOrThrow({ where: { id: claimed.id } });
   }
-  const [row] = await db.select().from(mediaIndex).where(eq(mediaIndex.cacheKey, key));
-  return row;
+  return db.mediaIndex.findUniqueOrThrow({ where: { cacheKey: key } });
 }
 
 /** Called by startJob once the job is claimed: both indexes start (or are reused) in parallel. */
@@ -97,17 +90,14 @@ export async function startStaged(job: Job, now = Date.now()) {
     ensureIndex("gameplay", gameplay.templateId, gameplay.input, gameplay.parts, now),
     ensureIndex("song", song.templateId, song.input, song.parts, now),
   ]);
-  await db
-    .update(jobs)
-    .set({ status: "running", phase: "index", gameplayIndexId: g.id, songIndexId: s.id })
-    .where(and(eq(jobs.id, job.id), eq(jobs.status, "starting")));
+  await db.job.updateMany({ where: { id: job.id, status: "starting" }, data: { status: "running", phase: "index", gameplayIndexId: g.id, songIndexId: s.id } });
   await event(job.id, "Started editing");
   await notify(job.id);
 }
 
 /** Runs every sweep: polls each running index once, however many jobs wait on it. */
 export async function pollIndexes(settings: Settings, now = Date.now()) {
-  const rows = await db.select().from(mediaIndex).where(eq(mediaIndex.status, "running"));
+  const rows = await db.mediaIndex.findMany({ where: { status: "running" } });
   await Promise.all(
     rows.map(async (row) => {
       if (!row.runId) {
@@ -119,33 +109,33 @@ export async function pollIndexes(settings: Settings, now = Date.now()) {
         run = await enginex().getRun(row.runId);
       } catch (e) {
         if (e instanceof EngineXError && e.status === 404) {
-          await db.update(mediaIndex).set({ status: "failed", error: `run ${row.runId} not found`, finishedAt: new Date(now) }).where(eq(mediaIndex.id, row.id));
+          await db.mediaIndex.updateMany({ where: { id: row.id }, data: { status: "failed", error: `run ${row.runId} not found`, finishedAt: new Date(now) } });
         }
         return;
       }
       const { done, total } = progressOf(run.steps);
       if (run.status === "succeeded") {
-        await db
-          .update(mediaIndex)
-          .set({ status: "succeeded", output: run.output ?? {}, steps: run.steps, stepsDone: total, stepsTotal: total, runMs: run.runMs, finishedAt: new Date(now) })
-          .where(and(eq(mediaIndex.id, row.id), eq(mediaIndex.status, "running")));
+        await db.mediaIndex.updateMany({
+          where: { id: row.id, status: "running" },
+          data: { status: "succeeded", output: (run.output ?? {}) as Prisma.InputJsonValue, steps: run.steps as Prisma.InputJsonValue, stepsDone: total, stepsTotal: total, runMs: run.runMs, finishedAt: new Date(now) },
+        });
       } else if (run.status === "failed" || run.status === "canceled") {
         const failed = run.steps.find((s) => s.status === "failed");
-        await db
-          .update(mediaIndex)
-          .set({
+        await db.mediaIndex.updateMany({
+          where: { id: row.id, status: "running" },
+          data: {
             status: "failed",
-            steps: run.steps,
+            steps: run.steps as Prisma.InputJsonValue,
             error: [run.error, failed && `${failed.step} (${failed.engine}): ${failed.error}`].filter(Boolean).join(" | ") || run.status,
             output: { failedEngine: failed?.engine ?? null },
             finishedAt: new Date(now),
-          })
-          .where(and(eq(mediaIndex.id, row.id), eq(mediaIndex.status, "running")));
+          },
+        });
       } else if (now - row.startedAt.getTime() > settings.maxRunMinutes * 60_000) {
         await enginex().cancelRun(row.runId).catch(() => {});
-        await db.update(mediaIndex).set({ status: "failed", error: `timeout after ${settings.maxRunMinutes} min`, finishedAt: new Date(now) }).where(eq(mediaIndex.id, row.id));
+        await db.mediaIndex.updateMany({ where: { id: row.id }, data: { status: "failed", error: `timeout after ${settings.maxRunMinutes} min`, finishedAt: new Date(now) } });
       } else if (done !== row.stepsDone || total !== row.stepsTotal) {
-        await db.update(mediaIndex).set({ steps: run.steps, stepsDone: done, stepsTotal: total }).where(eq(mediaIndex.id, row.id));
+        await db.mediaIndex.updateMany({ where: { id: row.id }, data: { steps: run.steps as Prisma.InputJsonValue, stepsDone: done, stepsTotal: total } });
       }
     }),
   );
@@ -247,7 +237,7 @@ const SONG_ERROR = "We couldn't get that song. Check the link is public and play
 /** One sweep for a job in the index phase: progress while indexing, failure, or starting the render. */
 export async function advanceStaged(job: Job, settings: Settings, stageMap: StageMapEntry[], now = Date.now()) {
   const ids = [job.gameplayIndexId, job.songIndexId].filter((x): x is string => !!x);
-  const rows = await db.select().from(mediaIndex).where(inArray(mediaIndex.id, ids));
+  const rows = await db.mediaIndex.findMany({ where: { id: { in: ids } } });
   const g = rows.find((r) => r.id === job.gameplayIndexId);
   const s = rows.find((r) => r.id === job.songIndexId);
   const elapsedMs = job.startedAt ? now - job.startedAt.getTime() : 0;
@@ -272,10 +262,10 @@ export async function advanceStaged(job: Job, settings: Settings, stageMap: Stag
     const input = styleInput(job, g.output ?? {}, s.output ?? {}, await declaredInputs(job.templateId, now));
     try {
       const { runId } = await enginex().runPipeline(job.templateId, input, job.id);
-      await db
-        .update(jobs)
-        .set({ runId, phase: "render", indexSteps: g.stepsTotal + s.stepsTotal, stepsDone: g.stepsTotal + s.stepsTotal, stepsTotal: g.stepsTotal + s.stepsTotal + RENDER_STEPS_ESTIMATE })
-        .where(and(eq(jobs.id, job.id), eq(jobs.status, "running"), eq(jobs.phase, "index")));
+      await db.job.updateMany({
+        where: { id: job.id, status: "running", phase: "index" },
+        data: { runId, phase: "render", indexSteps: g.stepsTotal + s.stepsTotal, stepsDone: g.stepsTotal + s.stepsTotal, stepsTotal: g.stepsTotal + s.stepsTotal + RENDER_STEPS_ESTIMATE },
+      });
       await event(job.id, "Cutting your montage");
       await notify(job.id);
     } catch (e) {
@@ -292,10 +282,7 @@ export async function advanceStaged(job: Job, settings: Settings, stageMap: Stag
   const stage = stageFor(steps, stageMap, job.currentStage);
   const detail = stageDetail(steps, stageMap, stage);
   if (done === job.stepsDone && total === job.stepsTotal && stage === job.currentStage && detail === job.stageDetail) return;
-  await db
-    .update(jobs)
-    .set({ stepsDone: done, stepsTotal: total, currentStage: stage, stageDetail: detail })
-    .where(and(eq(jobs.id, job.id), eq(jobs.status, "running"), eq(jobs.phase, "index")));
+  await db.job.updateMany({ where: { id: job.id, status: "running", phase: "index" }, data: { stepsDone: done, stepsTotal: total, currentStage: stage, stageDetail: detail } });
   if (stage && stage !== job.currentStage) await event(job.id, stage);
   await notify(job.id);
 }

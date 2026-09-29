@@ -1,5 +1,5 @@
 import "server-only";
-import type { InputMap, StageMapEntry } from "@/db/schema";
+import type { InputMap, StageMapEntry } from "@/db/types";
 import type { RunStep } from "@/server/enginex/types";
 
 export type MapContext = {

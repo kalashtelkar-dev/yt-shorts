@@ -1,7 +1,6 @@
 import "server-only";
-import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
-import { db } from "@/db";
-import { adminAuditLog, catalogItems, creditLedger, jobEvents, jobs, userBalances, users } from "@/db/schema";
+import { db } from "@/db/client";
+import { Prisma, type JobStatus } from "@/generated/prisma/client";
 import { enginex } from "@/server/enginex/client";
 import type { RunStep } from "@/server/enginex/types";
 
@@ -10,56 +9,50 @@ import type { RunStep } from "@/server/enginex/types";
 const PAGE = 20;
 const SUB_PAGE = 20;
 export async function listUsers(q: string, kind: "real" | "all" | "anonymous", page = 0) {
-  const filters: SQL[] = [];
-  if (kind === "real") filters.push(eq(users.isAnonymous, false));
-  if (kind === "anonymous") filters.push(eq(users.isAnonymous, true));
+  const where: Prisma.UserWhereInput = {};
+  if (kind === "real") where.isAnonymous = false;
+  if (kind === "anonymous") where.isAnonymous = true;
   const term = q.trim();
-  if (term) {
-    const like = `%${term.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
-    filters.push(or(ilike(users.email, like), ilike(users.name, like), eq(sql`${users.id}::text`, term))!);
-  }
-  const rows = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      isAnonymous: users.isAnonymous,
-      role: users.role,
-      suspendedAt: users.suspendedAt,
-      createdAt: users.createdAt,
-      balance: sql<number>`coalesce(${userBalances.balance}, 0)::int`,
-      jobCount: sql<number>`(select count(*) from ${jobs} where ${jobs.userId} = ${users.id})::int`,
-    })
-    .from(users)
-    .leftJoin(userBalances, eq(userBalances.userId, users.id))
-    .where(filters.length ? and(...filters) : undefined)
-    .orderBy(desc(users.createdAt))
-    .limit(PAGE + 1)
-    .offset(page * PAGE);
-  return { rows: rows.slice(0, PAGE), hasMore: rows.length > PAGE };
+  if (term) where.OR = [{ email: { contains: term, mode: "insensitive" } }, { name: { contains: term, mode: "insensitive" } }, { id: term }];
+  const rows = await db.user.findMany({
+    where,
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      isAnonymous: true,
+      role: true,
+      suspendedAt: true,
+      createdAt: true,
+      balance: { select: { balance: true } },
+      _count: { select: { jobs: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: PAGE + 1,
+    skip: page * PAGE,
+  });
+  const flat = rows.map(({ balance, _count, ...u }) => ({ ...u, balance: balance?.balance ?? 0, jobCount: _count.jobs }));
+  return { rows: flat.slice(0, PAGE), hasMore: flat.length > PAGE };
 }
 
 export async function userDetail(userId: string, ledgerPage = 0, jobsPage = 0) {
   if (!/^[0-9a-f-]{36}$/i.test(userId)) return null;
-  const [user] = await db
-    .select({ user: users, balance: sql<number>`coalesce(${userBalances.balance}, 0)::int` })
-    .from(users)
-    .leftJoin(userBalances, eq(userBalances.userId, users.id))
-    .where(eq(users.id, userId));
+  const user = await db.user.findUnique({ where: { id: userId }, include: { balance: { select: { balance: true } } } });
   if (!user) return null;
   const [ledger, userJobs] = await Promise.all([
-    db.select().from(creditLedger).where(eq(creditLedger.userId, userId)).orderBy(desc(creditLedger.createdAt)).limit(SUB_PAGE + 1).offset(ledgerPage * SUB_PAGE),
-    db
-      .select({ id: jobs.id, status: jobs.status, catalogSlug: jobs.catalogSlug, durationSec: jobs.durationSec, chargedCredits: jobs.chargedCredits, createdAt: jobs.createdAt })
-      .from(jobs)
-      .where(eq(jobs.userId, userId))
-      .orderBy(desc(jobs.createdAt))
-      .limit(SUB_PAGE + 1)
-      .offset(jobsPage * SUB_PAGE),
+    db.creditLedger.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: SUB_PAGE + 1, skip: ledgerPage * SUB_PAGE }),
+    db.job.findMany({
+      where: { userId },
+      select: { id: true, status: true, catalogSlug: true, durationSec: true, chargedCredits: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: SUB_PAGE + 1,
+      skip: jobsPage * SUB_PAGE,
+    }),
   ]);
+  const { balance, ...rest } = user;
   return {
-    ...user.user,
-    balance: user.balance,
+    ...rest,
+    balance: balance?.balance ?? 0,
     ledger: ledger.slice(0, SUB_PAGE),
     ledgerHasMore: ledger.length > SUB_PAGE,
     jobs: userJobs.slice(0, SUB_PAGE),
@@ -68,58 +61,53 @@ export async function userDetail(userId: string, ledgerPage = 0, jobsPage = 0) {
 }
 
 export async function recentAdjustments(page = 0) {
-  const rows = await db
-    .select({ entry: creditLedger, email: users.email, isAnonymous: users.isAnonymous })
-    .from(creditLedger)
-    .innerJoin(users, eq(users.id, creditLedger.userId))
-    .where(inArray(creditLedger.kind, ["admin_add", "admin_remove", "refund", "grant"]))
-    .orderBy(desc(creditLedger.createdAt))
-    .limit(PAGE + 1)
-    .offset(page * PAGE);
-  return { rows: rows.slice(0, PAGE), hasMore: rows.length > PAGE };
+  const rows = await db.creditLedger.findMany({
+    where: { kind: { in: ["admin_add", "admin_remove", "refund", "grant"] } },
+    include: { user: { select: { email: true, isAnonymous: true } } },
+    orderBy: { createdAt: "desc" },
+    take: PAGE + 1,
+    skip: page * PAGE,
+  });
+  const flat = rows.map(({ user, ...entry }) => ({ entry, email: user.email, isAnonymous: user.isAnonymous }));
+  return { rows: flat.slice(0, PAGE), hasMore: flat.length > PAGE };
 }
 
 const GALLERY_PAGE = 24;
 
 /** Finished montages, newest first, with fresh signed links for the video and its cover (never stored). */
 export async function galleryItems(catalogSlug: string | null, page = 0) {
-  const filters: SQL[] = [eq(jobs.status, "succeeded"), sql`${jobs.outputKey} is not null`];
-  if (catalogSlug) filters.push(eq(jobs.catalogSlug, catalogSlug));
-  const rows = await db
-    .select({
-      id: jobs.id,
-      catalogSlug: jobs.catalogSlug,
-      title: catalogItems.title,
-      durationSec: jobs.durationSec,
-      chargedCredits: jobs.chargedCredits,
-      runMs: jobs.runMs,
-      computeCostPaise: jobs.computeCostPaise,
-      createdAt: jobs.createdAt,
-      finishedAt: jobs.finishedAt,
-      outputKey: jobs.outputKey,
-      outputMeta: jobs.outputMeta,
-      source: jobs.source,
-      userId: jobs.userId,
-      email: users.email,
-      isAnonymous: users.isAnonymous,
-    })
-    .from(jobs)
-    .innerJoin(users, eq(users.id, jobs.userId))
-    .innerJoin(catalogItems, eq(catalogItems.id, jobs.catalogItemId))
-    .where(and(...filters))
-    .orderBy(desc(jobs.finishedAt))
-    .limit(GALLERY_PAGE + 1)
-    .offset(page * GALLERY_PAGE);
+  const rows = await db.job.findMany({
+    where: { status: "succeeded", outputKey: { not: null }, ...(catalogSlug ? { catalogSlug } : {}) },
+    select: {
+      id: true,
+      catalogSlug: true,
+      durationSec: true,
+      chargedCredits: true,
+      runMs: true,
+      computeCostPaise: true,
+      createdAt: true,
+      finishedAt: true,
+      outputKey: true,
+      outputMeta: true,
+      source: true,
+      userId: true,
+      user: { select: { email: true, isAnonymous: true } },
+      catalogItem: { select: { title: true } },
+    },
+    orderBy: { finishedAt: "desc" },
+    take: GALLERY_PAGE + 1,
+    skip: page * GALLERY_PAGE,
+  });
   const pageRows = rows.slice(0, GALLERY_PAGE);
   const meta = (r: (typeof rows)[number]) => (r.outputMeta ?? {}) as { totalKills?: number; title?: string | null; thumbnailKey?: unknown };
   const thumb = (r: (typeof rows)[number]) => (typeof meta(r).thumbnailKey === "string" ? (meta(r).thumbnailKey as string) : null);
   const keys = pageRows.flatMap((r) => [r.outputKey!, thumb(r)].filter((k): k is string => !!k));
   const urls: Record<string, string> = keys.length ? await enginex().signOutput(keys, 3600).catch(() => ({})) : {};
-  const slugs = await db.select({ slug: catalogItems.slug, title: catalogItems.title }).from(catalogItems);
+  const slugs = await db.catalogItem.findMany({ select: { slug: true, title: true } });
   return {
     items: pageRows.map((r) => ({
       id: r.id,
-      title: r.title,
+      title: r.catalogItem.title,
       durationSec: r.durationSec,
       credits: r.chargedCredits,
       runMs: r.runMs,
@@ -128,8 +116,8 @@ export async function galleryItems(catalogSlug: string | null, page = 0) {
       finishedAt: r.finishedAt,
       source: r.source,
       userId: r.userId,
-      email: r.email,
-      isAnonymous: r.isAnonymous,
+      email: r.user.email,
+      isAnonymous: r.user.isAnonymous,
       kills: typeof meta(r).totalKills === "number" ? meta(r).totalKills! : null,
       videoTitle: meta(r).title ?? null,
       video: urls[r.outputKey!] ?? null,
@@ -140,7 +128,7 @@ export async function galleryItems(catalogSlug: string | null, page = 0) {
   };
 }
 
-export type JobStatus = (typeof jobs.$inferSelect)["status"];
+export type { JobStatus };
 export const JOB_STATUSES: JobStatus[] = ["queued", "starting", "running", "succeeded", "failed", "canceled"];
 
 /**
@@ -148,82 +136,79 @@ export const JOB_STATUSES: JobStatus[] = ["queued", "starting", "running", "succ
  * (1 credit = 1 s, what usage pricing charges; older jobs were charged a fixed price, so chargedCredits would mislead).
  */
 export async function runTimeStats() {
-  return db
-    .select({
-      catalogSlug: jobs.catalogSlug,
-      durationSec: jobs.durationSec,
-      runs: sql<number>`count(*)::int`,
-      avgMs: sql<number>`round(avg(${jobs.runMs}))::int`,
-      minMs: sql<number>`min(${jobs.runMs})::int`,
-      maxMs: sql<number>`max(${jobs.runMs})::int`,
-      avgCredits: sql<number>`round(avg(ceil(${jobs.runMs} / 1000.0)))::int`,
-    })
-    .from(jobs)
-    .where(and(eq(jobs.status, "succeeded"), sql`${jobs.runMs} is not null`))
-    .groupBy(jobs.catalogSlug, jobs.durationSec);
+  // Raw: avg of ceil() and rounding aren't expressible with groupBy.
+  return db.$queryRaw<{ catalogSlug: string; durationSec: number; runs: number; avgMs: number; minMs: number; maxMs: number; avgCredits: number }[]>`
+    select catalog_slug as "catalogSlug", duration_sec as "durationSec",
+      count(*)::int as runs,
+      round(avg(run_ms))::int as "avgMs",
+      min(run_ms)::int as "minMs",
+      max(run_ms)::int as "maxMs",
+      round(avg(ceil(run_ms / 1000.0)))::int as "avgCredits"
+    from jobs
+    where status = 'succeeded' and run_ms is not null
+    group by catalog_slug, duration_sec`;
 }
 
+type JobListRow = {
+  id: string;
+  status: JobStatus;
+  catalogSlug: string;
+  durationSec: number;
+  chargedCredits: number;
+  runMs: number | null;
+  computeCostPaise: number | null;
+  createdAt: Date;
+  currentStage: string | null;
+  stepsDone: number;
+  stepsTotal: number;
+  errorPublic: string | null;
+  userId: string;
+  email: string;
+  isAnonymous: boolean;
+};
+
 export async function listAllJobs(status: JobStatus | null, catalogSlug: string | null, page = 0, q = "") {
-  const filters: SQL[] = [];
-  if (status) filters.push(eq(jobs.status, status));
-  if (catalogSlug) filters.push(eq(jobs.catalogSlug, catalogSlug));
+  // Raw: the search matches a prefix of the uuid as text and fields inside the input JSON.
+  const filters: Prisma.Sql[] = [];
+  if (status) filters.push(Prisma.sql`j.status = ${status}::job_status`);
+  if (catalogSlug) filters.push(Prisma.sql`j.catalog_slug = ${catalogSlug}`);
   const term = q.trim().slice(0, 200);
   if (term) {
     // Job id (the short id shown in the queue is its start), user email, style, player name, or the match / song link.
     const like = `%${term.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
-    filters.push(
-      or(
-        ilike(sql`${jobs.id}::text`, `${term.replace(/[%_\\]/g, "")}%`),
-        ilike(users.email, like),
-        ilike(jobs.catalogSlug, like),
-        ilike(sql`${jobs.input}->>'playerName'`, like),
-        ilike(jobs.sourceUrl, like),
-        ilike(sql`${jobs.input}->>'musicUrl'`, like),
-      )!,
-    );
+    filters.push(Prisma.sql`(
+      j.id::text ilike ${`${term.replace(/[%_\\]/g, "")}%`}
+      or u.email ilike ${like}
+      or j.catalog_slug ilike ${like}
+      or j.input->>'playerName' ilike ${like}
+      or j.source_url ilike ${like}
+      or j.input->>'musicUrl' ilike ${like}
+    )`);
   }
-  const rows = await db
-    .select({
-      id: jobs.id,
-      status: jobs.status,
-      catalogSlug: jobs.catalogSlug,
-      durationSec: jobs.durationSec,
-      chargedCredits: jobs.chargedCredits,
-      runMs: jobs.runMs,
-      computeCostPaise: jobs.computeCostPaise,
-      createdAt: jobs.createdAt,
-      currentStage: jobs.currentStage,
-      stepsDone: jobs.stepsDone,
-      stepsTotal: jobs.stepsTotal,
-      errorPublic: jobs.errorPublic,
-      userId: jobs.userId,
-      email: users.email,
-      isAnonymous: users.isAnonymous,
-    })
-    .from(jobs)
-    .innerJoin(users, eq(users.id, jobs.userId))
-    .where(filters.length ? and(...filters) : undefined)
-    .orderBy(desc(jobs.createdAt))
-    .limit(PAGE + 1)
-    .offset(page * PAGE);
-  const slugs = await db
-    .select({ slug: catalogItems.slug, title: catalogItems.title, durations: catalogItems.durations })
-    .from(catalogItems)
-    .orderBy(asc(catalogItems.sortOrder));
+  const where = filters.length ? Prisma.sql`where ${Prisma.join(filters, " and ")}` : Prisma.empty;
+  const rows = await db.$queryRaw<JobListRow[]>`
+    select j.id, j.status, j.catalog_slug as "catalogSlug", j.duration_sec as "durationSec", j.charged_credits as "chargedCredits",
+      j.run_ms as "runMs", j.compute_cost_paise as "computeCostPaise", j.created_at as "createdAt", j.current_stage as "currentStage",
+      j.steps_done as "stepsDone", j.steps_total as "stepsTotal", j.error_public as "errorPublic", j.user_id as "userId",
+      u.email, u.is_anonymous as "isAnonymous"
+    from jobs j
+    join users u on u.id = j.user_id
+    ${where}
+    order by j.created_at desc
+    limit ${PAGE + 1} offset ${page * PAGE}`;
+  const slugs = await db.catalogItem.findMany({ select: { slug: true, title: true, durations: true }, orderBy: { sortOrder: "asc" } });
   return { rows: rows.slice(0, PAGE), hasMore: rows.length > PAGE, slugs };
 }
 
 export async function jobDetail(jobId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) return null;
-  const [row] = await db
-    .select({ job: jobs, email: users.email, isAnonymous: users.isAnonymous })
-    .from(jobs)
-    .innerJoin(users, eq(users.id, jobs.userId))
-    .where(eq(jobs.id, jobId));
-  if (!row) return null;
+  const found = await db.job.findUnique({ where: { id: jobId }, include: { user: { select: { email: true, isAnonymous: true } } } });
+  if (!found) return null;
+  const { user, ...job } = found;
+  const row = { job, email: user.email, isAnonymous: user.isAnonymous };
   const [events, ledger] = await Promise.all([
-    db.select().from(jobEvents).where(eq(jobEvents.jobId, jobId)).orderBy(jobEvents.createdAt),
-    db.select().from(creditLedger).where(eq(creditLedger.jobId, jobId)).orderBy(creditLedger.createdAt),
+    db.jobEvent.findMany({ where: { jobId }, orderBy: { createdAt: "asc" } }),
+    db.creditLedger.findMany({ where: { jobId }, orderBy: { createdAt: "asc" } }),
   ]);
   // Live step list from Engine X (admin-only). Failure here must not break the page.
   let steps: RunStep[] | null = null;
@@ -239,24 +224,21 @@ export async function jobDetail(jobId: string) {
 }
 
 export async function auditLog(page = 0) {
-  const rows = await db
-    .select({ entry: adminAuditLog, adminEmail: users.email })
-    .from(adminAuditLog)
-    .innerJoin(users, eq(users.id, adminAuditLog.adminId))
-    .orderBy(desc(adminAuditLog.createdAt))
-    .limit(PAGE + 1)
-    .offset(page * PAGE);
-  return { rows: rows.slice(0, PAGE), hasMore: rows.length > PAGE };
+  const rows = await db.adminAuditLog.findMany({
+    include: { admin: { select: { email: true } } },
+    orderBy: { createdAt: "desc" },
+    take: PAGE + 1,
+    skip: page * PAGE,
+  });
+  const flat = rows.map(({ admin, ...entry }) => ({ entry, adminEmail: admin.email }));
+  return { rows: flat.slice(0, PAGE), hasMore: flat.length > PAGE };
 }
 
 /** A user id from an email or an id typed by an admin. */
 export async function resolveUserId(q: string): Promise<string | null> {
   const term = q.trim();
-  const byId = /^[0-9a-f-]{36}$/i.test(term);
-  const [u] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(byId ? eq(users.id, term) : eq(sql`lower(${users.email})`, term.toLowerCase()));
+  if (/^[0-9a-f-]{36}$/i.test(term)) return (await db.user.findUnique({ where: { id: term }, select: { id: true } }))?.id ?? null;
+  // Raw: an exact lower() match, so % and _ in what the admin typed are never wildcards.
+  const [u] = await db.$queryRaw<{ id: string }[]>`select id from users where lower(email) = ${term.toLowerCase()}`;
   return u?.id ?? null;
 }
-

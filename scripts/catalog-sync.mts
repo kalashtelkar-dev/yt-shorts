@@ -3,24 +3,18 @@
 // so each change is validated against Engine X, keeps a revision and writes the audit log. For existing items only the
 // template ids and the stage labels (they name the pipelines' steps) change; prices, fields and the rest stay as admins
 // set them.
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { db } from "@/db/client";
 import { catalogSeed } from "@/db/catalog-seed";
-import { catalogItems, users } from "@/db/schema";
 import { catalogInput, saveCatalogItem } from "@/server/admin/catalog";
 
-const [admin] = await db
-  .select({ id: users.id, email: users.email, name: users.name })
-  .from(users)
-  .where(and(eq(users.role, "admin"), eq(users.isAnonymous, false)))
-  .limit(1);
+const admin = await db.user.findFirst({ where: { role: "admin", isAnonymous: false }, select: { id: true, email: true, name: true } });
 if (!admin) {
   console.error("No admin account yet. Run pnpm admin:create first.");
   process.exit(1);
 }
 const keys = Object.keys(catalogInput.innerType?.().shape ?? catalogInput.shape);
 for (const seed of catalogSeed) {
-  const [row] = await db.select().from(catalogItems).where(eq(catalogItems.slug, seed.slug));
+  const row = await db.catalogItem.findUnique({ where: { slug: seed.slug } });
   if (!row) {
     const input = Object.fromEntries(keys.filter((k) => k in seed).map((k) => [k, (seed as Record<string, unknown>)[k]]));
     const r = await saveCatalogItem(admin, null, input);

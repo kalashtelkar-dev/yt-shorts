@@ -81,7 +81,7 @@ Payments checkout, teams, custom branding per user, and editing pipelines from t
 |---|---|---|
 | Framework | **Next.js 15 (App Router) + TypeScript (strict)** | Requested. Server actions and route handlers keep secrets server-side. |
 | UI | **Tailwind CSS v4 + shadcn/ui** | Fast and consistent; easy to match the dark look in the screenshot. |
-| DB | **PostgreSQL + Drizzle ORM** | Postgres is already in the stack. Drizzle is typed and its migrations are simple. |
+| DB | **PostgreSQL + Prisma ORM** | Postgres is already in the stack. Prisma is typed and widely known (moved from Drizzle on 2026-09-29, the user's call). |
 | Auth | **Better Auth** | Has email+password, an **email OTP** plugin, and an **anonymous** plugin, so guests can later link to a real account with their history and credits intact. |
 | Jobs / queue | **BullMQ on Redis** | Redis is already running. A separate worker process polls Engine X runs. |
 | Email | **Nodemailer over SMTP + React Email templates** | SMTP is already in the stack. |
@@ -101,7 +101,7 @@ Browser ──► Next.js (web)
              ├─ Server Actions / Route Handlers (zod-validated)
              ├─ Better Auth (anonymous now; email+password / OTP ready)
              ├─ SSE endpoint /api/jobs/:id/events  ◄── Redis pub/sub
-             └─ Postgres (Drizzle)
+             └─ Postgres (Prisma)
                    ▲
 Worker (Node) ─────┘
   ├─ queue "job.start"   → (job row + charge created by web) → run_pipeline
@@ -117,7 +117,7 @@ Worker (Node) ─────┘
 
 ---
 
-## 4. Data model (Drizzle, Postgres)
+## 4. Data model (Prisma, Postgres)
 
 Money is always an **integer in paise**. Time is always an **integer in milliseconds**. No floats for either.
 

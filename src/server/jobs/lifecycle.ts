@@ -1,7 +1,5 @@
 import "server-only";
-import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
-import { db } from "@/db";
-import { catalogItems, jobEvents, jobs, mediaIndex } from "@/db/schema";
+import { db, type JobRow } from "@/db/client";
 import { progressOf, stageDetail, stageFor } from "@/server/catalog";
 import { chargeForUsage, refundJob } from "@/server/credits";
 import { creditsForRun } from "@/lib/billing";
@@ -15,7 +13,7 @@ import { advanceStaged, pollIndexes, startStaged } from "./staged";
 // Everything that moves a job through its life. Runs in the worker only (CLAUDE.md §7).
 // Every transition is a conditional UPDATE, so overlapping sweeps or two workers can't double-act.
 
-type Job = typeof jobs.$inferSelect;
+type Job = JobRow;
 
 const STALE_START_MS = 2 * 60_000;
 const MAX_RETRIES = 1;
@@ -23,7 +21,7 @@ const FAST_POLL_FOR_MS = 5 * 60_000;
 const SLOW_POLL_MS = 10_000;
 
 export async function event(jobId: string, message: string, level: "info" | "warn" | "error" = "info") {
-  await db.insert(jobEvents).values({ jobId, level, message });
+  await db.jobEvent.create({ data: { jobId, level, message } });
 }
 
 /** Tells SSE listeners (web) that the job changed; they re-read the public view. */
@@ -33,22 +31,19 @@ export async function notify(jobId: string) {
 
 const costPaise = (runMs: number, s: Settings) => Math.ceil(runMs / 1000) * s.costPaisePerSecond;
 
+/** Queued jobs, and "starting" jobs whose start never got a run id (a crash or a network error) after STALE_START_MS. */
+const startable = (now: number) => ({
+  OR: [{ status: "queued" as const }, { status: "starting" as const, runId: null, startedAt: { lt: new Date(now - STALE_START_MS) } }],
+});
+
 /**
  * Starts the Engine X run for a queued job. The job id is the Idempotency-Key, so re-sending after a
  * network failure or a crash returns the same run instead of starting a second one.
  */
 export async function startJob(jobId: string, now = Date.now()) {
-  const [job] = await db
-    .update(jobs)
-    .set({ status: "starting", startedAt: new Date(now) })
-    .where(
-      and(
-        eq(jobs.id, jobId),
-        or(eq(jobs.status, "queued"), and(eq(jobs.status, "starting"), isNull(jobs.runId), lt(jobs.startedAt, new Date(now - STALE_START_MS)))),
-      ),
-    )
-    .returning();
-  if (!job) return;
+  const { count } = await db.job.updateMany({ where: { id: jobId, ...startable(now) }, data: { status: "starting", startedAt: new Date(now) } });
+  if (!count) return;
+  const job = await db.job.findUniqueOrThrow({ where: { id: jobId } });
 
   if (job.indexTemplates) {
     // Staged style: index the gameplay and the song first (staged.ts); the render run starts when both are done.
@@ -63,7 +58,7 @@ export async function startJob(jobId: string, now = Date.now()) {
 
   try {
     const { runId } = await enginex().runPipeline(job.templateId, job.input as Record<string, unknown>, job.id);
-    await db.update(jobs).set({ runId, status: "running" }).where(and(eq(jobs.id, job.id), eq(jobs.status, "starting")));
+    await db.job.updateMany({ where: { id: job.id, status: "starting" }, data: { runId, status: "running" } });
     await event(job.id, "Started editing");
   } catch (e) {
     const err = e instanceof EngineXError ? e : new EngineXError("unknown", String(e), false);
@@ -95,7 +90,7 @@ export async function pollJob(job: Job, settings: Settings, stageMap: { match: s
     if (run.status === "failed" && job.retries < MAX_RETRIES && isTransientFailure(failed?.engine ?? null, failed?.error ?? run.error)) {
       try {
         await enginex().retryRun(job.runId!);
-        await db.update(jobs).set({ retries: job.retries + 1 }).where(and(eq(jobs.id, job.id), eq(jobs.status, "running")));
+        await db.job.updateMany({ where: { id: job.id, status: "running" }, data: { retries: job.retries + 1 } });
         await event(job.id, "A step failed on our side, so we're running it again", "warn");
         await notify(job.id);
         return;
@@ -129,10 +124,7 @@ export async function pollJob(job: Job, settings: Settings, stageMap: { match: s
   const stage = stageFor(run.steps, stageMap, job.currentStage);
   const detail = stageDetail(run.steps, stageMap, stage);
   if (done === job.stepsDone && total === job.stepsTotal && stage === job.currentStage && detail === job.stageDetail) return;
-  await db
-    .update(jobs)
-    .set({ stepsDone: done, stepsTotal: total, currentStage: stage, stageDetail: detail })
-    .where(and(eq(jobs.id, job.id), eq(jobs.status, "running")));
+  await db.job.updateMany({ where: { id: job.id, status: "running" }, data: { stepsDone: done, stepsTotal: total, currentStage: stage, stageDetail: detail } });
   if (stage && stage !== job.currentStage) await event(job.id, stage);
   await notify(job.id);
 }
@@ -163,14 +155,14 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
   const clips = clipList ? clipList.length : null;
   let title = typeof output.title === "string" ? output.title : null;
   if (!title && job.gameplayIndexId) {
-    const [g] = await db.select({ output: mediaIndex.output }).from(mediaIndex).where(eq(mediaIndex.id, job.gameplayIndexId));
+    const g = await db.mediaIndex.findUnique({ where: { id: job.gameplayIndexId }, select: { output: true } });
     title = typeof g?.output?.title === "string" ? g.output.title : null;
   }
 
-  const finished = await db.transaction(async (tx) => {
-    const [claimed] = await tx
-      .update(jobs)
-      .set({
+  const finished = await db.$transaction(async (tx) => {
+    const { count } = await tx.job.updateMany({
+      where: { id: job.id, status: "running" },
+      data: {
         status: "succeeded",
         outputKey,
         outputMeta: { totalKills, title, clips, thumbnailKey },
@@ -180,16 +172,17 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
         currentStage: "Done",
         stageDetail: null,
         finishedAt: new Date(now),
-      })
-      .where(and(eq(jobs.id, job.id), eq(jobs.status, "running")))
-      .returning({ id: jobs.id, userId: jobs.userId }); // the owner now: a guest who signed up mid-run moved the job
-    if (!claimed) return false;
+      },
+    });
+    if (!count) return false;
+    // The owner now (our update holds the row lock): a guest who signed up mid-run moved the job.
+    const claimed = await tx.job.findUniqueOrThrow({ where: { id: job.id }, select: { userId: true } });
     // Pay for the editing time used. Jobs from before usage pricing were charged at start (maxCredits 0): skip.
     if (job.maxCredits > 0) {
       const charged = await chargeForUsage(tx, claimed.userId, job.id, creditsForRun(runMs));
-      await tx.update(jobs).set({ chargedCredits: charged }).where(eq(jobs.id, job.id));
+      await tx.job.update({ where: { id: job.id }, data: { chargedCredits: charged } });
     }
-    await tx.insert(jobEvents).values({ jobId: job.id, message: totalKills ? `Done. Found ${totalKills} kill${totalKills === 1 ? "" : "s"}` : "Done" });
+    await tx.jobEvent.create({ data: { jobId: job.id, message: totalKills ? `Done. Found ${totalKills} kill${totalKills === 1 ? "" : "s"}` : "Done" } });
     return true;
   });
   if (finished) await notify(job.id);
@@ -201,23 +194,22 @@ export async function finishFailed(
   settings?: Settings,
 ) {
   const s = settings ?? (await getSettings());
-  const finished = await db.transaction(async (tx) => {
-    const [claimed] = await tx
-      .update(jobs)
-      .set({
+  const finished = await db.$transaction(async (tx) => {
+    const { count } = await tx.job.updateMany({
+      where: { id: job.id, status: { in: ["queued", "starting", "running"] } },
+      data: {
         status: f.status ?? "failed",
         errorRaw: f.errorRaw,
         errorPublic: f.errorPublic,
         runMs: f.runMs,
         computeCostPaise: costPaise(f.runMs, s), // tracked for the cost report even though the user isn't charged
         finishedAt: new Date(),
-      })
-      .where(and(eq(jobs.id, job.id), inArray(jobs.status, ["queued", "starting", "running"])))
-      .returning({ id: jobs.id });
-    if (!claimed) return false;
+      },
+    });
+    if (!count) return false;
     // Only jobs from before usage pricing were charged up front; new jobs charged nothing, so this is a no-op for them.
     await refundJob(job.id, f.status === "canceled" ? "Job canceled" : "Job did not finish", tx);
-    await tx.insert(jobEvents).values({ jobId: job.id, level: "error", message: f.errorPublic });
+    await tx.jobEvent.create({ data: { jobId: job.id, level: "error", message: f.errorPublic } });
     return true;
   });
   if (finished) await notify(job.id);
@@ -230,17 +222,12 @@ export async function sweep(now = Date.now()) {
   const settings = await getSettings();
   await pollIndexes(settings, now); // staged styles: each gameplay/song index is polled once, however many jobs share it
 
-  const toStart = await db
-    .select({ id: jobs.id })
-    .from(jobs)
-    .where(or(eq(jobs.status, "queued"), and(eq(jobs.status, "starting"), isNull(jobs.runId), lt(jobs.startedAt, new Date(now - STALE_START_MS)))));
+  const toStart = await db.job.findMany({ where: startable(now), select: { id: true } });
   for (const { id } of toStart) await startJob(id, now);
 
-  const running = await db
-    .select({ job: jobs, stageMap: catalogItems.stageMap, outputKey: catalogItems.outputKey })
-    .from(jobs)
-    .innerJoin(catalogItems, eq(catalogItems.id, jobs.catalogItemId))
-    .where(eq(jobs.status, "running"));
+  const running = (
+    await db.job.findMany({ where: { status: "running" }, include: { catalogItem: { select: { stageMap: true, outputKey: true } } } })
+  ).map(({ catalogItem, ...job }) => ({ job, stageMap: catalogItem.stageMap, outputKey: catalogItem.outputKey }));
 
   const due = running.filter(({ job }) => {
     const slow = elapsed(job, now) > FAST_POLL_FOR_MS;

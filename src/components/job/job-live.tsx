@@ -172,20 +172,35 @@ function ResultActions({ jobId, poster, onError }: { jobId: string; poster: stri
   const [downloading, startDownload] = useTransition();
   const [sharing, startShare] = useTransition();
   const [canShare, setCanShare] = useState(false);
-  // A share sheet needs a recent tap. A long fetch can outlive it, so the file is kept for a second tap.
-  const shareFile = useRef<File | null>(null);
+  // A share sheet opens only within a few seconds of the tap, and fetching a whole video takes longer.
+  // So the file is fetched as soon as sharing is possible; a tap before it's done falls back to "Share now".
+  const shareFile = useRef<Promise<File> | null>(null);
   const [shareReady, setShareReady] = useState(false);
   const name = `montage-${jobId.slice(0, 8)}`;
-
-  useEffect(() => {
-    setCanShare(typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([""], "x.mp4", { type: "video/mp4" })] }));
-  }, []);
 
   const fresh = async () => {
     const r = await videoUrlAction(jobId); // fresh link every time; they expire after an hour
     if (!r.ok) throw new Error(r.error.message);
     return r.data;
   };
+  const fileToShare = () =>
+    (shareFile.current ??= fresh()
+      .then(async ({ url }) => {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Couldn't get your video. Try again.");
+        return new File([await res.blob()], `${name}.mp4`, { type: "video/mp4" });
+      })
+      .catch((e) => {
+        shareFile.current = null; // let the next tap try again
+        throw e;
+      }));
+
+  useEffect(() => {
+    const ok = typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([""], "x.mp4", { type: "video/mp4" })] });
+    setCanShare(ok);
+    if (ok) fileToShare().catch(() => {}); // a failure here shows on the tap instead
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per result
+  }, []);
 
   function download() {
     onError(null);
@@ -215,13 +230,7 @@ function ResultActions({ jobId, poster, onError }: { jobId: string; poster: stri
     onError(null);
     startShare(async () => {
       try {
-        if (!shareFile.current) {
-          const { url } = await fresh();
-          const res = await fetch(url);
-          if (!res.ok) throw new Error("Couldn't get your video. Try again.");
-          shareFile.current = new File([await res.blob()], `${name}.mp4`, { type: "video/mp4" });
-        }
-        await navigator.share({ files: [shareFile.current] });
+        await navigator.share({ files: [await fileToShare()] });
         setShareReady(false);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return; // closed the share sheet

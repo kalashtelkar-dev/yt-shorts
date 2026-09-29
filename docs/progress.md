@@ -281,3 +281,17 @@ Built and tested with `AUTH_MODE=full`; ships with `AUTH_MODE=anonymous`, where 
 - Design C ("key art poster") from the landing canvas: the key art with "Every kill. One edit.", the styles, and a "what ₹X gets you" slider, all from the catalog and settings.
 - `/` shows the landing page to visitors who aren't signed in (with AUTH_MODE=anonymous: anyone who hasn't used the app yet); signed-in users still land on Create. Create also lives at `/create`, where the landing's button goes.
 - Manual check: signed out, open `/` on a phone and a desktop, move the slider, press Make my montage (lands on /create with "Create a free account"); signed in, `/` is Create.
+
+## 2026-09-29: Database layer on Prisma 7 (was Drizzle)
+
+The user's call. Same tables and data; only the query code changed (commit 1499441).
+
+**Setting up after pulling this:**
+- `pnpm install` generates the Prisma client (`src/generated/prisma`, git-ignored).
+- A database that already has the tables (made by the old Drizzle migrations): run `pnpm exec prisma migrate resolve --applied 0_init` once. Its schema matches `prisma/schema.prisma` exactly (checked with `prisma migrate diff`).
+- A new database: `pnpm db:migrate`, then `pnpm db:seed`.
+- The old `drizzle.__drizzle_migrations` table can be dropped whenever convenient; nothing reads it.
+
+**Checked:** lint, typecheck, 145 tests (the test database is rebuilt from the migrations on each run), a production build from a clean install, no Prisma or secrets in the client bundle, every read path against the dev data, and the worker writing health checks through Prisma.
+
+**Manual checks:** sign in (both modes), make a montage end to end, buy credits with the mock provider (invoice appears), an admin credit adjustment, a catalog save.

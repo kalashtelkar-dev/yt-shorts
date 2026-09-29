@@ -142,13 +142,15 @@ export function CreateForm({
         ) : (
           <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="sr-only">Style</legend>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0">
+            {/* Up to three styles share the row equally (names may wrap to two lines); more than that scroll sideways. */}
+            <div className={cn(items.length <= 3 ? "grid grid-cols-3 gap-2" : "-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0")}>
               {items.map((i) => (
                 <label
                   key={i.slug}
                   className={cn(
                     pill,
-                    "flex h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium whitespace-nowrap",
+                    "flex min-h-11 items-center justify-center border text-sm font-medium",
+                    items.length <= 3 ? "rounded-xl px-2 py-1.5 text-center text-[13px] leading-tight lg:rounded-full lg:text-sm" : "shrink-0 rounded-full px-4 whitespace-nowrap",
                     slug === i.slug ? "border-foreground bg-foreground text-background" : "bg-panel text-foreground hover:bg-panel-raised",
                   )}
                 >
@@ -351,35 +353,53 @@ function Row({ id, label, invalid, children }: { id: string; label: string; inva
   );
 }
 
-/** The last line of the form card: what this edit usually costs, with how it's worked out behind the i. */
+/** The last line of the form card: what this edit usually costs; the i opens how it's worked out. */
 function CostRow({ range, available, short, needsAccount, starterCredits }: { range: { min: number; max: number }; available: number; short: number; needsAccount: boolean; starterCredits: number }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const id = useId();
   return (
-    <details className="group border-t px-4 py-2.5 lg:py-3">
-      <summary className="flex min-h-7 cursor-pointer list-none items-center justify-between gap-3 rounded select-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
-        <span className="text-sm text-muted-foreground">Estimated cost</span>
-        <span className="flex items-center gap-2 text-sm">
-          <span aria-live="polite">
-            <span className="font-mono tabular">
-              {formatCredits(range.min)}–{formatCredits(range.max)}
-            </span>{" "}
-            credits
-          </span>
-          <Info className="size-4 text-muted-foreground transition-colors group-open:text-foreground" aria-label="How is this worked out?" />
+    <div className="flex min-h-12 items-center justify-between gap-3 border-t px-4 py-1.5 lg:py-2">
+      <span className="text-sm text-muted-foreground">Estimated cost</span>
+      <span className="flex items-center gap-1 text-sm">
+        <span aria-live="polite">
+          <span className="font-mono tabular">
+            {formatCredits(range.min)}–{formatCredits(range.max)}
+          </span>{" "}
+          credits
         </span>
-      </summary>
-      <div className="flex flex-col gap-2 pt-2 text-sm leading-relaxed text-muted-foreground">
-        <p>
-          You pay for editing time: 1 credit a second. Long matches and more kills take longer. Credits come off after it&apos;s made, and a montage that fails costs
-          nothing.
-        </p>
-        {needsAccount ? (
-          <p>New accounts get {formatCredits(starterCredits)} free credits.</p>
-        ) : (
-          <p className={cn(short > 0 && "text-danger")}>
-            To start, you need {formatCredits(range.max)} free, enough for the longest this edit usually takes. You have {formatCredits(available)}.
+        <button
+          type="button"
+          onClick={() => dialog.current?.showModal()}
+          aria-label="How the cost is worked out"
+          className="-mr-2 flex size-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <Info className="size-4" aria-hidden />
+        </button>
+      </span>
+      <dialog ref={dialog} aria-labelledby={id} className="m-auto w-[min(24rem,calc(100vw-2rem))] rounded-2xl border bg-panel p-0 text-foreground backdrop:bg-black/70" onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}>
+        <div className="flex flex-col gap-4 p-5 sm:p-6">
+          <h2 id={id} className="text-lg font-semibold">
+            How the cost works
+          </h2>
+          <p className="font-mono text-2xl tabular">
+            {formatCredits(range.min)}–{formatCredits(range.max)} <span className="font-sans text-base text-muted-foreground">credits</span>
           </p>
-        )}
-      </div>
-    </details>
+          <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
+            <li>You pay for editing time: 1 credit a second. Long matches and more kills take longer.</li>
+            <li>Credits come off after it&apos;s made. A montage that fails costs nothing.</li>
+            {needsAccount ? (
+              <li>New accounts get {formatCredits(starterCredits)} free credits.</li>
+            ) : (
+              <li className={cn(short > 0 && "text-danger")}>
+                To start, you need {formatCredits(range.max)} free, enough for the longest this edit usually takes. You have {formatCredits(available)}.
+              </li>
+            )}
+          </ul>
+          <button type="button" autoFocus onClick={() => dialog.current?.close()} className={cn(buttonVariants({ size: "lg" }), "w-full")}>
+            Got it
+          </button>
+        </div>
+      </dialog>
+    </div>
   );
 }

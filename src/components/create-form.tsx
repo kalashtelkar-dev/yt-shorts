@@ -87,7 +87,11 @@ export function CreateForm({
       <div className="relative mx-auto w-full max-w-[min(16rem,calc(52dvh*9/16))] lg:sticky lg:top-8 lg:mx-0 lg:max-w-[340px]">
       <div className="aspect-[9/12] overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:aspect-auto lg:overflow-visible lg:[mask-image:none]">
       <Frame>
-        <Image src={previewArt} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 340px, 16rem" className="object-cover" />
+        {/* The art is cropped to 3:4: on phones it fills exactly the visible top 3/4 of the frame; desktop's full
+            9:16 frame shows its middle. */}
+        <div className="absolute inset-x-0 top-0 h-3/4 lg:h-full">
+          <Image src={previewArt} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 340px, 16rem" className="object-cover" />
+        </div>
         <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 lg:top-4 lg:right-4">
           <KillRow killer={playerName || "you"} victim="Reyna" you />
           <KillRow killer={playerName || "you"} victim="Jett" you />

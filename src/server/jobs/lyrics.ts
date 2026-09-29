@@ -7,6 +7,11 @@ import { seeded } from "@/lib/seeded";
 // pipelines/build.py SPOTS: upper or lower third, left, middle or right), never the same as the line before; the seed
 // makes one job's spots repeatable. Times are song seconds, which equal montage seconds.
 //
+// Words never show before the voice: an aligner often stretches a phrase's first word back over the music before it, so a
+// word whose start falls where the vocals stem is silent (song-index's voice-activity segments) moves to the moment the
+// voice comes in, if that's before the word ends. Without voice data, or when the voice isn't found inside the word, the
+// aligner's time stands.
+//
 // The pipeline draws one item per step: t is the row so far, shown from s to e. n is the full row's length, so every
 // step of a row starts at the same x (the row doesn't shift as words are added). r: 0 a one-row line, 1 and 2 the top
 // and bottom rows of a two-row line.
@@ -46,7 +51,25 @@ function rowBreak(words: string[]): number {
   return best;
 }
 
-export function lyricItems(segments: unknown, seed: string | number = 1): LyricItem[] {
+const VOICE_EDGE = 0.05; // seconds of slack at a voiced stretch's edges
+
+/** Voiced stretches from voice-activity segments ({start, end} or [start, end]), in time order. */
+function voiced(voice: unknown): [number, number][] {
+  return (Array.isArray(voice) ? voice : [])
+    .map((v) => (Array.isArray(v) ? [num(v[0]), num(v[1])] : [num((v as Word)?.start), num((v as Word)?.end)]))
+    .filter((v): v is [number, number] => v[0] !== null && v[1] !== null && v[1] > v[0])
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/** The word's start, moved to where the voice comes in when the aligner put it in silence. */
+function onVoice(w: Timed, spans: [number, number][]): number {
+  if (!spans.length || spans.some(([a, b]) => w.start >= a - VOICE_EDGE && w.start <= b + VOICE_EDGE)) return w.start;
+  const next = spans.find(([a]) => a > w.start);
+  return next && next[0] < w.end ? next[0] : w.start;
+}
+
+export function lyricItems(segments: unknown, seed: string | number = 1, voice?: unknown): LyricItem[] {
+  const spans = voiced(voice);
   const lines: { words: Timed[]; start: number; end: number }[] = [];
   for (const seg of Array.isArray(segments) ? (segments as Segment[]) : []) {
     const raw = (Array.isArray(seg?.words) ? seg.words : []).map((w) => ({ text: clean(w.word), start: num(w.start), end: num(w.end) }));
@@ -55,7 +78,7 @@ export function lyricItems(segments: unknown, seed: string | number = 1): LyricI
       raw[i].start ??= raw[i - 1]?.end ?? num(seg.start);
       raw[i].end ??= raw.slice(i + 1).find((w) => w.start !== null)?.start ?? num(seg.end);
     }
-    const words = raw.filter((w) => w.text && !SLUR.test(w.text) && w.start !== null && w.end !== null) as Timed[];
+    const words = (raw.filter((w) => w.text && !SLUR.test(w.text) && w.start !== null && w.end !== null) as Timed[]).map((w) => ({ ...w, start: onVoice(w, spans) }));
     let at = 0;
     for (const size of groupSizes(words.length)) {
       const group = words.slice(at, (at += size));

@@ -70,6 +70,20 @@ describe("lyricItems", () => {
     expect(spots(1)).not.toEqual(spots(2));
   });
 
+  it("never shows a word before the voice: a start in silence moves to where the vocals come in", () => {
+    const words = seg([["Baby", 1.07, 2.71], ["bet", 2.77, 3.05], ["ayy", 3.51, 3.61]]);
+    const voice = [{ start: 2.2, end: 3.1 }, { start: 3.5, end: 3.7 }];
+    expect(steps(lyricItems([words], 1, voice))).toEqual([
+      [2.2, 2.77, "Baby", 0], // the aligner said 1.07, but the vocals are silent until 2.2
+      [2.77, 3.51, "Baby bet", 0],
+      [3.51, 3.61, "Baby bet ayy", 0],
+    ]);
+    expect(lyricItems([words], 1, [[2.2, 3.1], [3.5, 3.7]])).toEqual(lyricItems([words], 1, voice)); // [start, end] pairs too
+    // the voice isn't found inside the word (or there's no voice data): the aligner's time stands
+    expect(lyricItems([words], 1, [{ start: 5, end: 6 }])[0].s).toBe(1.07);
+    expect(lyricItems([words], 1)[0].s).toBe(1.07);
+  });
+
   it("returns nothing for no lyrics or a bad shape", () => {
     expect(lyricItems([])).toEqual([]);
     expect(lyricItems(undefined)).toEqual([]);

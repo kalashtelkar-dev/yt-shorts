@@ -203,7 +203,7 @@ export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<st
     variation: i.variation ?? "",
     lyricLook: i.lyricLook ?? "0",
     // aligned segments from song-index; an older cached result has only words, read as one segment
-    lines: JSON.stringify([...lyricItems(s.segments ?? (Array.isArray(s.words) ? [{ words: s.words }] : []), i.killSeed ?? "1"), NO_TEXT]),
+    lines: JSON.stringify([...lyricItems(s.segments ?? (Array.isArray(s.words) ? [{ words: s.words }] : []), i.killSeed ?? "1", s.voice), NO_TEXT]),
   };
   return declared ? Object.fromEntries(Object.entries(all).filter(([k]) => declared.includes(k))) : all;
 }

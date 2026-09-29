@@ -99,10 +99,13 @@ def song_index():
     g.node("aligned", engine="transcribe", operation="align", params={})
     g.edge("vocals", "vocals", "transcript", "input").edge("vocals", "vocals", "aligned", "input")
     g.edge("transcript", "segments", "aligned", "segments").edge("transcript", "language", "aligned", "language")
-    g.node("out", kind="output", fields=["audio", "durationSec", "loudness", "segments", "title"])
+    # where someone is actually singing, on the vocals stem: the app never shows a word before the voice comes in
+    g.node("voice", engine="voice-activity", operation="segments", params={"threshold": 0.5, "minSpeechMs": 100, "minSilenceMs": 150, "paddingMs": 0})
+    g.edge("vocals", "vocals", "voice", "input")
+    g.node("out", kind="output", fields=["audio", "durationSec", "loudness", "segments", "voice", "title"])
     g.edge("music_file", "value", "out", "audio").edge("music", "duration", "out", "durationSec").edge("music_loudness", "stdout", "out", "loudness")
-    g.edge("aligned", "segments", "out", "segments").edge("music", "title", "out", "title")
-    return g.doc("song-index", "Song link -> audio file, duration, loudness every 0.25 s (beats/drop), and the lyrics as segments with every word force-aligned on the separated vocals. Cache per song; feeds every style-* pipeline.")
+    g.edge("aligned", "segments", "out", "segments").edge("voice", "segments", "out", "voice").edge("music", "title", "out", "title")
+    return g.doc("song-index", "Song link -> audio file, duration, loudness every 0.25 s (beats/drop), the lyrics as segments with every word force-aligned on the separated vocals, and where the voice is (voice activity). Cache per song; feeds every style-* pipeline.")
 
 if __name__ == "__main__" and (len(sys.argv) == 1 or sys.argv[1] == "all"):
     for fname, d in (("gameplay-index", gameplay_index()), ("gameplay-index-upload", gameplay_index(True)), ("song-index", song_index())):

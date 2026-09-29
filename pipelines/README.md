@@ -6,7 +6,7 @@ The stage pipelines behind the edit styles (see `docs/edit-styles/`), built from
 |---|---|---|
 | `gameplay-index.json` | gameplay link + player → video, kill times, intro-flex moments | `tpl_yYsSXHkQXJBP` |
 | `gameplay-index-upload.json` | same, from an uploaded file | `tpl_K6Lo3rwFya4A` |
-| `song-index.json` | song link → audio, duration, loudness, lyrics as force-aligned segments | `tpl_QwiaZRvGOgIR` |
+| `song-index.json` | song link → audio, duration, loudness, lyrics as force-aligned segments | `tpl_8nvlocGpQ3nT` |
 | `style-kill-montage.json` | indexes → Kill Montage | `tpl_72xfG9gy9eH8` |
 | `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_mb7jFHN5iJx0` |
 

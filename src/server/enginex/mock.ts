@@ -46,7 +46,8 @@ function outputFor(kind: MockKind, runId: string): Record<string, unknown> {
   }
   if (kind === "song") {
     return { audio: `mock/${runId}/song.m4a`, durationSec: 22, title: "Mock song", loudness: "0.000000,-30.0\n0.250000,-20.0",
-      segments: [{ start: 1.0, end: 1.9, text: "so cool", words: [{ word: "so", start: 1.0, end: 1.3, score: 0.9 }, { word: "cool", start: 1.4, end: 1.9, score: 0.9 }] }] };
+      segments: [{ start: 1.0, end: 1.9, text: "so cool", words: [{ word: "so", start: 1.0, end: 1.3, score: 0.9 }, { word: "cool", start: 1.4, end: 1.9, score: 0.9 }] }],
+      voice: [{ start: 1.0, end: 1.9 }] };
   }
   if (kind === "style") {
     return { montage: `mock/${runId}/montage.mp4`, plan: { totalKills: 5, clips: [{ id: 1, start: 20, len: 3, speed: 1, role: "flex" }] } };
@@ -101,7 +102,7 @@ export function mockRunAt(runId: string, now: number): Run {
 
 // The staged pipelines (pipelines/README.md), so the mock answers getPipeline like Engine X would.
 const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "style" | "style-lyrical"> = {
-  tpl_yYsSXHkQXJBP: "gameplay", tpl_K6Lo3rwFya4A: "gameplay-upload", tpl_QwiaZRvGOgIR: "song",
+  tpl_yYsSXHkQXJBP: "gameplay", tpl_K6Lo3rwFya4A: "gameplay-upload", tpl_8nvlocGpQ3nT: "song",
   "tpl_72xfG9gy9eH8": "style", "tpl_mb7jFHN5iJx0": "style-lyrical",
 };
 const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"];

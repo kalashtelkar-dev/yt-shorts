@@ -6,7 +6,7 @@
     "version": 1
   },
   "name": "song-index",
-  "description": "Song link -> audio file, duration, loudness every 0.25 s (beats/drop), and the lyrics as segments with every word force-aligned on the separated vocals. Cache per song; feeds every style-* pipeline.",
+  "description": "Song link -> audio file, duration, loudness every 0.25 s (beats/drop), the lyrics as segments with every word force-aligned on the separated vocals, and where the voice is (voice activity). Cache per song; feeds every style-* pipeline.",
   "graph": {
     "version": 1,
     "nodes": [
@@ -125,6 +125,22 @@
         }
       },
       {
+        "id": "voice",
+        "kind": "engine",
+        "engine": "voice-activity",
+        "operation": "segments",
+        "params": {
+          "threshold": 0.5,
+          "minSpeechMs": 100,
+          "minSilenceMs": 150,
+          "paddingMs": 0
+        },
+        "position": {
+          "x": 0,
+          "y": 180
+        }
+      },
+      {
         "id": "out",
         "kind": "output",
         "fields": [
@@ -132,10 +148,11 @@
           "durationSec",
           "loudness",
           "segments",
+          "voice",
           "title"
         ],
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 180
         }
       }
@@ -230,6 +247,17 @@
         }
       },
       {
+        "id": "vocals.vocals->voice.input",
+        "from": {
+          "node": "vocals",
+          "port": "vocals"
+        },
+        "to": {
+          "node": "voice",
+          "port": "input"
+        }
+      },
+      {
         "id": "music_file.value->out.audio",
         "from": {
           "node": "music_file",
@@ -271,6 +299,17 @@
         "to": {
           "node": "out",
           "port": "segments"
+        }
+      },
+      {
+        "id": "voice.segments->out.voice",
+        "from": {
+          "node": "voice",
+          "port": "segments"
+        },
+        "to": {
+          "node": "out",
+          "port": "voice"
         }
       },
       {

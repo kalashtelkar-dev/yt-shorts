@@ -7,7 +7,7 @@ import { startJob, sweep } from "./lifecycle";
 import { REUSE_MS, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
-const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_QwiaZRvGOgIR" };
+const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_8nvlocGpQ3nT" };
 const T0 = Date.UTC(2026, 8, 28, 10, 0, 0);
 const stageMap = [
   { match: "download", label: "Downloading your video" },

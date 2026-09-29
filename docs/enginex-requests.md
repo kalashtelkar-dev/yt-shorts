@@ -266,3 +266,11 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
   - `@cw` is then replaced by the look's letter width: a new column in `look_table`, the font's average advance measured over lyric text at size 100, times the size, times 1.05.
   - No per-line fade.
 - **Checked:** `check.py` (34 checks) and a local ffmpeg 7.1 render of looks 0 and 6, showing a line building up at a fixed left edge, a two-row line, and a right-aligned spot.
+
+## 25. song-index (2026-09-29): voice activity, so lyrics never show before the voice
+
+**Status:** imported as `tpl_8nvlocGpQ3nT`, waiting to be published. It replaces `tpl_QwiaZRvGOgIR`. The styles are unchanged.
+
+- **New step:** `voice` (`voice-activity/segments`: threshold 0.5, minSpeechMs 100, minSilenceMs 150, paddingMs 0) on the vocals stem. Its result is a new output, `voice`.
+- **Why:** the aligner put the first word of a phrase at the phrase start, over the music ("Baby" 1.07–2.71 s in Industry Baby), so its text appeared before the singing.
+- **App (`lyricItems`):** a word whose start is outside every voiced stretch (±0.05 s) moves to the next voiced start, if that comes before the word's end. Otherwise, or with no voice data, the aligner's time stands.

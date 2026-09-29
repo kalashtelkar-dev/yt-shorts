@@ -83,8 +83,9 @@ check("lyrical: an unknown look falls back to look 0", fc(build("style-lyrical-k
 check("lyrical: ten fonts downloaded", len(next(n for n in json.load(open(os.path.join(HERE, "style-lyrical-kill-montage.json")))["graph"]["nodes"] if n["id"] == "caption_font")["params"]["input"]) == 10)
 check("lyrical: no lyrics (only the no-text line) -> renders without text", "drawtext" not in fc(build("style-lyrical-kill-montage", plan(1.25), w=[NO_TEXT])))
 song = json.load(open(os.path.join(HERE, "song-index.json")))["graph"]
-check("song-index: vocals -> transcribe (no built-in alignment) -> align -> segments out",
-      {e["id"] for e in song["edges"]} >= {"vocals.vocals->transcript.input", "transcript.segments->aligned.segments", "vocals.vocals->aligned.input", "aligned.segments->out.segments"}
+check("song-index: vocals -> transcribe (no built-in alignment) -> align -> segments out, and voice activity on the vocals",
+      {e["id"] for e in song["edges"]} >= {"vocals.vocals->transcript.input", "transcript.segments->aligned.segments", "vocals.vocals->aligned.input", "aligned.segments->out.segments",
+                                             "vocals.vocals->voice.input", "voice.segments->out.voice"}
       and next(n for n in song["nodes"] if n["id"] == "transcript")["params"]["align"] is False)
 # "below the minimum" regexes: every value from 0 to 9.99 in 0.01 steps, as written by the planner
 from build import lt_regex

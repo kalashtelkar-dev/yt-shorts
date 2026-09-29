@@ -1,6 +1,6 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 import { notFound, redirect } from "next/navigation";
 import { Pager, pageParam } from "@/components/pager";
 import { buttonVariants } from "@/components/ui/button";
@@ -30,9 +30,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/account" className="-ml-1 flex items-center gap-1.5 self-start rounded px-1 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
-        <ArrowLeft className="size-4" aria-hidden /> Account
-      </Link>
+      <BackLink href="/account">Account</BackLink>
 
       <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-10">
         <aside className="flex flex-col gap-4 lg:sticky lg:top-8" aria-label="Summary">

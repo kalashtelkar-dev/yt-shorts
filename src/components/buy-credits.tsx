@@ -1,12 +1,12 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { confirmPurchaseAction, saveBillingProfileAction, startPurchaseAction } from "@/app/(user)/actions";
 import { buttonVariants } from "@/components/ui/button";
-import { GST_STATES, rupees } from "@/lib/billing";
+import { GST_STATES, rupees, stateName } from "@/lib/billing";
 import { formatCredits } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -238,7 +238,20 @@ function Wheel({ amounts, idx, onChange }: { amounts: number[]; idx: number; onC
 }
 
 /** State (for CGST+SGST vs IGST) and optional business details for the tax invoice. */
-export function BillingDetailsForm({ initial, submitLabel, onSaved, onCancel }: { initial: Profile; submitLabel: string; onSaved?: () => void; onCancel?: () => void }) {
+export function BillingDetailsForm({
+  initial,
+  submitLabel,
+  onSaved,
+  onCancel,
+  collapsible = false,
+}: {
+  initial: Profile;
+  submitLabel: string;
+  onSaved?: () => void;
+  onCancel?: () => void;
+  /** Folded behind a summary line (the Profile tab); open by default only while nothing is saved yet. */
+  collapsible?: boolean;
+}) {
   const [error, setError] = useState<{ field?: string; message: string } | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, start] = useTransition();
@@ -257,11 +270,16 @@ export function BillingDetailsForm({ initial, submitLabel, onSaved, onCancel }: 
   }
   const input = "h-11 w-full rounded-lg border border-input bg-panel-raised px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-danger";
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4 rounded-2xl border bg-panel p-5">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">Details for your tax invoice</h2>
-        <p className="text-sm text-muted-foreground">We ask once. Your state decides which GST applies.</p>
-      </div>
+    <Fold collapsible={collapsible} initial={initial}>
+    <form onSubmit={submit} className={cn("flex flex-col gap-4", collapsible ? "border-t p-5" : "rounded-2xl border bg-panel p-5")}>
+      {collapsible ? (
+        <p className="text-sm text-muted-foreground">Your state decides which GST applies.</p>
+      ) : (
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">Details for your tax invoice</h2>
+          <p className="text-sm text-muted-foreground">We ask once. Your state decides which GST applies.</p>
+        </div>
+      )}
       <label className="flex flex-col gap-1.5 text-sm">
         <span>Your state</span>
         <select name="stateCode" defaultValue={initial?.stateCode ?? ""} required aria-invalid={error?.field === "stateCode"} className={cn("select-field", input)}>
@@ -317,6 +335,25 @@ export function BillingDetailsForm({ initial, submitLabel, onSaved, onCancel }: 
         )}
       </div>
     </form>
+    </Fold>
+  );
+}
+
+/** The Profile tab's fold: a summary line (what's saved) that opens the form. */
+function Fold({ collapsible, initial, children }: { collapsible: boolean; initial: Profile; children: React.ReactNode }) {
+  if (!collapsible) return <>{children}</>;
+  const summary = initial ? [stateName(initial.stateCode), initial.legalName, initial.gstin && `GSTIN ${initial.gstin}`].filter(Boolean).join(", ") : "Not set yet";
+  return (
+    <details className="group rounded-2xl border bg-panel" open={!initial}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl p-5 select-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-semibold">Details for your tax invoice</span>
+          <span className="truncate text-sm text-muted-foreground">{summary}</span>
+        </span>
+        <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" aria-hidden />
+      </summary>
+      {children}
+    </details>
   );
 }
 

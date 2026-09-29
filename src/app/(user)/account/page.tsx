@@ -1,6 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 import { notFound, redirect } from "next/navigation";
 import { signOutAction, signOutEverywhereAction } from "@/app/(auth)/actions";
 import { ChangePasswordForm } from "@/components/auth-forms";
@@ -48,6 +49,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="flex flex-col gap-6">
+      <BackLink href="/" className="-mb-3">
+        Home
+      </BackLink>
       <nav aria-label="Account" className="grid max-w-md grid-cols-2 gap-1 rounded-xl border bg-panel p-1">
         {(
           [
@@ -139,7 +143,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             <Link href="/account/billing" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "justify-between")}>
               Billing and invoices <span aria-hidden>›</span>
             </Link>
-            <BillingDetailsForm initial={profileView} submitLabel="Save details" />
+            <BillingDetailsForm initial={profileView} submitLabel="Save details" collapsible />
           </div>
 
           <div className="flex flex-col gap-10">

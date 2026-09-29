@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { Clapperboard, Play, VideoOff } from "lucide-react";
 import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 import { buttonVariants } from "@/components/ui/button";
 import { formatWhen } from "@/lib/format";
 import type { LibraryItem, PublicStatus } from "@/lib/jobs";
@@ -35,6 +36,9 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="flex flex-col gap-5">
+      <BackLink href="/" className="-mb-2">
+        Home
+      </BackLink>
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">My videos</h1>
         {all.length > 0 && (

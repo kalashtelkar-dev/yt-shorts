@@ -2,6 +2,7 @@
 export default function Loading() {
   return (
     <div className="flex animate-pulse flex-col gap-5 motion-reduce:animate-none" aria-busy="true" aria-label="Loading">
+      <div className="-mb-2 h-9 w-20 rounded bg-panel" />
       <div className="flex items-center justify-between gap-4">
         <div className="h-8 w-40 rounded-lg bg-panel sm:h-9" />
         <div className="h-11 w-32 rounded-lg bg-panel sm:h-10" />

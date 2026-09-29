@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 import { LogoMark } from "@/components/logo";
 import { notFound, redirect } from "next/navigation";
 import { brand } from "@/config/brand";
@@ -25,7 +26,12 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         </Link>
       </header>
       <main className="flex flex-1 justify-center py-10 sm:py-16">
-        <div className="flex w-full max-w-sm flex-col gap-8">{children}</div>
+        <div className="flex w-full max-w-sm flex-col gap-8">
+          <BackLink href="/" className="-mb-5">
+            Home
+          </BackLink>
+          {children}
+        </div>
       </main>
     </div>
   );

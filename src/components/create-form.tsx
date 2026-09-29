@@ -89,9 +89,9 @@ export function CreateForm({
       <div className="flex min-h-36 flex-1 basis-0 justify-center lg:sticky lg:top-8 lg:block lg:min-h-0 lg:flex-none lg:basis-auto">
       <div className="relative aspect-[9/12] h-full max-w-full lg:aspect-auto lg:h-auto lg:w-full lg:max-w-[340px]">
       <div className="size-full overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:h-auto lg:overflow-visible lg:[mask-image:none]">
-      <Frame className="@container">
-        {/* The art is cropped to 3:4: on phones it fills exactly the visible top 3/4 of the frame; desktop's full
-            9:16 frame shows its middle. */}
+      <Frame className="@container lg:aspect-[3/4]">
+        {/* The art is 3:4, and so is what shows: on phones the visible top 3/4 of the 9:16 frame, on desktop the
+            whole frame (3:4 there), so it's never zoomed or cut. */}
         <div className="absolute inset-x-0 top-0 h-3/4 lg:h-full">
           <Image src={previewArt} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 340px, 16rem" className="object-cover" />
         </div>

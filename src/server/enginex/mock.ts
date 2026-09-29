@@ -50,7 +50,7 @@ function outputFor(kind: MockKind, runId: string): Record<string, unknown> {
       voice: [{ start: 1.0, end: 1.9 }] };
   }
   if (kind === "style") {
-    return { montage: `mock/${runId}/montage.mp4`, plan: { totalKills: 5, clips: [{ id: 1, start: 20, len: 3, speed: 1, role: "flex" }] } };
+    return { montage: `mock/${runId}/montage.mp4`, thumbnail: `mock/${runId}/thumbnail.jpg`, plan: { totalKills: 5, clips: [{ id: 1, start: 20, len: 3, speed: 1, role: "flex" }] } };
   }
   return { montage: `mock/${runId}/montage.mp4`, clips: [], totalKills: 7, title: "Mock montage" };
 }
@@ -103,7 +103,7 @@ export function mockRunAt(runId: string, now: number): Run {
 // The staged pipelines (pipelines/README.md), so the mock answers getPipeline like Engine X would.
 const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "style" | "style-lyrical"> = {
   tpl_yYsSXHkQXJBP: "gameplay", tpl_K6Lo3rwFya4A: "gameplay-upload", tpl_8nvlocGpQ3nT: "song",
-  "tpl_9zr6-gKhYQ-c": "style", "tpl_j3wvbIFebE78": "style-lyrical", tpl_bmpCX99umXNl: "style-lyrical",
+  tpl_LPSgYFAGCRNm: "style", tpl_1NpYWtbQLSyl: "style-lyrical", tpl_a0YeRa5UoNGV: "style-lyrical",
 };
 const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"];
 function mockInputs(templateId: string): string[] {
@@ -137,8 +137,9 @@ export const mockClient: EngineXClient = {
   async cancelRun() {},
   async retryRun() {}, // the mock's failure is permanent, so a retried run fails again
   async signOutput(keys) {
-    // A public sample clip so the result page has something to play in dev.
-    return Object.fromEntries(keys.map((k) => [k, "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"]));
+    // A public sample clip so the result page has something to play in dev; a plain 9:16 image for a cover still.
+    const still = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 16"><rect width="9" height="16" fill="#1f1f1f"/></svg>');
+    return Object.fromEntries(keys.map((k) => [k, k.endsWith(".jpg") ? still : "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"]));
   },
   async createUploadUrl(filename) {
     // Accepted and discarded by /api/mock-upload (mock mode only).

@@ -145,6 +145,7 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
   const clipList = Array.isArray(output.clips) ? output.clips : Array.isArray(plan.clips) ? plan.clips : null;
   const killCount = Number(output.totalKills ?? plan.totalKills);
   const outputKey = typeof output[outputField] === "string" ? (output[outputField] as string) : null;
+  const thumbnailKey = typeof output.thumbnail === "string" ? output.thumbnail : null; // the cover still (style pipelines)
   const runMs = run.runMs ?? elapsed(job, now);
   if (!outputKey) {
     // The pipeline skips rendering when it finds no kills: tell the user that, not "something went wrong".
@@ -170,7 +171,7 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
       .set({
         status: "succeeded",
         outputKey,
-        outputMeta: { totalKills, title, clips },
+        outputMeta: { totalKills, title, clips, thumbnailKey },
         runMs,
         computeCostPaise: costPaise(runMs, settings),
         stepsDone: job.stepsTotal || job.stepsDone,

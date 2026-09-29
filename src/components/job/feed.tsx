@@ -26,6 +26,9 @@ export function FeedRow({ tone, children }: { tone: Tone; children: React.ReactN
   );
 }
 
+// Like an in-game kill feed, only the latest few rows show; older stages drop off the top.
+const FEED_ROWS = 4;
+
 /** Stages as kill-feed rows: finished ones dim, the current one marked. */
 export function StageFeed({ stages, stage, status, detail }: { stages: string[]; stage: string | null; status: "queued" | "running" | "succeeded" | "failed"; detail?: string | null }) {
   if (status === "queued" || (status === "running" && !stage)) {
@@ -36,10 +39,12 @@ export function StageFeed({ stages, stage, status, detail }: { stages: string[];
     );
   }
   const current = stage ? stages.indexOf(stage) : -1;
-  const shown = status === "succeeded" ? stages : stages.slice(0, current + 1);
+  const upTo = status === "succeeded" ? stages.length : current + 1;
+  const first = Math.max(0, upTo - FEED_ROWS);
   return (
     <>
-      {shown.map((label, i) => {
+      {stages.slice(first, upTo).map((label, j) => {
+        const i = first + j;
         const isCurrent = i === current && status !== "succeeded";
         const tone: Tone = isCurrent ? (status === "failed" ? "failed" : "active") : "done";
         return (

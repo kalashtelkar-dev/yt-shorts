@@ -71,13 +71,16 @@ export async function listJobs(userId: string, limit = 50): Promise<LibraryItem[
   });
 }
 
-/** A fresh signed link to the finished video, every time (never stored). */
-export async function signedVideoUrl(jobId: string, userId: string): Promise<string | null> {
+/** Fresh signed links to the finished video and its cover still, every time (never stored). */
+export async function signedVideo(jobId: string, userId: string): Promise<{ url: string; poster: string | null } | null> {
   const [job] = await db
-    .select({ outputKey: jobs.outputKey })
+    .select({ outputKey: jobs.outputKey, meta: jobs.outputMeta })
     .from(jobs)
     .where(and(eq(jobs.id, jobId), eq(jobs.userId, userId), eq(jobs.status, "succeeded")));
   if (!job?.outputKey) return null;
-  const urls = await enginex().signOutput([job.outputKey], 3600);
-  return urls[job.outputKey] ?? null;
+  const thumbnailKey = (job.meta as { thumbnailKey?: unknown } | null)?.thumbnailKey;
+  const keys = typeof thumbnailKey === "string" ? [job.outputKey, thumbnailKey] : [job.outputKey];
+  const urls = await enginex().signOutput(keys, 3600);
+  const url = urls[job.outputKey];
+  return url ? { url, poster: typeof thumbnailKey === "string" ? (urls[thumbnailKey] ?? null) : null } : null;
 }

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { catalogItems, jobs, mediaIndex, users } from "@/db/schema";
 import { chargeForJob, getBalance, grant } from "@/server/credits";
 import { startJob, sweep } from "./lifecycle";
+import { signedVideo } from "./public";
 import { REUSE_MS, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
@@ -28,7 +29,7 @@ async function newJob(opts: { playerName?: string; musicUrl?: string; style?: st
         userId,
         catalogItemId,
         catalogSlug: "kill-montage",
-        templateId: opts.style ?? "tpl_9zr6-gKhYQ-c",
+        templateId: opts.style ?? "tpl_LPSgYFAGCRNm",
         indexTemplates: INDEX,
         input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
         source: "url",
@@ -55,7 +56,7 @@ beforeEach(async () => {
   await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
   const [item] = await db
     .insert(catalogItems)
-    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_9zr6-gKhYQ-c", indexTemplates: INDEX, stageMap })
+    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_LPSgYFAGCRNm", indexTemplates: INDEX, stageMap })
     .returning({ id: catalogItems.id });
   catalogItemId = item.id;
   await grant(userId, 2000, "test");
@@ -92,7 +93,9 @@ describe("staged styles (mock Engine X)", () => {
     await tick(30_000);
     row = await load(job.id);
     expect(row).toMatchObject({ status: "succeeded", outputKey: expect.stringContaining("montage.mp4") });
-    expect(row.outputMeta).toMatchObject({ totalKills: 5, title: "Mock match" });
+    expect(row.outputMeta).toMatchObject({ totalKills: 5, title: "Mock match", thumbnailKey: expect.stringContaining("thumbnail.jpg") });
+    // the result page gets fresh links to the video and its cover still
+    expect(await signedVideo(job.id, userId)).toMatchObject({ url: expect.stringContaining(".mp4"), poster: expect.stringContaining("data:image/svg") });
     expect(await getBalance(userId)).toBe(2000 - 600); // both jobs charged, nothing refunded
   });
 
@@ -168,8 +171,8 @@ describe("staged styles (mock Engine X)", () => {
     expect(kill).not.toHaveProperty("words");
     expect(kill).not.toHaveProperty("lyricLook");
     expect(kill).toMatchObject({ maxDurationSec: "60", variation: "slow last", gameDurationSec: "1800", kills: JSON.stringify(g.kills) });
-    expect(styleInput(job, g, s, null)).toMatchObject({ lyricLook: "7", lines: expect.stringContaining('{"s":1,"e":1.3,"t":"so","r":0,"n":2,"p":') });
+    expect(styleInput(job, g, s, null)).toMatchObject({ lyricLook: "7", lines: expect.stringContaining('{"s":1,"e":1.5,"t":"so","r":0,"n":2,"p":') });
     const seg = { ...s, segments: [{ start: 1, end: 2, words: [{ word: "so", start: 1, end: 1.3 }, { word: "cool", start: 1.4, end: 2 }] }] };
-    expect(JSON.parse(styleInput(job, g, seg, ["lines"]).lines)).toMatchObject([{ s: 1, e: 1.4, t: "so" }, { s: 1.4, e: 2, t: "so cool" }, { t: "" }]); // + the no-text item
+    expect(JSON.parse(styleInput(job, g, seg, ["lines"]).lines)).toMatchObject([{ s: 1, e: 1.4, t: "so" }, { s: 1.4, e: 2.2, t: "so cool" }, { t: "" }]); // + the no-text item
   });
 });

@@ -36,7 +36,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "kill-montage",
     title: "Kill Montage",
     description: "A quick intro, then your kills back to back, cut to your song.",
-    templateId: "tpl_9zr6-gKhYQ-c", // style-kill-montage
+    templateId: "tpl_LPSgYFAGCRNm", // style-kill-montage
     indexTemplates: INDEX,
     enabled: true,
     beta: false,
@@ -53,7 +53,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "lyrical-kill-montage",
     title: "Lyrical Kill Montage",
     description: "Your kills cut to your song, with its words on screen.",
-    templateId: "tpl_j3wvbIFebE78", // style-lyrical-kill-montage
+    templateId: "tpl_1NpYWtbQLSyl", // style-lyrical-kill-montage
     indexTemplates: INDEX,
     enabled: true,
     beta: true,
@@ -69,7 +69,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "ultra-edit",
     title: "Ultra Edit",
     description: "Every kill slowed down, sped up and spun into the next, with loud gunshots and your song's words.",
-    templateId: "tpl_bmpCX99umXNl", // style-ultra-edit
+    templateId: "tpl_a0YeRa5UoNGV", // style-ultra-edit
     indexTemplates: INDEX,
     enabled: true,
     beta: true,

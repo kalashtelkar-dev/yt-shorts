@@ -1141,15 +1141,139 @@
         }
       },
       {
+        "id": "intro_len_raw",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "pattern": "^[\\s\\S]*?\\{(?=[^{}]*\"role\":\"flex\")[^{}]*?\"len\":\"?(\\d+(?:\\.\\d+)?)[\\s\\S]*$|^[\\s\\S]*$",
+          "replace": "$1"
+        },
+        "position": {
+          "x": 300,
+          "y": 2160
+        }
+      },
+      {
+        "id": "intro_len",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "pattern": "^$",
+          "replace": "0"
+        },
+        "position": {
+          "x": 600,
+          "y": 2160
+        }
+      },
+      {
+        "id": "kill_lead",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "number",
+        "params": {
+          "value": 2.3
+        },
+        "position": {
+          "x": 900,
+          "y": 2160
+        }
+      },
+      {
+        "id": "cover_at_raw",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "add"
+        },
+        "position": {
+          "x": 1200,
+          "y": 2160
+        }
+      },
+      {
+        "id": "cover_at",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "math",
+        "params": {
+          "op": "min"
+        },
+        "position": {
+          "x": 1500,
+          "y": 2160
+        }
+      },
+      {
+        "id": "cover_args",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "[\"-y\", \"-ss\", \"{{a}}\", \"-i\", \"{in0}\", \"-frames:v\", \"1\", \"-vf\", \"scale=720:-2\", \"-q:v\", \"3\", \"{out}\"]"
+        },
+        "position": {
+          "x": 1800,
+          "y": 2160
+        }
+      },
+      {
+        "id": "cover_args_json",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-parse",
+        "params": {
+          "fenced": false
+        },
+        "position": {
+          "x": 0,
+          "y": 2340
+        }
+      },
+      {
+        "id": "cover_args_list",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "merge",
+        "params": {},
+        "position": {
+          "x": 300,
+          "y": 2340
+        }
+      },
+      {
+        "id": "thumbnail",
+        "kind": "engine",
+        "engine": "video",
+        "operation": "custom",
+        "params": {
+          "tier": "cpu",
+          "outputs": [
+            {
+              "name": "thumbnail.jpg",
+              "contentType": "image/jpeg"
+            }
+          ]
+        },
+        "position": {
+          "x": 600,
+          "y": 2340
+        }
+      },
+      {
         "id": "out",
         "kind": "output",
         "fields": [
           "montage",
-          "plan"
+          "plan",
+          "thumbnail"
         ],
         "position": {
-          "x": 300,
-          "y": 2160
+          "x": 900,
+          "y": 2340
         }
       }
     ],
@@ -2398,6 +2522,127 @@
         }
       },
       {
+        "id": "hold_slow.text->intro_len_raw.text",
+        "from": {
+          "node": "hold_slow",
+          "port": "text"
+        },
+        "to": {
+          "node": "intro_len_raw",
+          "port": "text"
+        }
+      },
+      {
+        "id": "intro_len_raw.text->intro_len.text",
+        "from": {
+          "node": "intro_len_raw",
+          "port": "text"
+        },
+        "to": {
+          "node": "intro_len",
+          "port": "text"
+        }
+      },
+      {
+        "id": "intro_len.text->cover_at_raw.a",
+        "from": {
+          "node": "intro_len",
+          "port": "text"
+        },
+        "to": {
+          "node": "cover_at_raw",
+          "port": "a"
+        }
+      },
+      {
+        "id": "kill_lead.value->cover_at_raw.b",
+        "from": {
+          "node": "kill_lead",
+          "port": "value"
+        },
+        "to": {
+          "node": "cover_at_raw",
+          "port": "b"
+        }
+      },
+      {
+        "id": "cover_at_raw.value->cover_at.a",
+        "from": {
+          "node": "cover_at_raw",
+          "port": "value"
+        },
+        "to": {
+          "node": "cover_at",
+          "port": "a"
+        }
+      },
+      {
+        "id": "fade_start.value->cover_at.b",
+        "from": {
+          "node": "fade_start",
+          "port": "value"
+        },
+        "to": {
+          "node": "cover_at",
+          "port": "b"
+        }
+      },
+      {
+        "id": "cover_at.value->cover_args.a",
+        "from": {
+          "node": "cover_at",
+          "port": "value"
+        },
+        "to": {
+          "node": "cover_args",
+          "port": "a"
+        }
+      },
+      {
+        "id": "cover_args.value->cover_args_json.text",
+        "from": {
+          "node": "cover_args",
+          "port": "value"
+        },
+        "to": {
+          "node": "cover_args_json",
+          "port": "text"
+        }
+      },
+      {
+        "id": "cover_args_json.value->cover_args_list.a",
+        "from": {
+          "node": "cover_args_json",
+          "port": "value"
+        },
+        "to": {
+          "node": "cover_args_list",
+          "port": "a"
+        }
+      },
+      {
+        "id": "make_montage.file->thumbnail.input",
+        "from": {
+          "node": "make_montage",
+          "port": "file"
+        },
+        "to": {
+          "node": "thumbnail",
+          "port": "input"
+        }
+      },
+      {
+        "id": "cover_args_list.value->thumbnail.args",
+        "from": {
+          "node": "cover_args_list",
+          "port": "value"
+        },
+        "to": {
+          "node": "thumbnail",
+          "port": "args"
+        }
+      },
+      {
         "id": "final_cut.file->out.montage",
         "from": {
           "node": "final_cut",
@@ -2417,6 +2662,17 @@
         "to": {
           "node": "out",
           "port": "plan"
+        }
+      },
+      {
+        "id": "thumbnail.file->out.thumbnail",
+        "from": {
+          "node": "thumbnail",
+          "port": "file"
+        },
+        "to": {
+          "node": "out",
+          "port": "thumbnail"
         }
       }
     ]

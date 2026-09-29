@@ -14,18 +14,22 @@ import { seeded } from "@/lib/seeded";
 //
 // The pipeline draws one item per step: t is the row so far, shown from s to e. n is the full row's length, so every
 // step of a row starts at the same x (the row doesn't shift as words are added). r: 0 a one-row line, 1 and 2 the top
-// and bottom rows of a two-row line.
+// and bottom rows of a two-row line. a and b are the line's start and end: the line slides in from side (ix, iy) over its
+// first moments and slides out toward side (ox, oy) after b, so every step of a line moves as one piece. Sides are -1/0/1
+// on each axis (left, right, top or bottom), picked per line; a row's last step stays up SLIDE_OUT longer to slide away.
 
 type Word = { word?: unknown; start?: unknown; end?: unknown };
 type Segment = { start?: unknown; end?: unknown; words?: Word[] };
 type Timed = { text: string; start: number; end: number };
-export type LyricItem = { s: number; e: number; t: string; r: 0 | 1 | 2; n: number; p: number };
+export type LyricItem = { s: number; e: number; t: string; r: 0 | 1 | 2; n: number; p: number; a: number; b: number; ix: number; iy: number; ox: number; oy: number };
 
 const MAX_WORDS = 5;
 const MAX_ROW = 16; // characters per row; the style's font sizes fit this across ~72% of the frame
 const HOLD_GAP = 0.3; // a line stays up until the next one when the gap is shorter than this
 const MIN_SHOW = 0.25;
 const SPOTS = 6;
+const SIDES = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const; // left, right, top, bottom
+const SLIDE_OUT = 0.2; // seconds a line takes to slide out after its end (pipelines/build.py)
 const SLUR = /n[i1!]gg|f[a@]gg?[o0]?t|retard/i;
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() && Number.isFinite(Number(v)) ? Number(v) : null);
@@ -98,16 +102,19 @@ export function lyricItems(segments: unknown, seed: string | number = 1, voice?:
   for (const line of lines.filter((l) => l.end > l.start)) {
     const p = Math.floor(random() * (spot < 0 ? SPOTS : SPOTS - 1));
     spot = spot >= 0 && p >= spot ? p + 1 : p; // any spot but the last one
+    const [ix, iy] = SIDES[Math.floor(random() * SIDES.length)];
+    const [ox, oy] = SIDES[Math.floor(random() * SIDES.length)];
+    const a = round(line.start), b = round(line.end);
     const cut = rowBreak(line.words.map((w) => w.text));
     const rows = cut ? [line.words.slice(0, cut), line.words.slice(cut)] : [line.words];
     rows.forEach((row, ri) => {
       const r = (cut ? ri + 1 : 0) as 0 | 1 | 2;
       const n = row.map((w) => w.text).join(" ").length;
       row.forEach((w, k) => {
-        // each step shows until the next word of this row starts; a row's last step stays until the line ends
+        // each step shows until the next word of this row starts; a row's last step stays until the line has slid out
         const s = Math.min(Math.max(w.start, line.start), line.end);
-        const e = k < row.length - 1 ? Math.min(row[k + 1].start, line.end) : line.end;
-        if (e > s) items.push({ s: round(s), e: round(e), t: row.slice(0, k + 1).map((x) => x.text).join(" "), r, n, p: spot });
+        const e = k < row.length - 1 ? Math.min(row[k + 1].start, line.end) : line.end + SLIDE_OUT;
+        if (e > s) items.push({ s: round(s), e: round(e), t: row.slice(0, k + 1).map((x) => x.text).join(" "), r, n, p: spot, a, b, ix, iy, ox, oy });
       });
     });
   }

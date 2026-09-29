@@ -7,11 +7,15 @@ from emulate import run
 # lyric lines as the app sends them (src/server/jobs/lyrics.ts): 3-5 words, one or two rows, song seconds
 # lyrics as the app sends them (src/server/jobs/lyrics.ts): one item per step of a line building word by word
 NO_TEXT = {"s": 0, "e": 0, "t": "", "r": 0, "n": 0, "p": 0}  # the app always adds it, so the text steps never see an empty list
-lines = [{"s": 0.49, "e": 0.69, "t": "I’m", "r": 0, "n": 11, "p": 0}, {"s": 0.69, "e": 0.93, "t": "I’m so", "r": 0, "n": 11, "p": 0},
-         {"s": 0.93, "e": 1.21, "t": "I’m so cool", "r": 0, "n": 11, "p": 0},
-         {"s": 1.21, "e": 2.69, "t": "with my", "r": 1, "n": 15, "p": 4}, {"s": 1.9, "e": 2.69, "t": "pink", "r": 2, "n": 13, "p": 4},
-         {"s": 2.69, "e": 4.09, "t": "and my knee", "r": 0, "n": 11, "p": 5}, {"s": 4.09, "e": 5.26, "t": "All the boys say", "r": 0, "n": 16},
-         {"s": 30.0, "e": 31.0, "t": "after", "r": 0, "n": 5, "p": 1}, NO_TEXT]
+L1 = {"p": 0, "a": 0.49, "b": 1.21, "ix": -1, "iy": 0, "ox": 0, "oy": 1}   # in from the left, out downward
+L2 = {"p": 4, "a": 1.21, "b": 2.69, "ix": 0, "iy": 1, "ox": 1, "oy": 0}    # in from the bottom, out to the right
+L3 = {"p": 5, "a": 2.69, "b": 4.09, "ix": 1, "iy": 0, "ox": 0, "oy": -1}   # in from the right, out upward
+lines = [{"s": 0.49, "e": 0.69, "t": "I’m", "r": 0, "n": 11, **L1}, {"s": 0.69, "e": 0.93, "t": "I’m so", "r": 0, "n": 11, **L1},
+         {"s": 0.93, "e": 1.41, "t": "I’m so cool", "r": 0, "n": 11, **L1},
+         {"s": 1.21, "e": 2.89, "t": "with my", "r": 1, "n": 15, **L2}, {"s": 1.9, "e": 2.89, "t": "pink", "r": 2, "n": 13, **L2},
+         {"s": 2.69, "e": 4.29, "t": "and my knee", "r": 0, "n": 11, **L3},
+         {"s": 4.09, "e": 5.26, "t": "All the boys say", "r": 0, "n": 16},   # no spot, no slide (an older app): lower middle, in place
+         {"s": 30.0, "e": 31.0, "t": "after", "r": 0, "n": 5, **L1}, NO_TEXT]
 K = [10.75, 12.5, 18.0, 20.6, 25.0, 28.3, 34.4, 36.5, 45.8]
 kills = {"kills": [{"t": k} for k in K], "totalKills": len(K)}
 flex = {"flex": [{"start": 6.0, "what": "walking with the pistol"}]}
@@ -65,13 +69,22 @@ check("one clip per kill: a second clip of the same kill (slow + normal) is drop
 check("kill montage: no clips -> no render", build("style-kill-montage", {**plan(3), "clips": []}) is None)
 
 b = build("style-lyrical-kill-montage", plan(1.25))
-draws = re.findall(r"drawtext=[^,]*?text='([^']*)'[^,]*?:x=([^:]*):y=([^:]*):enable='gte\(t,([\d.]+)\)\*lt\(t,([\d.]+)\)'", fc(b))
-check("lyrical: each step of a line from its word to the next, rows anchored at the full row's left edge, one spot per line", [(t, x, y, float(a), float(e)) for t, x, y, a, e in draws] == [
+draws = re.findall(r"drawtext=fontfile='[^']*':text='([^']*)':[^']*?:x='([^']*)':y='([^']*)':alpha='([^']*)':enable='gte\(t,([\d.]+)\)\*lt\(t,([\d.]+)\)'", fc(b))
+def base(expr): return re.split(r"\+-?\d+\*(?:240|160)\*", expr)[0]  # the position before its slide terms
+def slid(x0, y0, a, b, ix, iy, ox, oy):  # the drawtext position and fade of one step of a line that slides in at a and out after b
+    i, o = f"pow(max(0,1-(t-{a})/0.18),2)", f"pow(max(0,(t-{b})/0.2),2)"
+    return (f"{x0}+{ix}*240*{i}+{ox}*240*{o}", f"{y0}+{iy}*160*{i}+{oy}*160*{o}", f"min(1,(t-{a})/0.18)*(1-min(1,max(0,(t-{b})/0.2)))")
+check("lyrical: each step of a line from its word to the next, rows anchored at the full row's left edge, one spot per line", [(t, base(x), base(y), float(s0), float(e0)) for t, x, y, _, s0, e0 in draws] == [
     ("I’m", "70-0*11*42.9", "h*0.34-lh/2", 0.49, 0.69), ("I’m so", "70-0*11*42.9", "h*0.34-lh/2", 0.69, 0.93),       # spot 0: upper left
-    ("I’m so cool", "70-0*11*42.9", "h*0.34-lh/2", 0.93, 1.21),
-    ("with my", "w/2-0.5*15*42.9", "h*0.64-lh-8", 1.21, 2.69), ("pink", "w/2-0.5*13*42.9", "h*0.64+8", 1.9, 2.69),   # 4: lower middle, two rows
-    ("and my knee", "w-70-1*11*42.9", "h*0.64-lh/2", 2.69, 4.09),                                                     # 5: lower right
+    ("I’m so cool", "70-0*11*42.9", "h*0.34-lh/2", 0.93, 1.41),                                                       # + 0.2 s to slide out
+    ("with my", "w/2-0.5*15*42.9", "h*0.64-lh-8", 1.21, 2.89), ("pink", "w/2-0.5*13*42.9", "h*0.64+8", 1.9, 2.89),   # 4: lower middle, two rows
+    ("and my knee", "w-70-1*11*42.9", "h*0.64-lh/2", 2.69, 4.29),                                                     # 5: lower right
     ("All the boys say", "w/2-0.5*16*42.9", "h*0.64-lh/2", 4.09, 5.26)])                                              # no spot: lower middle
+check("lyrical: a line slides in from its side and out toward another, fading, every step of it together",
+      [tuple(d[1:4]) for d in draws[:6]] == [slid("70-0*11*42.9", "h*0.34-lh/2", "0.49", "1.21", "-1", "0", "0", "1")] * 3
+      + [slid("w/2-0.5*15*42.9", "h*0.64-lh-8", "1.21", "2.69", "0", "1", "1", "0"), slid("w/2-0.5*13*42.9", "h*0.64+8", "1.21", "2.69", "0", "1", "1", "0"),
+         slid("w-70-1*11*42.9", "h*0.64-lh/2", "2.69", "4.09", "1", "0", "0", "-1")])
+check("lyrical: a step without its line's timing appears in place (no slide)", tuple(draws[6][1:4]) == slid("w/2-0.5*16*42.9", "h*0.64-lh/2", "4.09", "5.26", "0", "0", "0", "0"))
 check("lyrical: never in the centre", all(not y.startswith("h*0.5") for _, _, y, *_ in draws))
 check("lyrical: never in the bottom band", "y=h*0.875" not in fc(b))
 check("lyrical: look 0 by default (Anton, a 16-character row fills ~72% of the width)", fc(b).count("fontsize=96:fontcolor=white:borderw=5") == len(draws))
@@ -154,6 +167,22 @@ check("ultra: play time = flex + 6.669 s per kill, faded 0.8 s before", abs(fade
 fu = final("style-ultra-edit", up)[final("style-ultra-edit", up).index("-filter_complex") + 1]
 check("ultra: clean game sound loud under the song, limited", "volume=1.4[g]" in fu and "volume=0.85[m]" in fu and "alimiter=limit=0.95" in fu)
 check("ultra: karaoke lyrics", fc(u).count("drawtext") == len(draws))
+# the cover still (thumbnail): the first kill = intro length + 2.3 s, never past the fade; taken from the cut
+def cover(name, p, song=17.9):
+    g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    seeds = {("kills_in", "value"): json.dumps(kills), ("flex_in", "value"): json.dumps(flex), ("game_dur", "value"): "95",
+             ("song_dur", "value"): song, ("max_dur", "value"): 60, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
+             ("lines_in", "value"): json.dumps([NO_TEXT]), ("plan", "json"): p, ("look_in", "value"): "0"}
+    args = run(g, seeds, ("cover_args_list", "value"))
+    return float(args[args.index("-ss") + 1]), args
+at, cargs = cover("style-kill-montage", plan(3))
+check("thumbnail: the first kill (3 s intro + 2.3 s), one 720 px frame of the cut", at == 5.3 and cargs[cargs.index("-i") + 1] == "{in0}" and "-frames:v" in cargs and "scale=720:-2" in cargs)
+check("thumbnail: Ultra's first kill (1.25 s intro + 2.3 s)", cover("style-ultra-edit", up)[0] == 3.55)
+check("thumbnail: no intro clip -> 2.3 s", cover("style-kill-montage", {**plan(3), "clips": plan(3)["clips"][1:]})[0] == 2.3)
+check("thumbnail: never past the start of the fade (a 4 s edit: 3.2 s)", cover("style-kill-montage", plan(3), song=4)[0] == 3.2)
+for name in ("style-kill-montage", "style-lyrical-kill-montage", "style-ultra-edit"):
+    gg = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    check(f"{name}: outputs the thumbnail, taken from the cut", {"make_montage.file->thumbnail.input", "thumbnail.file->out.thumbnail"} <= {e["id"] for e in gg["edges"]})
 # Engine X's limits: a regex pattern or replacement holds at most 2000 characters (validate refuses more)
 for f in sorted(os.listdir(HERE)):
     if f.endswith(".json"):

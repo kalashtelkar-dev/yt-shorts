@@ -16,8 +16,25 @@ def jstr(v):  # JS String(v) / template insertion
     return "" if v is None else str(v)
 
 def js_regex_sub(pattern, repl, text, glob, flags=0):
-    py = re.sub(r'\$(\d)', r'\\g<\1>', repl.replace('\\', '\\\\')).replace('$&', r'\g<0>')
-    return re.sub(pattern, py, text, count=0 if glob else 1, flags=flags)
+    """String.prototype.replace: $& the match, $$ a dollar, $n / $nn a group ($nn only when that group exists, else $n
+    followed by a digit), an unmatched group is empty; backslashes are plain characters."""
+    rx = re.compile(pattern, flags)
+    def expand(m):
+        out, i = [], 0
+        while i < len(repl):
+            if repl[i] == "$" and i + 1 < len(repl):
+                nxt = repl[i + 1]
+                if nxt == "$": out.append("$"); i += 2; continue
+                if nxt == "&": out.append(m.group(0)); i += 2; continue
+                if nxt.isdigit():
+                    two = repl[i + 1:i + 3]
+                    if len(two) == 2 and two.isdigit() and 1 <= int(two) <= rx.groups:
+                        out.append(m.group(int(two)) or ""); i += 3; continue
+                    if 1 <= int(nxt) <= rx.groups:
+                        out.append(m.group(int(nxt)) or ""); i += 2; continue
+            out.append(repl[i]); i += 1
+        return "".join(out)
+    return rx.sub(expand, text, count=0 if glob else 1)
 
 def num(v):
     if isinstance(v, (int, float)): return v

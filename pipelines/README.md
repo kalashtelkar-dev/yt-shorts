@@ -7,9 +7,9 @@ The stage pipelines behind the edit styles (see `docs/edit-styles/`), built from
 | `gameplay-index.json` | gameplay link + player → video, kill times, intro-flex moments | `tpl_yYsSXHkQXJBP` |
 | `gameplay-index-upload.json` | same, from an uploaded file | `tpl_K6Lo3rwFya4A` |
 | `song-index.json` | song link → audio, duration, loudness, lyrics as force-aligned segments | `tpl_8nvlocGpQ3nT` |
-| `style-kill-montage.json` | indexes → Kill Montage | `tpl_9zr6-gKhYQ-c` |
-| `style-ultra-edit.json` | indexes → Ultra Edit | `tpl_bmpCX99umXNl` |
-| `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_j3wvbIFebE78` |
+| `style-kill-montage.json` | indexes → Kill Montage | `tpl_LPSgYFAGCRNm` |
+| `style-ultra-edit.json` | indexes → Ultra Edit | `tpl_a0YeRa5UoNGV` |
+| `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_1NpYWtbQLSyl` |
 
 **Changing a pipeline:**
 1. Edit `build.py`, then run `python3 pipelines/build.py`.

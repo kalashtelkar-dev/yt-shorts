@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { JobLive } from "@/components/job/job-live";
-import { getPublicJob, signedVideoUrl } from "@/server/jobs/public";
+import { getPublicJob, signedVideo } from "@/server/jobs/public";
 import { getViewer } from "@/server/session";
 
 export const metadata: Metadata = { title: "Your montage" };
@@ -13,6 +13,6 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   if (!viewer || !job) notFound();
 
   // Rendered on the server from the DB, so the first frame needs no client fetch.
-  const videoUrl = job.status === "succeeded" ? await signedVideoUrl(job.id, viewer.id).catch(() => null) : null;
-  return <JobLive initial={job} initialVideoUrl={videoUrl} />;
+  const video = job.status === "succeeded" ? await signedVideo(job.id, viewer.id).catch(() => null) : null;
+  return <JobLive initial={job} initialVideo={video} />;
 }

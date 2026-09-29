@@ -14,10 +14,10 @@ describe("lyricItems", () => {
     expect(steps(items)).toEqual([
       [0.49, 0.69, "I’m", 0],
       [0.69, 0.93, "I’m so", 0],
-      [0.93, 1.21, "I’m so cool", 0], // vanishes when its last word ends (the next line is far away)
+      [0.93, 1.41, "I’m so cool", 0], // stays to its last word's end, then slides out over 0.2 s (the next line is far away)
       [8.75, 9.01, "That’s", 0],
       [9.01, 9.15, "That’s a", 0],
-      [9.15, 9.43, "That’s a fact", 0],
+      [9.15, 9.63, "That’s a fact", 0],
     ]);
     expect(items.slice(0, 3).map((i) => i.n)).toEqual([11, 11, 11]); // every step knows the full row, so it doesn't shift
   });
@@ -28,15 +28,33 @@ describe("lyricItems", () => {
     ]);
     expect(steps(items)).toEqual([
       [3.95, 4.37, "Couple", 1],
-      [4.37, 5.95, "Couple racks", 1], // the top row's last step lasts the whole line
+      [4.37, 6.15, "Couple racks", 1], // the top row's last step lasts the whole line (+ its slide out)
       [4.91, 5.53, "ayy", 2],
-      [5.53, 5.95, "ayy Couple", 2],
+      [5.53, 6.15, "ayy Couple", 2],
       [5.95, 6.45, "Grammys", 0], // held until the next line (gap < 0.3 s), then the 3-word line builds
       [6.45, 6.63, "Grammys on", 0],
-      [6.63, 6.79, "Grammys on him", 0],
+      [6.63, 6.99, "Grammys on him", 0],
     ]);
     expect(new Set(items.slice(0, 4).map((i) => i.p)).size).toBe(1); // one spot per line
     expect(items[4].p).not.toBe(items[0].p); // the next line moves
+  });
+
+  it("moves each line as one piece: every step shares the line's start, end and slide directions", () => {
+    const words = Array.from({ length: 40 }, (_, i) => [`w${i}`, i * 0.5, i * 0.5 + 0.4] as [string, number, number]);
+    const items = lyricItems([seg(words.slice(0, 7)), seg(words.slice(8, 15)), seg(words.slice(16, 40))], 3);
+    const lines = new Map<number, typeof items>();
+    for (const it of items) lines.set(it.a, [...(lines.get(it.a) ?? []), it]);
+    const sides = new Set<string>();
+    for (const [a, steps] of lines) {
+      expect(new Set(steps.map((x) => [x.b, x.ix, x.iy, x.ox, x.oy, x.p].join())).size).toBe(1); // one piece
+      expect(Math.min(...steps.map((x) => x.s))).toBe(a); // slides in as its first word is sung, never before
+      const { ix, iy, ox, oy, b } = steps[0];
+      expect(Math.abs(ix) + Math.abs(iy)).toBe(1); // from one side: left, right, top or bottom
+      expect(Math.abs(ox) + Math.abs(oy)).toBe(1);
+      expect(Math.max(...steps.map((x) => x.e))).toBeCloseTo(b + 0.2, 5); // on screen until it has slid out
+      sides.add(`${ix},${iy}`);
+    }
+    expect(sides.size).toBeGreaterThan(1); // the direction changes from line to line
   });
 
   it("groups evenly: 11 words -> 4 + 4 + 3", () => {
@@ -51,7 +69,7 @@ describe("lyricItems", () => {
     expect(steps(items)).toEqual([
       [0.49, 0.69, "I’m", 0],
       [0.69, 0.93, "I’m so", 0],
-      [0.93, 1.21, "I’m so cool", 0],
+      [0.93, 1.41, "I’m so cool", 0],
     ]);
   });
 
@@ -76,7 +94,7 @@ describe("lyricItems", () => {
     expect(steps(lyricItems([words], 1, voice))).toEqual([
       [2.2, 2.77, "Baby", 0], // the aligner said 1.07, but the vocals are silent until 2.2
       [2.77, 3.51, "Baby bet", 0],
-      [3.51, 3.61, "Baby bet ayy", 0],
+      [3.51, 3.81, "Baby bet ayy", 0],
     ]);
     expect(lyricItems([words], 1, [[2.2, 3.1], [3.5, 3.7]])).toEqual(lyricItems([words], 1, voice)); // [start, end] pairs too
     // Industry Baby, real song-index output: a producer tag is voiced at 0.38-1.76 s, then silence, then "Baby" from 2.37 s

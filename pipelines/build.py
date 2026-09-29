@@ -199,6 +199,9 @@ LOOKS = [
 ]
 assert len(LOOKS) == 10  # the app sends one digit
 
+# How a lyric line moves (src/server/jobs/lyrics.ts picks the sides per line and keeps each row up SLIDE_OUT longer)
+SLIDE_IN, SLIDE_OUT, SLIDE, SLIDE_Y = 0.18, 0.2, 240, 160
+
 # Where a lyric line sits: the app gives every line a random spot "p" (0-5, never the same twice in a row); never the
 # centre (the crosshair). y is the line's middle. The gameplay band is y 431-1489; its top HUD ends ~540
 # and the weapon/health HUD starts ~1360.
@@ -425,11 +428,21 @@ def style(kind):
         for r, dy in (("0", "-lh/2"), ("1", "-lh-8"), ("2", "+8")):  # one row centred on y; two rows either side of it
             rewrite(f"row_{r}", f'"r":"?{r}"?(?=[,}}])', f'"dy":"{dy}"')
         rewrite("row_default", '\\{(?![^}]*"dy":)', '{"dy":"-lh/2",')
+        # a step without its line's timing (an older app) just appears in place, no slide
+        rewrite("line_default", '\\{(?![^}]*"a":)(?=[^}]*"s":' + NUM + ')(?=[^}]*"e":' + NUM + ')', '{"a":$1,"b":$2,"ix":0,"iy":0,"ox":0,"oy":0,')
         cap = '(?=[^}]*"KEY":"([^"]+)")'
-        pattern = ('\\{(?=[^}]*"s":' + NUM + ')(?=[^}]*"e":' + NUM + ')' + cap.replace("KEY", "t") + cap.replace("KEY", "x0") + cap.replace("KEY", "k")
-                   + '(?=[^}]*"n":' + NUM + ')' + cap.replace("KEY", "y") + cap.replace("KEY", "dy") + '[^}]*\\}')  # $1 s $2 e $3 t $4 x0 $5 k $6 n $7 y $8 dy
+        num = lambda key, sign="": '(?=[^}]*"' + key + '":' + ('"?(-?\\d+(?:\\.\\d+)?)"?' if sign else NUM) + ')'
+        pattern = ('\\{' + num("s") + num("e") + cap.replace("KEY", "t") + cap.replace("KEY", "x0") + cap.replace("KEY", "k") + num("n")
+                   + cap.replace("KEY", "y") + cap.replace("KEY", "dy") + num("a") + num("b") + "".join(num(k, "-") for k in ("ix", "iy", "ox", "oy"))
+                   + '[^}]*\\}')  # $1 s $2 e $3 t $4 x0 $5 k $6 n $7 y $8 dy $9 a $10 b $11 ix $12 iy $13 ox $14 oy
         g.util("draw_items", "regex", {"flags": "g", "pattern": pattern}).edge(*prev, "draw_items", "text")
-        g.util("draw_item", "template", {"template": "§drawtext=fontfile='{in2}':text='$3':{{a}}:x=$4-$5*$6*@cw:y=$7$8:enable='gte(t,$1)*lt(t,$2)',§"})
+        # the line slides in from its side over SLIDE_IN (easing out) as its first word is sung, and slides out toward its
+        # other side over SLIDE_OUT after its end (easing in), fading as it moves; SLIDE px sideways, SLIDE_Y px up or down
+        slide_in, slide_out = f"pow(max(0,1-(t-$9)/{SLIDE_IN}),2)", f"pow(max(0,(t-$10)/{SLIDE_OUT}),2)"
+        x = f"$4-$5*$6*@cw+$11*{SLIDE}*{slide_in}+$13*{SLIDE}*{slide_out}"
+        y = f"$7$8+$12*{SLIDE_Y}*{slide_in}+$14*{SLIDE_Y}*{slide_out}"
+        fade = f"min(1,(t-$9)/{SLIDE_IN})*(1-min(1,max(0,(t-$10)/{SLIDE_OUT})))"
+        g.util("draw_item", "template", {"template": f"§drawtext=fontfile='{{in2}}':text='$3':{{{{a}}}}:x='{x}':y='{y}':alpha='{fade}':enable='gte(t,$1)*lt(t,$2)',§"})
         g.edge("look_style", "text", "draw_item", "a").edge("draw_item", "value", "draw_items", "replace")
         g.edge("draw_items", "text", "caption_keep", "text")
         g.util("cw_fill", "regex", {"flags": "g", "pattern": "@cw"}).edge("caption_keep", "text", "cw_fill", "text").edge("look_cw", "text", "cw_fill", "replace")
@@ -457,8 +470,20 @@ def style(kind):
     # inputs in order: {in0} the cut, {in1} the song, {in2} the cut's game sound without voice chat
     g.edge("make_montage", "file", "final_cut", "input").edge("audio_in", "value", "final_cut", "input").edge("clean_audio", "instrumental", "final_cut", "input")
     g.edge("final_args_list", "value", "final_cut", "args")
-    g.node("out", kind="output", fields=["montage", "plan"])
-    g.edge("final_cut", "file", "out", "montage").edge("plan", "json", "out", "plan")
+    # The cover still: the first kill, at the intro's length + 2.3 s (normal, slow and Ultra kill clips all show their kill
+    # then); no intro: 2.3 s. Never past the start of the fade. Taken from the cut, so it runs beside the voice removal.
+    plan_final = next((e["from"]["node"], e["from"]["port"]) for e in g.E if e["to"] == {"node": "plan_held", "port": "text"})
+    g.util("intro_len_raw", "regex", {"pattern": r'^[\s\S]*?\{(?=[^{}]*"role":"flex")[^{}]*?"len":"?(\d+(?:\.\d+)?)[\s\S]*$|^[\s\S]*$', "replace": "$1"})
+    g.util("intro_len", "regex", {"pattern": "^$", "replace": "0"}).edge(*plan_final, "intro_len_raw", "text").edge("intro_len_raw", "text", "intro_len", "text")
+    g.util("kill_lead", "number", {"value": 2.3}).util("cover_at_raw", "math", {"op": "add"}).util("cover_at", "math", {"op": "min"})
+    g.edge("intro_len", "text", "cover_at_raw", "a").edge("kill_lead", "value", "cover_at_raw", "b").edge("cover_at_raw", "value", "cover_at", "a").edge("fade_start", "value", "cover_at", "b")
+    g.util("cover_args", "template", {"template": json.dumps(["-y", "-ss", "{{a}}", "-i", "{in0}", "-frames:v", "1", "-vf", "scale=720:-2", "-q:v", "3", "{out}"])})
+    g.util("cover_args_json", "json-parse", {"fenced": False}).util("cover_args_list", "merge", {})
+    g.edge("cover_at", "value", "cover_args", "a").edge("cover_args", "value", "cover_args_json", "text").edge("cover_args_json", "value", "cover_args_list", "a")
+    g.node("thumbnail", engine="video", operation="custom", params={"tier": "cpu", "outputs": [{"name": "thumbnail.jpg", "contentType": "image/jpeg"}]})
+    g.edge("make_montage", "file", "thumbnail", "input").edge("cover_args_list", "value", "thumbnail", "args")
+    g.node("out", kind="output", fields=["montage", "plan", "thumbnail"])
+    g.edge("final_cut", "file", "out", "montage").edge("plan", "json", "out", "plan").edge("thumbnail", "file", "out", "thumbnail")
     if ultra:
         return g.doc("style-ultra-edit", "Ultra edit (docs/edit-styles/ultra-edit.md) from a gameplay-index and a song-index: intro flex, then every kill as a fixed 6 s window "
                      "time-warped (0.5x from K-2, 1x, 0.5x on the kill, 1x, then a 0.5x-to-3x ramp) with a zoom-tilt-slide transition out and a pinch in, "

@@ -330,3 +330,15 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
   - **After:** 0 ms at every flash (worst 19 ms, one frame).
   - **Kill Montage and Lyrical:** already exact (0 ms).
 - **New checks in `check.py` (60):** the picture and sound speed steps match, and every regex pattern and replacement is within 2000 characters.
+
+## 30. Lyric slides and a cover still (2026-09-29)
+
+**Status:** imported as drafts, waiting to be published: style-kill-montage `tpl_LPSgYFAGCRNm`, style-lyrical-kill-montage `tpl_1NpYWtbQLSyl`, style-ultra-edit `tpl_a0YeRa5UoNGV`. They replace `tpl_9zr6-gKhYQ-c`, `tpl_j3wvbIFebE78` and `tpl_bmpCX99umXNl`.
+
+- **Lyric slides (Lyrical and Ultra):**
+  - **What the app adds:** each lyric step now carries its line's start `a` and end `b`, and the sides `ix,iy` / `ox,oy` (−1, 0 or 1), picked per line. A row's last step stays up 0.2 s longer.
+  - **How the pipeline draws it:** the drawtext `x`/`y` add `side × 240 px (160 px vertically) × pow(max(0,1-(t-a)/0.18),2)` coming in and `pow(max(0,(t-b)/0.2),2)` going out, and `alpha` fades both ways.
+  - **Older steps:** a step without the line timing gets `line_default` (in place, no slide).
+  - **Emulator:** it now handles `$10`–`$14` as JavaScript does.
+- **Cover still (all styles):** a `thumbnail` step (CPU `video/custom`) takes one 720 px JPEG from the cut. It's taken at the intro's length + 2.3 s, the first kill, capped at the fade start; with no intro, 2.3 s. It's a new output, `thumbnail`. The app keeps its key in `outputMeta.thumbnailKey` and signs it with the video for the player's `poster`.
+- **Checked:** `check.py` (69 checks). Local ffmpeg 7.1 renders show the slides (in from the left, out downward, with the next line rising from below), and a cover from the real Ultra cut at 3.55 s (the first kill, 78 KB).

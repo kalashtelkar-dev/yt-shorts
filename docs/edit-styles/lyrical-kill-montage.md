@@ -58,7 +58,7 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
   - **On every row:** a 4–6 px dark outline and a hard offset shadow (black, or red or purple in some looks), plus the glow (a blurred copy of the text under it).
   - **Size:** a 16-character row fills about 72% of the width, so the words sit on the gameplay without covering it (the user asked for smaller text on 2026-09-28).
   - **Replaced:** Cinzel Decorative centred one word at a time (v8); then one centred word at a time with a bigger hook word.
-- **Motion:** words appear as they're sung, and the line leaves when it ends. There's no fade, so a growing line never flickers.
+- **Motion (the user's choice, 2026-09-29):** each line slides in from a random side (left, right, top or bottom; 240 px sideways or 160 px vertically, 0.18 s, easing out, fading in) as its first word is sung. It slides out toward another random side (0.2 s, easing in, fading out) right after its end, often while the next line slides in at its own spot. Every word-step of a line carries the line's start, end and sides, so the line moves as one piece and never flickers as words are added.
 - **Sync:** the timestamps come straight from the aligner. The song plays from 0, so montage time = song time. The model never computes caption times or writes caption text.
 - **No lyrics:** if the song has no clear English vocals, no text shows and the montage still renders, which then looks the same as a Kill Montage.
 

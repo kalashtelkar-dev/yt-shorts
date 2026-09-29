@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import type { ActionResult } from "@/lib/jobs";
 import { createJob, type CreateJobInput } from "@/server/jobs/create";
-import { signedVideoUrl } from "@/server/jobs/public";
+import { signedVideo } from "@/server/jobs/public";
 import { issueUpload } from "@/server/uploads";
 import { ensureUser, getViewer, RateLimitedError, SignInRequiredError } from "@/server/session";
 
@@ -57,11 +57,11 @@ export async function startUploadAction(file: { name: string; size: number; type
 }
 
 /** A fresh signed link each time it's asked for (CLAUDE.md §4.7). */
-export async function videoUrlAction(jobId: string): Promise<ActionResult<{ url: string }>> {
+export async function videoUrlAction(jobId: string): Promise<ActionResult<{ url: string; poster: string | null }>> {
   try {
     const viewer = await getViewer();
-    const url = viewer && (await signedVideoUrl(jobId, viewer.id));
-    return url ? { ok: true, data: { url } } : { ok: false, error: { code: "not_found", message: "This video isn't available any more." } };
+    const video = viewer && (await signedVideo(jobId, viewer.id));
+    return video ? { ok: true, data: video } : { ok: false, error: { code: "not_found", message: "This video isn't available any more." } };
   } catch (e) {
     console.error("[videoUrl]", e instanceof Error ? e.message : e);
     return serverError;

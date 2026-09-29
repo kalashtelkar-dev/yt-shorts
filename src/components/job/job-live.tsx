@@ -11,9 +11,11 @@ import { isFinished, type PublicJob } from "@/lib/jobs";
 import { cn } from "@/lib/utils";
 import { Frame, StageFeed } from "./feed";
 
-export function JobLive({ initial, initialVideoUrl }: { initial: PublicJob; initialVideoUrl: string | null }) {
+type Video = { url: string; poster: string | null };
+
+export function JobLive({ initial, initialVideo }: { initial: PublicJob; initialVideo: Video | null }) {
   const job = useLiveJob(initial);
-  const [videoUrl, setVideoUrl] = useState(initialVideoUrl);
+  const [video, setVideo] = useState(initialVideo);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [downloading, startDownload] = useTransition();
   const now = useNow(!isFinished(job.status));
@@ -28,11 +30,11 @@ export function JobLive({ initial, initialVideoUrl }: { initial: PublicJob; init
     }
   }, [job.status, router]);
 
-  // The job finished while this page was open: fetch a signed link for the preview.
+  // The job finished while this page was open: fetch signed links for the preview and its cover.
   useEffect(() => {
-    if (job.status !== "succeeded" || videoUrl) return;
-    videoUrlAction(job.id).then((r) => (r.ok ? setVideoUrl(r.data.url) : setVideoError(r.error.message)));
-  }, [job.status, job.id, videoUrl]);
+    if (job.status !== "succeeded" || video) return;
+    videoUrlAction(job.id).then((r) => (r.ok ? setVideo(r.data) : setVideoError(r.error.message)));
+  }, [job.status, job.id, video]);
 
   function download() {
     startDownload(async () => {
@@ -49,18 +51,30 @@ export function JobLive({ initial, initialVideoUrl }: { initial: PublicJob; init
   return (
     <div className="grid gap-8 md:grid-cols-[minmax(0,340px)_minmax(0,1fr)] md:items-start lg:gap-14">
       <Frame className="mx-auto max-w-[min(340px,calc(60dvh*9/16))] md:mx-0 md:max-w-[340px]">
-        {job.status === "succeeded" && videoUrl ? (
-          <video src={videoUrl} controls playsInline preload="metadata" className="size-full bg-black object-contain" aria-label="Your montage" />
+        {job.status === "succeeded" && video ? (
+          <video
+            src={video.url}
+            poster={video.poster ?? undefined}
+            controls
+            playsInline
+            preload="metadata"
+            className="size-full bg-black object-contain"
+            aria-label="Your montage"
+          />
         ) : (
           <>
-            <div className="absolute top-4 right-4 left-4 flex flex-col items-end gap-1.5">
-              <StageFeed stages={job.stages} stage={job.stage} status={job.status} detail={job.stageDetail} />
+            {/* A HUD: the latest stages top right like a kill feed, the percentage bottom right like an ammo counter. One
+                column, so they can't overlap at any frame size. */}
+            <div className="absolute inset-0 flex flex-col justify-between gap-4 p-4 pb-6">
+              <div className="flex min-h-0 flex-col items-end gap-1.5">
+                <StageFeed stages={job.stages} stage={job.stage} status={job.status} detail={job.stageDetail} />
+              </div>
+              {job.status !== "failed" && (
+                <p className="self-end font-mono text-4xl leading-none font-medium text-foreground/90 tabular sm:text-5xl" aria-hidden>
+                  {job.status === "succeeded" ? <Loader2 className="size-8 animate-spin text-muted-foreground" /> : `${pct}%`}
+                </p>
+              )}
             </div>
-            {job.status !== "failed" && (
-              <p className="absolute inset-0 flex items-center justify-center font-mono text-5xl font-medium text-foreground/90 tabular" aria-hidden>
-                {job.status === "succeeded" ? <Loader2 className="size-8 animate-spin text-muted-foreground" /> : `${pct}%`}
-              </p>
-            )}
             <div className="absolute inset-x-0 bottom-0 h-1 bg-border" aria-hidden>
               <div
                 className={cn("h-full origin-left bg-danger transition-transform duration-700 ease-out", job.status === "failed" && "bg-muted-foreground")}

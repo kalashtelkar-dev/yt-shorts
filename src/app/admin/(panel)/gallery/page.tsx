@@ -1,8 +1,9 @@
 import { Info, X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Empty, PageHeader, Pager, pageParam, selectClass } from "@/components/admin/bits";
+import { Empty, PageHeader, Pager, pageParam } from "@/components/admin/bits";
 import { Button } from "@/components/ui/button";
+import { SelectField } from "@/components/select-field";
 import { VideoPlayer } from "@/components/video-player";
 import { formatClock, formatCredits, formatRupees, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
@@ -24,14 +25,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader title="Gallery">
         <form className="flex w-full gap-2 sm:w-auto">
-          <select name="style" defaultValue={sp.style ?? ""} aria-label="Style" className={`${selectClass} sm:w-52`}>
-            <option value="">All styles</option>
-            {slugs.map((s) => (
-              <option key={s.slug} value={s.slug}>
-                {s.title}
-              </option>
-            ))}
-          </select>
+          <SelectField name="style" label="Style" defaultValue={sp.style ?? ""} options={[{ value: "", label: "All styles" }, ...slugs.map((s) => ({ value: s.slug, label: s.title }))]} className="sm:w-52" />
           <Button type="submit">Filter</Button>
         </form>
       </PageHeader>

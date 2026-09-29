@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Empty, PageHeader, Pager, Panel, selectClass, Table } from "@/components/admin/bits";
+import { Empty, PageHeader, Pager, Panel, Table } from "@/components/admin/bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SelectField } from "@/components/select-field";
 import { formatCredits, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
 import { listUsers } from "@/server/admin/queries";
@@ -23,11 +24,17 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       <PageHeader title="Users" />
       <form className="flex flex-col gap-3 sm:flex-row" role="search">
         <Input name="q" defaultValue={sp.q} placeholder="Search email, name or user ID" aria-label="Search users" className="sm:max-w-sm" />
-        <select name="kind" defaultValue={kind} aria-label="Account type" className={`${selectClass} sm:w-48`}>
-          <option value="real">Accounts</option>
-          <option value="anonymous">Guests</option>
-          <option value="all">Everyone</option>
-        </select>
+        <SelectField
+          name="kind"
+          label="Account type"
+          defaultValue={kind}
+          options={[
+            { value: "real", label: "Accounts" },
+            { value: "anonymous", label: "Guests" },
+            { value: "all", label: "Everyone" },
+          ]}
+          className="sm:w-48"
+        />
         <Button type="submit">
           Search
         </Button>

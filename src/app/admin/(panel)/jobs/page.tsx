@@ -4,9 +4,10 @@ import Link from "next/link";
 import { refundAction, retryAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/action-form";
 import { AutoRefresh } from "@/components/admin/auto-refresh";
-import { Field, JobStatus, Pager, selectClass, UserLabel } from "@/components/admin/bits";
+import { Field, JobStatus, Pager, UserLabel } from "@/components/admin/bits";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SelectField } from "@/components/select-field";
 import { VideoPlayer } from "@/components/video-player";
 import { formatClock, formatCredits, formatRupees, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -59,22 +60,14 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
         </div>
         <form className="flex w-full gap-2 sm:w-auto">
           {picked && <input type="hidden" name="job" value={picked} />}
-          <select name="status" defaultValue={status ?? ""} aria-label="Status" className={`${selectClass} sm:w-36`}>
-            <option value="">All statuses</option>
-            {JOB_STATUSES.map((s) => (
-              <option key={s} value={s} className="capitalize">
-                {s}
-              </option>
-            ))}
-          </select>
-          <select name="style" defaultValue={sp.style ?? ""} aria-label="Style" className={`${selectClass} sm:w-48`}>
-            <option value="">All styles</option>
-            {slugs.map((s) => (
-              <option key={s.slug} value={s.slug}>
-                {s.title}
-              </option>
-            ))}
-          </select>
+          <SelectField
+            name="status"
+            label="Status"
+            defaultValue={status ?? ""}
+            options={[{ value: "", label: "All statuses" }, ...JOB_STATUSES.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) }))]}
+            className="sm:w-36"
+          />
+          <SelectField name="style" label="Style" defaultValue={sp.style ?? ""} options={[{ value: "", label: "All styles" }, ...slugs.map((s) => ({ value: s.slug, label: s.title }))]} className="sm:w-48" />
           <Button type="submit">
             Filter
           </Button>

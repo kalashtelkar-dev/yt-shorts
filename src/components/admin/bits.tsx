@@ -86,5 +86,3 @@ export function Field({ label, children }: { label: string; children: React.Reac
   );
 }
 
-export const selectClass =
-  "select-field h-11 w-full rounded-lg border border-input bg-panel-raised pl-3 text-base transition-colors outline-none hover:border-muted-foreground/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-10 sm:text-sm";

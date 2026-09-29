@@ -21,6 +21,7 @@
     "enginex:pipeline": "tsx --env-file-if-exists=.env scripts/enginex-pipeline.mts"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "@react-email/components": "^1.0.12",
     "@xyflow/react": "^12.12.0",
     "better-auth": "^1.7.6",

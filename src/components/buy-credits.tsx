@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { confirmPurchaseAction, saveBillingProfileAction, startPurchaseAction } from "@/app/(user)/actions";
 import { buttonVariants } from "@/components/ui/button";
+import { SelectField } from "@/components/select-field";
 import { GST_STATES, rupees, stateName } from "@/lib/billing";
 import { formatCredits } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -282,16 +283,15 @@ export function BillingDetailsForm({
       )}
       <label className="flex flex-col gap-1.5 text-sm">
         <span>Your state</span>
-        <select name="stateCode" defaultValue={initial?.stateCode ?? ""} required aria-invalid={error?.field === "stateCode"} className={cn("select-field", input)}>
-          <option value="" disabled>
-            Pick your state
-          </option>
-          {GST_STATES.map((s) => (
-            <option key={s.code} value={s.code}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        <SelectField
+          name="stateCode"
+          label="Your state"
+          placeholder="Pick your state"
+          required
+          invalid={error?.field === "stateCode"}
+          defaultValue={initial?.stateCode}
+          options={GST_STATES.map((s) => ({ value: s.code, label: s.name }))}
+        />
       </label>
       <label className="flex flex-col gap-1.5 text-sm">
         <span>

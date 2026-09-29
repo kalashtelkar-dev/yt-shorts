@@ -3,8 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { adjustCreditsAction, roleAction, suspendAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/action-form";
-import { Empty, Field, JobStatus, PageHeader, Pager, pageParam, Panel, selectClass, Table } from "@/components/admin/bits";
+import { Empty, Field, JobStatus, PageHeader, Pager, pageParam, Panel, Table } from "@/components/admin/bits";
 import { Input } from "@/components/ui/input";
+import { SelectField } from "@/components/select-field";
 import { formatCredits, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
 import { userDetail } from "@/server/admin/queries";
@@ -80,10 +81,15 @@ export default async function UserPage({ params, searchParams }: { params: Promi
                 <ActionForm action={roleAction} submitLabel="Save role">
                   <input type="hidden" name="userId" value={u.id} />
                   <Field label="Role">
-                    <select name="role" defaultValue={u.role} className={selectClass}>
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                    <SelectField
+                      name="role"
+                      label="Role"
+                      defaultValue={u.role}
+                      options={[
+                        { value: "user", label: "User" },
+                        { value: "admin", label: "Admin" },
+                      ]}
+                    />
                   </Field>
                 </ActionForm>
               )}

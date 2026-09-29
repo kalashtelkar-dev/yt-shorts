@@ -5,7 +5,7 @@ import { catalogItems, jobs, mediaIndex, users } from "@/db/schema";
 import { chargeForJob, getBalance, grant } from "@/server/credits";
 import { startJob, sweep } from "./lifecycle";
 import { signedVideo } from "./public";
-import { REUSE_MS, shuffleKills, styleInput } from "./staged";
+import { ensureIndex, indexInputs, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
 const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_8nvlocGpQ3nT" };
@@ -64,7 +64,7 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers());
 
 describe("staged styles (mock Engine X)", () => {
-  it("indexes the gameplay and the song in parallel, then renders; a second job shares the indexes", async () => {
+  it("indexes the gameplay and the song in parallel, then renders; a second job for the same video runs its own", async () => {
     const job = await newJob();
     await startJob(job.id, T0);
     let row = await load(job.id);
@@ -76,7 +76,10 @@ describe("staged styles (mock Engine X)", () => {
     const twin = await newJob();
     await startJob(twin.id, T0);
     const twinRow = await load(twin.id);
-    expect([twinRow.gameplayIndexId, twinRow.songIndexId]).toEqual([row.gameplayIndexId, row.songIndexId]); // no second runs
+    expect(twinRow.gameplayIndexId).not.toBe(row.gameplayIndexId); // nothing shared between jobs: its own download and kills
+    expect(twinRow.songIndexId).not.toBe(row.songIndexId); // and its own song
+    const twinIdx = await db.select().from(mediaIndex).where(inArray(mediaIndex.id, [twinRow.gameplayIndexId!, twinRow.songIndexId!]));
+    expect(twinIdx.every((r) => r.runId?.startsWith("mock-") && !indexes.some((o) => o.runId === r.runId))).toBe(true); // new runs
 
     await tick(8_000); // gameplay-index is reading the kill feed
     row = await load(job.id);
@@ -99,27 +102,27 @@ describe("staged styles (mock Engine X)", () => {
     expect(await getBalance(userId)).toBe(2000 - 600); // both jobs charged, nothing refunded
   });
 
-  it("reuses a finished index for an hour, then indexes again", async () => {
+  it("never reuses another job's finished index, and a restarted job keeps its own run", async () => {
     const first = await newJob();
     await startJob(first.id, T0);
     for (const ms of [20_000, 30_000]) await tick(ms);
     const done = await load(first.id);
     expect(done.status).toBe("succeeded");
 
-    at(60_000);
+    at(60_000); // a minute later, the same video and song
     const again = await newJob();
     await startJob(again.id, T0 + 60_000);
-    const reused = await load(again.id);
-    expect(reused.gameplayIndexId).toBe(done.gameplayIndexId);
+    const fresh = await load(again.id);
+    expect(fresh.gameplayIndexId).not.toBe(done.gameplayIndexId);
+    const [g] = await db.select().from(mediaIndex).where(eq(mediaIndex.id, fresh.gameplayIndexId!));
+    expect(g).toMatchObject({ status: "running" }); // indexing from scratch
     await tick(61_000);
-    expect((await load(again.id)).phase).toBe("render"); // straight to the render, no index wait
+    expect((await load(again.id)).phase).toBe("index"); // it waits for its own index, no shortcut
 
-    const later = T0 + 30_000 + REUSE_MS + 1_000;
-    vi.setSystemTime(later);
-    const stale = await newJob();
-    await startJob(stale.id, later);
-    const [g] = await db.select().from(mediaIndex).where(eq(mediaIndex.id, (await load(stale.id)).gameplayIndexId!));
-    expect(g).toMatchObject({ status: "running" }); // expired outputs: indexed again (same row, new run)
+    // the worker restarts and starts the same job again: it finds its own run instead of starting a second one
+    const { gameplay } = indexInputs(await load(again.id));
+    const same = await ensureIndex("gameplay", gameplay.templateId, gameplay.input, gameplay.parts, T0 + 62_000);
+    expect(same).toMatchObject({ id: g.id, runId: g.runId });
   });
 
   it("fails and refunds when the gameplay can't be read, with the kill-feed message", async () => {

@@ -20,8 +20,9 @@ type Job = typeof jobs.$inferSelect;
 type IndexRow = typeof mediaIndex.$inferSelect;
 type Kind = IndexRow["kind"];
 
-// ponytail: Engine X outputs expire after a few hours, so a finished index is reused for an hour. Store
-// the outputs ourselves if re-renders later than that should skip the index.
+// Nothing is shared between jobs (the user's call, 2026-09-29): every job downloads, finds kills and indexes the song
+// itself, even for the same video and song. The index key includes the job id, so a job only ever finds its own run
+// (a worker restart resumes it instead of starting a second one). REUSE_MS only matters for that same job.
 export const REUSE_MS = 60 * 60_000;
 const STALE_RUN_MS = 60 * 60_000; // a "running" index older than this is started again
 const RESEND_MS = 2 * 60_000; // an index whose run couldn't be started is re-sent after this
@@ -31,7 +32,7 @@ export const cacheKey = (kind: Kind, templateId: string, parts: string[]) =>
   createHash("sha256").update(JSON.stringify([kind, templateId, ...parts])).digest("hex");
 
 /** What each index pipeline needs, from the job's mapped input (youtubeUrl or video, playerName, musicUrl). */
-export function indexInputs(job: Pick<Job, "input" | "source" | "indexTemplates">) {
+export function indexInputs(job: Pick<Job, "id" | "input" | "source" | "indexTemplates">) {
   const i = job.input as Record<string, string>;
   const t = job.indexTemplates!;
   const upload = job.source === "upload";
@@ -40,9 +41,9 @@ export function indexInputs(job: Pick<Job, "input" | "source" | "indexTemplates"
     gameplay: {
       templateId: upload ? t.gameplayUpload! : t.gameplay,
       input: gameplay,
-      parts: [upload ? i.video : i.youtubeUrl, (i.playerName ?? "").toLowerCase()],
+      parts: [job.id, upload ? i.video : i.youtubeUrl, (i.playerName ?? "").toLowerCase()],
     },
-    song: { templateId: t.song, input: { musicUrl: i.musicUrl }, parts: [i.musicUrl] },
+    song: { templateId: t.song, input: { musicUrl: i.musicUrl }, parts: [job.id, i.musicUrl] },
   };
 }
 
@@ -61,8 +62,8 @@ async function startIndexRun(row: IndexRow) {
 }
 
 /**
- * The index row for this pipeline and input: a fresh finished one, one already running, or a new run.
- * Claiming is one INSERT … ON CONFLICT, so two jobs for the same video start only one run.
+ * This job's index row for a pipeline: its run if already started (a restart), or a new run.
+ * Claiming is one INSERT … ON CONFLICT on a key that includes the job id, so a job never starts two runs.
  */
 export async function ensureIndex(kind: Kind, templateId: string, input: Record<string, string>, parts: string[], now = Date.now()): Promise<IndexRow> {
   const key = cacheKey(kind, templateId, parts);

@@ -1,9 +1,9 @@
 "use client";
 
-import { Crosshair, Link2, Loader2, Upload } from "lucide-react";
+import { Crosshair, Info, Link2, Loader2, Upload } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useActionState, useId, useState } from "react";
+import { useActionState, useId, useRef, useState } from "react";
 import { createJobAction } from "@/app/(user)/actions";
 import { Frame, KillRow } from "@/components/job/feed";
 import { buttonVariants } from "@/components/ui/button";
@@ -56,6 +56,9 @@ export function CreateForm({
   const [state, formAction, pending] = useActionState(createJobAction, { error: null });
   const error = state.error;
   const uid = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmRef = useRef<HTMLDialogElement>(null);
+  const confirmed = useRef(false);
 
   // Uploads need a user to own the file, so visitors without an account see the link flow only.
   const canUpload = item.uploads && !needsAccount;
@@ -77,13 +80,16 @@ export function CreateForm({
 
   return (
     <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start lg:gap-14">
-      {/* The one memorable element: a 9:16 frame hinting at what this style makes. */}
-      <Frame className="mx-auto max-w-[min(15rem,calc(38dvh*9/16))] lg:sticky lg:top-8 lg:mx-0 lg:max-w-[340px]">
+      {/* The one memorable element: a 9:16 frame hinting at what this style makes. On phones only its top 3/4
+          shows, fading into a blur at the bottom, so the form starts higher up. */}
+      <div className="relative mx-auto w-full max-w-[min(16rem,calc(52dvh*9/16))] lg:sticky lg:top-8 lg:mx-0 lg:max-w-[340px]">
+      <div className="aspect-[9/12] overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:aspect-auto lg:overflow-visible lg:[mask-image:none]">
+      <Frame>
         <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 lg:top-4 lg:right-4">
           <KillRow killer={playerName || "you"} victim="Reyna" you />
           <KillRow killer={playerName || "you"} victim="Jett" you />
         </div>
-        <Crosshair className="absolute top-1/2 left-1/2 size-6 -translate-1/2 text-foreground/25" aria-hidden />
+        <Crosshair className="absolute top-[37.5%] left-1/2 size-6 -translate-1/2 text-foreground/25 lg:top-1/2" aria-hidden />
         {hint.lyric && (
           <p className="absolute top-[38%] left-4 text-xl leading-none font-black tracking-tight [text-shadow:2px_2px_0_#000] lg:text-3xl" aria-hidden>
             BABY BET
@@ -91,14 +97,31 @@ export function CreateForm({
             AYY
           </p>
         )}
-        {hint.slow && <span className="absolute bottom-11 left-3 rounded bg-black/70 px-1.5 py-1 font-mono text-[11px] lg:bottom-14 lg:left-4">0.5× slow-mo</span>}
-        <p className="absolute inset-x-3 bottom-3 flex justify-between gap-2 font-mono text-[11px] text-muted-foreground lg:inset-x-4 lg:bottom-4 lg:text-xs">
+        {hint.slow && <span className="absolute bottom-[44%] left-3 rounded bg-black/70 px-1.5 py-1 font-mono text-[11px] lg:bottom-14 lg:left-4">0.5× slow-mo</span>}
+        <p className="absolute inset-x-3 bottom-[37%] flex justify-between gap-2 font-mono text-[11px] text-muted-foreground lg:inset-x-4 lg:bottom-4 lg:text-xs">
           <span className="truncate">{item.title}</span>
           <span className="tabular">{durationSec}s</span>
         </p>
       </Frame>
+      </div>
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 backdrop-blur-[3px] [mask-image:linear-gradient(to_top,#000,transparent)] lg:hidden" />
+      </div>
 
-      <form action={formAction} noValidate className="flex min-w-0 flex-col gap-4 lg:max-w-lg lg:gap-6">
+      <form
+        ref={formRef}
+        action={formAction}
+        noValidate
+        onSubmit={(e) => {
+          // Ask "check your choices" first. Incomplete forms go straight through so the server's message shows.
+          if (confirmed.current || !e.currentTarget.checkValidity()) {
+            confirmed.current = false;
+            return;
+          }
+          e.preventDefault();
+          confirmRef.current?.showModal();
+        }}
+        className="flex min-w-0 flex-col gap-4 lg:max-w-lg lg:gap-6"
+      >
         <div className="max-lg:sr-only">{intro}</div>
 
         {items.length === 1 ? (
@@ -197,6 +220,7 @@ export function CreateForm({
               )}
             </Row>
           ))}
+          <CostRow range={range} available={available} short={short} needsAccount={needsAccount} starterCredits={starterCredits} />
         </div>
 
         {(fieldError || general) && (
@@ -204,8 +228,6 @@ export function CreateForm({
             {fieldError ?? general}
           </p>
         )}
-
-        <CreditMeter range={range} available={available} needsAccount={needsAccount} starterCredits={starterCredits} />
 
         <div className="sticky bottom-0 -mx-4 mt-auto flex flex-col gap-2 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
           <div className="flex items-stretch gap-3">
@@ -230,8 +252,11 @@ export function CreateForm({
                 Create a free account
               </Link>
             ) : short > 0 && canBuy ? (
-              <Link href="/account" className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 rounded-xl")}>
-                Add credits
+              <Link href="/account" className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 flex-col gap-0 rounded-xl leading-tight")}>
+                Add credits to start
+                <span className="font-mono text-xs font-normal opacity-85 tabular">
+                  need {formatCredits(range.max)}, have {formatCredits(available)}
+                </span>
               </Link>
             ) : (
               <button
@@ -251,6 +276,48 @@ export function CreateForm({
           )}
         </div>
       </form>
+
+      <dialog ref={confirmRef} aria-labelledby={`${uid}-confirm`} className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-2xl border bg-panel p-0 text-foreground backdrop:bg-black/70">
+        <div className="flex flex-col gap-5 p-5 sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 id={`${uid}-confirm`} className="text-lg font-semibold">
+              Check your choices
+            </h2>
+            <p className="text-sm text-muted-foreground">Once it starts, these can&apos;t be changed.</p>
+          </div>
+          <dl className="flex flex-col divide-y rounded-xl border text-sm">
+            {[
+              ["Style", item.title],
+              ["Length", `${durationSec} s`],
+              ["Match", source === "upload" ? (upload.kind === "done" ? upload.name : "Uploaded file") : url.trim()],
+              ...visibleFields.map((f) => [f.label, fields[f.name]?.trim() ?? ""]),
+              ["Estimated cost", `${formatCredits(range.min)}–${formatCredits(range.max)} credits, charged after it's made`],
+            ].map(([k, v]) => (
+              <div key={k} className="flex flex-col gap-0.5 px-3 py-2.5">
+                <dt className="text-xs text-muted-foreground">{k}</dt>
+                <dd className="break-all">{v || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <button type="button" onClick={() => confirmRef.current?.close()} className={cn(buttonVariants({ size: "lg", variant: "outline" }), "sm:flex-1")}>
+              Change something
+            </button>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => {
+                confirmRef.current?.close();
+                confirmed.current = true;
+                formRef.current?.requestSubmit();
+              }}
+              className={cn(buttonVariants({ size: "lg" }), "sm:flex-1")}
+            >
+              Make my montage
+            </button>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }
@@ -271,41 +338,35 @@ function Row({ id, label, invalid, children }: { id: string; label: string; inva
   );
 }
 
-/**
- * How many credits this edit usually uses, on a bar with the user's free credits marked. Starting needs the top of
- * the range free; the montage then uses only the editing time it takes (charged after it's made).
- */
-function CreditMeter({ range, available, needsAccount, starterCredits }: { range: { min: number; max: number }; available: number; needsAccount: boolean; starterCredits: number }) {
-  const mine = needsAccount ? starterCredits : available;
-  const scale = Math.max(mine, range.max, 1) * 1.15;
-  const at = (v: number) => `${(v / scale) * 100}%`;
-  const short = range.max - mine;
+/** The last line of the form card: what this edit usually costs, with how it's worked out behind the i. */
+function CostRow({ range, available, short, needsAccount, starterCredits }: { range: { min: number; max: number }; available: number; short: number; needsAccount: boolean; starterCredits: number }) {
   return (
-    <section aria-label="Credits for this montage" className="flex flex-col gap-3 rounded-2xl border px-4 py-3" aria-live="polite">
-      <p className="flex justify-between gap-3 text-sm">
-        <span className="text-muted-foreground">This edit uses</span>
-        <span>
-          <span className="font-mono tabular">
-            {formatCredits(range.min)}–{formatCredits(range.max)}
-          </span>{" "}
-          credits
+    <details className="group border-t px-4 py-3">
+      <summary className="flex min-h-7 cursor-pointer list-none items-center justify-between gap-3 rounded select-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+        <span className="text-sm text-muted-foreground">Estimated cost</span>
+        <span className="flex items-center gap-2 text-sm">
+          <span aria-live="polite">
+            <span className="font-mono tabular">
+              {formatCredits(range.min)}–{formatCredits(range.max)}
+            </span>{" "}
+            credits
+          </span>
+          <Info className="size-4 text-muted-foreground transition-colors group-open:text-foreground" aria-label="How is this worked out?" />
         </span>
-      </p>
-      <div className="relative h-7" aria-hidden>
-        <div className="absolute inset-x-0 top-3 h-1.5 rounded-full bg-border" />
-        <div className={cn("absolute top-3 h-1.5 rounded-full", short > 0 ? "bg-danger" : "bg-muted-foreground")} style={{ left: at(range.min), width: `calc(${at(range.max)} - ${at(range.min)})` }} />
-        <div className="absolute top-1.5 h-[18px] w-[3px] -translate-x-1/2 rounded-full bg-foreground" style={{ left: at(mine) }} />
-        <span className="absolute -top-2.5 -translate-x-1/2 font-mono text-[10px] whitespace-nowrap tabular" style={{ left: `clamp(2.5rem, ${at(mine)}, calc(100% - 2.5rem))` }}>
-          {needsAccount ? "new account" : "you"} {formatCredits(mine)}
-        </span>
+      </summary>
+      <div className="flex flex-col gap-2 pt-2 text-sm leading-relaxed text-muted-foreground">
+        <p>
+          You pay for editing time: 1 credit a second. Long matches and more kills take longer. Credits come off after it&apos;s made, and a montage that fails costs
+          nothing.
+        </p>
+        {needsAccount ? (
+          <p>New accounts get {formatCredits(starterCredits)} free credits.</p>
+        ) : (
+          <p className={cn(short > 0 && "text-danger")}>
+            To start, you need {formatCredits(range.max)} free, enough for the longest this edit usually takes. You have {formatCredits(available)}.
+          </p>
+        )}
       </div>
-      <p className={cn("text-sm", short > 0 && !needsAccount ? "text-danger" : "text-muted-foreground")}>
-        {needsAccount
-          ? `New accounts get ${formatCredits(starterCredits)} free credits. You only pay for the editing time it takes.`
-          : short > 0
-            ? `To start, you need ${formatCredits(range.max)} credits free: enough for the longest this edit usually takes. Add ${formatCredits(short)} more, or pick a shorter length.`
-            : "Charged after it's made, for the editing time it takes. If it fails, it's free."}
-      </p>
-    </section>
+    </details>
   );
 }

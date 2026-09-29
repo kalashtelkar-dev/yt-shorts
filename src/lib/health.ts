@@ -24,7 +24,8 @@ export type HealthView = {
   range: Range;
   probes: ProbeView[];
   fleet: { uptime: number | null; buckets: BucketStatus[]; criticalCount: number; /** Critical services not fully up, per bucket. */ troubled: string[][] };
-  incidents: { ongoing: IncidentView[]; recent: IncidentView[] };
+  /** Ongoing incidents, and one page of those resolved in the last 30 days. */
+  incidents: { ongoing: IncidentView[]; recent: IncidentView[]; page: number; hasMore: boolean };
   lastSweepAt: string | null;
   workerAlive: boolean;
   generatedAt: string;

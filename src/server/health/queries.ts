@@ -6,12 +6,14 @@ import { bucketStatus, fleetUptime, RANGES, uptimeOf, worstOf, type Counts, type
 import { probeCatalog } from ".";
 import { HEARTBEAT_KEY } from "./probes/worker";
 import type { HealthView, IncidentView, ProbeView } from "@/lib/health";
-import { desc, gte, isNull, or } from "drizzle-orm";
+import { and, desc, gte, isNotNull, isNull } from "drizzle-orm";
 import { incidents } from "@/db/schema";
 
 const empty = (): Counts => ({ checks: 0, up: 0, degraded: 0, down: 0 });
 
-export async function healthView(range: Range): Promise<HealthView> {
+const INCIDENTS_PAGE = 10;
+
+export async function healthView(range: Range, incidentPage = 0): Promise<HealthView> {
   const probes = await probeCatalog();
   const ids = probes.map((p) => p.id);
   const { buckets: n, bucketMs } = RANGES[range];
@@ -31,8 +33,8 @@ export async function healthView(range: Range): Promise<HealthView> {
       ) r where rn <= 50 order by checked_at desc`),
     range === "90d"
       ? db.execute<{ probe_id: string; idx: number; checks: number; up: number; degraded: number; down: number }>(sql`
-          select probe_id, (${n - 1} - (current_date - day::date))::int as idx, checks, up, degraded, down
-          from probe_daily where probe_id in (${idList}) and day::date > current_date - ${n}`)
+          select probe_id, (${n - 1}::int - (current_date - day::date))::int as idx, checks, up, degraded, down
+          from probe_daily where probe_id in (${idList}) and day::date > current_date - ${n}::int`)
       : db.execute<{ probe_id: string; idx: number; checks: number; up: number; degraded: number; down: number }>(sql`
           select probe_id,
             floor((extract(epoch from checked_at) * 1000 - ${start}) / ${bucketMs})::int as idx,
@@ -45,12 +47,17 @@ export async function healthView(range: Range): Promise<HealthView> {
           group by 1, 2`),
     redis.get(HEARTBEAT_KEY),
   ]);
-  const incidentRows = await db
-    .select()
-    .from(incidents)
-    .where(or(isNull(incidents.resolvedAt), gte(incidents.startedAt, new Date(now - 30 * 86_400_000))))
-    .orderBy(desc(incidents.startedAt))
-    .limit(50);
+  // Ongoing incidents always show; resolved ones from the last 30 days are paged.
+  const [ongoingRows, resolvedRows] = await Promise.all([
+    db.select().from(incidents).where(isNull(incidents.resolvedAt)).orderBy(desc(incidents.startedAt)),
+    db
+      .select()
+      .from(incidents)
+      .where(and(isNotNull(incidents.resolvedAt), gte(incidents.startedAt, new Date(now - 30 * 86_400_000))))
+      .orderBy(desc(incidents.startedAt))
+      .limit(INCIDENTS_PAGE + 1)
+      .offset(incidentPage * INCIDENTS_PAGE),
+  ]);
 
   const byProbe = new Map<string, Counts[]>(ids.map((id) => [id, Array.from({ length: n }, empty)]));
   for (const r of counts) {
@@ -103,7 +110,12 @@ export async function healthView(range: Range): Promise<HealthView> {
       criticalCount: critical.length,
       troubled: Array.from({ length: n }, (_, i) => critical.filter((v) => v.buckets[i] === "down" || v.buckets[i] === "degraded").map((v) => v.name)),
     },
-    incidents: { ongoing: incidentRows.filter((i) => !i.resolvedAt).map(toIncident), recent: incidentRows.filter((i) => i.resolvedAt).map(toIncident) },
+    incidents: {
+      ongoing: ongoingRows.map(toIncident),
+      recent: resolvedRows.slice(0, INCIDENTS_PAGE).map(toIncident),
+      page: incidentPage,
+      hasMore: resolvedRows.length > INCIDENTS_PAGE,
+    },
     lastSweepAt: lastSweep?.toISOString() ?? null,
     workerAlive: !!beat && now - Number(beat) < 60_000,
     generatedAt: new Date(now).toISOString(),

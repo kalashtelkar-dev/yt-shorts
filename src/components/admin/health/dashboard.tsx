@@ -9,6 +9,7 @@ import { formatClock, formatTime, formatWhen } from "@/lib/format";
 import { formatPct, RANGES, type Range } from "@/lib/uptime";
 import { cn } from "@/lib/utils";
 import type { HealthView } from "@/lib/health";
+import { Pager } from "@/components/pager";
 import { BucketStrip, STATUS_LABEL, StatusMark, TIER_LABEL, type ViewStatus } from "./shared";
 
 // React Flow stays out of every other bundle.
@@ -201,7 +202,7 @@ export function HealthDashboard({ view }: { view: HealthView }) {
         <h2 className="text-sm font-medium">
           Incidents <span className="font-normal text-muted-foreground">· last 30 days</span>
         </h2>
-        {view.incidents.ongoing.length + view.incidents.recent.length === 0 ? (
+        {view.incidents.ongoing.length + view.incidents.recent.length === 0 && view.incidents.page === 0 ? (
           <p className="rounded-xl border bg-panel px-4 py-6 text-center text-sm text-muted-foreground">No incidents in the last 30 days.</p>
         ) : (
           <ul className="flex flex-col divide-y rounded-xl border bg-panel">
@@ -226,6 +227,7 @@ export function HealthDashboard({ view }: { view: HealthView }) {
             })}
           </ul>
         )}
+        <Pager page={view.incidents.page} hasMore={view.incidents.hasMore} params={{ range: view.range === "24h" ? undefined : view.range }} param="ip" />
       </section>
     </>
   );

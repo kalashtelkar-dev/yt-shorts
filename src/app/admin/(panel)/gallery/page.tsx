@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Empty, PageHeader, Pager, pageParam, selectClass } from "@/components/admin/bits";
 import { Button } from "@/components/ui/button";
+import { VideoPlayer } from "@/components/video-player";
 import { formatClock, formatCredits, formatRupees, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
 import { galleryItems } from "@/server/admin/queries";
@@ -57,7 +58,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Prom
               <li key={g.id} className="flex flex-col gap-2">
                 <div className="relative aspect-[9/16] overflow-hidden rounded-xl border bg-panel">
                   {g.video ? (
-                    <video src={g.video} poster={g.poster ?? undefined} controls playsInline preload="none" className="size-full bg-black object-cover" aria-label={`${g.title} montage`} />
+                    <VideoPlayer src={g.video} poster={g.poster} preload="none" fit="cover" label={`${g.title} montage`} />
                   ) : (
                     <span className="absolute inset-0 flex items-center justify-center p-3 text-center text-xs text-muted-foreground">Video link unavailable</span>
                   )}

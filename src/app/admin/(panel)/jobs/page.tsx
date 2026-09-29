@@ -7,6 +7,7 @@ import { AutoRefresh } from "@/components/admin/auto-refresh";
 import { Field, JobStatus, Pager, selectClass, UserLabel } from "@/components/admin/bits";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VideoPlayer } from "@/components/video-player";
 import { formatClock, formatCredits, formatRupees, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { requireAdmin } from "@/server/admin/guard";
@@ -38,7 +39,9 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   const page = Math.max(0, Number(sp.page) || 0);
   const [{ rows, hasMore, slugs }, fleet] = await Promise.all([listAllJobs(status, sp.style || null, page), fleetSnapshot().catch(() => [])]);
   const titleOf = new Map(slugs.map((s) => [s.slug, s.title]));
-  const selected = sp.job && /^[0-9a-f-]{36}$/i.test(sp.job) ? sp.job : null;
+  // A picked job (?job=) opens on every screen; otherwise desktop shows the newest and phones show the list.
+  const picked = sp.job && /^[0-9a-f-]{36}$/i.test(sp.job) ? sp.job : null;
+  const selected = picked ?? rows[0]?.id ?? null;
   const keep = { status: status ?? undefined, style: sp.style || undefined, page: page ? String(page) : undefined };
   const hrefFor = (job?: string) => `?${new URLSearchParams(Object.entries({ ...keep, job }).filter(([, v]) => v) as [string, string][])}`;
   const running = rows.filter((r) => r.status === "running" || r.status === "starting").length;
@@ -55,7 +58,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
           </span>
         </div>
         <form className="flex w-full gap-2 sm:w-auto">
-          {selected && <input type="hidden" name="job" value={selected} />}
+          {picked && <input type="hidden" name="job" value={picked} />}
           <select name="status" defaultValue={status ?? ""} aria-label="Status" className={`${selectClass} sm:w-36`}>
             <option value="">All statuses</option>
             {JOB_STATUSES.map((s) => (
@@ -91,7 +94,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
       )}
 
       <div className="grid grid-cols-1 overflow-hidden rounded-xl border bg-panel lg:h-[calc(100dvh-12rem)] lg:min-h-[32rem] lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]">
-        <section aria-label="Jobs" className={cn("flex min-h-0 flex-col lg:border-r", selected && "max-lg:hidden")}>
+        <section aria-label="Jobs" className={cn("flex min-h-0 flex-col lg:border-r", picked && "max-lg:hidden")}>
           {rows.length === 0 ? (
             <p className="p-6 text-center text-sm text-muted-foreground">No jobs match.</p>
           ) : (
@@ -145,7 +148,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
           </div>
         </section>
 
-        <section aria-label="Job details" className={cn("min-h-0 overflow-y-auto", !selected && "max-lg:hidden")}>
+        <section aria-label="Job details" className={cn("min-h-0 overflow-y-auto", !picked && "max-lg:hidden")}>
           {selected ? (
             <JobPane id={selected} back={hrefFor()} />
           ) : (
@@ -179,9 +182,9 @@ async function JobPane({ id, back }: { id: string; back: string }) {
       </Link>
 
       <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
-        <div className="relative mx-auto aspect-[9/16] w-full max-w-48 shrink-0 overflow-hidden rounded-xl border bg-background xl:mx-0">
+        <div className="relative mx-auto aspect-[9/16] w-full max-w-60 shrink-0 xl:max-w-48 overflow-hidden rounded-xl border bg-background xl:mx-0">
           {video ? (
-            <video src={video.url} poster={video.poster ?? undefined} controls playsInline preload="metadata" className="size-full object-contain" aria-label="Output video" />
+            <VideoPlayer src={video.url} poster={video.poster} label="Output video" />
           ) : (
             <span className="absolute inset-x-3 bottom-3 font-mono text-xs text-muted-foreground">{active ? "Not ready" : "No video"}</span>
           )}

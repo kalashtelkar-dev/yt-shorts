@@ -23,7 +23,9 @@ export function AdminNav() {
   const path = usePathname();
   const current = useRef<HTMLAnchorElement>(null);
   // On phones the tab row scrolls; keep the current page in view.
-  useEffect(() => current.current?.scrollIntoView({ block: "nearest", inline: "nearest" }), [path]);
+  useEffect(() => {
+    current.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [path]);
   return (
     <nav aria-label="Admin" className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] lg:flex-col lg:items-stretch lg:overflow-visible lg:px-2 lg:pb-0">
       {LINKS.map(({ href, label, short, icon: Icon }) => {

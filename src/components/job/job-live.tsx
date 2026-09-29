@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { videoUrlAction } from "@/app/(user)/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { VideoPlayer } from "@/components/video-player";
 import { formatClock, formatCredits } from "@/lib/format";
 import { isFinished, type PublicJob } from "@/lib/jobs";
 import { cn } from "@/lib/utils";
@@ -44,15 +45,7 @@ export function JobLive({ initial, initialVideo }: { initial: PublicJob; initial
     <div className="grid gap-6 md:grid-cols-[minmax(0,340px)_minmax(0,1fr)] md:items-start md:gap-10 lg:gap-14">
       <Frame className={cn("mx-auto md:mx-0 md:max-w-[340px]", done ? "max-w-[min(20rem,calc(58dvh*9/16))]" : "max-w-[min(340px,calc(56dvh*9/16))]")}>
         {done && video ? (
-          <video
-            src={video.url}
-            poster={video.poster ?? undefined}
-            controls
-            playsInline
-            preload="metadata"
-            className="size-full bg-black object-contain"
-            aria-label="Your montage"
-          />
+          <VideoPlayer src={video.url} poster={video.poster} label="Your montage" />
         ) : (
           <>
             {/* A HUD: the latest stages top right like a kill feed, the percentage bottom right like an ammo counter. One

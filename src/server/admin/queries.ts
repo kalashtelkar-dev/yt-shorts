@@ -7,7 +7,8 @@ import type { RunStep } from "@/server/enginex/types";
 
 // Read side of the admin. Admin pages may see raw Engine X data (CLAUDE.md §4.8).
 
-const PAGE = 50;
+const PAGE = 20;
+const SUB_PAGE = 20;
 const IST_TODAY = sql`(date_trunc('day', now() at time zone 'Asia/Kolkata') at time zone 'Asia/Kolkata')`;
 
 export async function overviewStats() {
@@ -69,7 +70,7 @@ export async function listUsers(q: string, kind: "real" | "all" | "anonymous", p
   return { rows: rows.slice(0, PAGE), hasMore: rows.length > PAGE };
 }
 
-export async function userDetail(userId: string) {
+export async function userDetail(userId: string, ledgerPage = 0, jobsPage = 0) {
   if (!/^[0-9a-f-]{36}$/i.test(userId)) return null;
   const [user] = await db
     .select({ user: users, balance: sql<number>`coalesce(${userBalances.balance}, 0)::int` })
@@ -78,25 +79,96 @@ export async function userDetail(userId: string) {
     .where(eq(users.id, userId));
   if (!user) return null;
   const [ledger, userJobs] = await Promise.all([
-    db.select().from(creditLedger).where(eq(creditLedger.userId, userId)).orderBy(desc(creditLedger.createdAt)).limit(PAGE),
+    db.select().from(creditLedger).where(eq(creditLedger.userId, userId)).orderBy(desc(creditLedger.createdAt)).limit(SUB_PAGE + 1).offset(ledgerPage * SUB_PAGE),
     db
       .select({ id: jobs.id, status: jobs.status, catalogSlug: jobs.catalogSlug, durationSec: jobs.durationSec, chargedCredits: jobs.chargedCredits, createdAt: jobs.createdAt })
       .from(jobs)
       .where(eq(jobs.userId, userId))
       .orderBy(desc(jobs.createdAt))
-      .limit(PAGE),
+      .limit(SUB_PAGE + 1)
+      .offset(jobsPage * SUB_PAGE),
   ]);
-  return { ...user.user, balance: user.balance, ledger, jobs: userJobs };
+  return {
+    ...user.user,
+    balance: user.balance,
+    ledger: ledger.slice(0, SUB_PAGE),
+    ledgerHasMore: ledger.length > SUB_PAGE,
+    jobs: userJobs.slice(0, SUB_PAGE),
+    jobsHasMore: userJobs.length > SUB_PAGE,
+  };
 }
 
-export async function recentAdjustments() {
-  return db
+export async function recentAdjustments(page = 0) {
+  const rows = await db
     .select({ entry: creditLedger, email: users.email, isAnonymous: users.isAnonymous })
     .from(creditLedger)
     .innerJoin(users, eq(users.id, creditLedger.userId))
     .where(inArray(creditLedger.kind, ["admin_add", "admin_remove", "refund", "grant"]))
     .orderBy(desc(creditLedger.createdAt))
-    .limit(PAGE);
+    .limit(PAGE + 1)
+    .offset(page * PAGE);
+  return { rows: rows.slice(0, PAGE), hasMore: rows.length > PAGE };
+}
+
+const GALLERY_PAGE = 24;
+
+/** Finished montages, newest first, with fresh signed links for the video and its cover (never stored). */
+export async function galleryItems(catalogSlug: string | null, page = 0) {
+  const filters: SQL[] = [eq(jobs.status, "succeeded"), sql`${jobs.outputKey} is not null`];
+  if (catalogSlug) filters.push(eq(jobs.catalogSlug, catalogSlug));
+  const rows = await db
+    .select({
+      id: jobs.id,
+      catalogSlug: jobs.catalogSlug,
+      title: catalogItems.title,
+      durationSec: jobs.durationSec,
+      chargedCredits: jobs.chargedCredits,
+      runMs: jobs.runMs,
+      computeCostPaise: jobs.computeCostPaise,
+      createdAt: jobs.createdAt,
+      finishedAt: jobs.finishedAt,
+      outputKey: jobs.outputKey,
+      outputMeta: jobs.outputMeta,
+      source: jobs.source,
+      userId: jobs.userId,
+      email: users.email,
+      isAnonymous: users.isAnonymous,
+    })
+    .from(jobs)
+    .innerJoin(users, eq(users.id, jobs.userId))
+    .innerJoin(catalogItems, eq(catalogItems.id, jobs.catalogItemId))
+    .where(and(...filters))
+    .orderBy(desc(jobs.finishedAt))
+    .limit(GALLERY_PAGE + 1)
+    .offset(page * GALLERY_PAGE);
+  const pageRows = rows.slice(0, GALLERY_PAGE);
+  const meta = (r: (typeof rows)[number]) => (r.outputMeta ?? {}) as { totalKills?: number; title?: string | null; thumbnailKey?: unknown };
+  const thumb = (r: (typeof rows)[number]) => (typeof meta(r).thumbnailKey === "string" ? (meta(r).thumbnailKey as string) : null);
+  const keys = pageRows.flatMap((r) => [r.outputKey!, thumb(r)].filter((k): k is string => !!k));
+  const urls: Record<string, string> = keys.length ? await enginex().signOutput(keys, 3600).catch(() => ({})) : {};
+  const slugs = await db.select({ slug: catalogItems.slug, title: catalogItems.title }).from(catalogItems);
+  return {
+    items: pageRows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      durationSec: r.durationSec,
+      credits: r.chargedCredits,
+      runMs: r.runMs,
+      computeCostPaise: r.computeCostPaise,
+      createdAt: r.createdAt,
+      finishedAt: r.finishedAt,
+      source: r.source,
+      userId: r.userId,
+      email: r.email,
+      isAnonymous: r.isAnonymous,
+      kills: typeof meta(r).totalKills === "number" ? meta(r).totalKills! : null,
+      videoTitle: meta(r).title ?? null,
+      video: urls[r.outputKey!] ?? null,
+      poster: thumb(r) ? (urls[thumb(r)!] ?? null) : null,
+    })),
+    hasMore: rows.length > GALLERY_PAGE,
+    slugs,
+  };
 }
 
 export type JobStatus = (typeof jobs.$inferSelect)["status"];

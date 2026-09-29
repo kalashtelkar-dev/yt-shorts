@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { adjustCreditsAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/action-form";
-import { Empty, Field, PageHeader, Panel, Table, UserLabel } from "@/components/admin/bits";
+import { Empty, Field, PageHeader, Pager, pageParam, Panel, Table, UserLabel } from "@/components/admin/bits";
 import { Input } from "@/components/ui/input";
 import { formatCredits, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
@@ -12,9 +12,10 @@ export const metadata: Metadata = { title: "Credits" };
 
 const KIND: Record<string, string> = { grant: "Starter grant", admin_add: "Added", admin_remove: "Removed", refund: "Refund" };
 
-export default async function CreditsPage() {
+export default async function CreditsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   await requireAdmin();
-  const rows = await recentAdjustments();
+  const page = pageParam((await searchParams).page);
+  const { rows, hasMore } = await recentAdjustments(page);
   return (
     <>
       <PageHeader title="Credits" />
@@ -67,6 +68,7 @@ export default async function CreditsPage() {
             </tbody>
           </Table>
         )}
+        <Pager page={page} hasMore={hasMore} params={{}} />
       </Panel>
     </>
   );

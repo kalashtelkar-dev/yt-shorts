@@ -9,7 +9,7 @@ export default async function NewCatalogItem() {
   await requireAdmin();
   return (
     <>
-      <PageHeader title="New catalog item" />
+      <PageHeader title="New catalog item" back={{ href: "/admin/catalog", label: "Back to catalog" }} />
       <CatalogForm
         initial={{
           id: null,

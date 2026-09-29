@@ -41,7 +41,7 @@ export default async function CreatePage() {
   );
 
   return items.length ? (
-    <CreateForm items={items} balance={balance} intro={intro} maxUploadMb={settings.maxUploadMb} needsAccount={needsAccount} />
+    <CreateForm items={items} balance={balance} intro={intro} maxUploadMb={settings.maxUploadMb} needsAccount={needsAccount} starterCredits={settings.starterCredits} />
   ) : (
     <div className="flex max-w-lg flex-col gap-8">
       {intro}

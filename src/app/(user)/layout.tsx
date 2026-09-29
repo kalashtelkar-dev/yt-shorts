@@ -1,5 +1,6 @@
 import { CircleUser } from "lucide-react";
 import Link from "next/link";
+import { LogoMark } from "@/components/logo";
 import { brand } from "@/config/brand";
 import { env } from "@/config/env";
 import { formatCredits } from "@/lib/format";
@@ -12,20 +13,25 @@ export default async function UserLayout({ children }: { children: React.ReactNo
   const balance = await viewerBalance(viewer);
   // Sign-in entry points exist only with AUTH_MODE=full (CLAUDE.md §6).
   const account = env.AUTH_MODE === "full" ? (viewer && !viewer.isAnonymous ? "signed-in" : "signed-out") : null;
+  // With accounts, only signed-in users have credits; guests see "Sign in" instead of a balance.
+  const showBalance = account !== "signed-out";
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
       <header className="flex h-14 items-center justify-between gap-4 border-b">
-        <Link href="/" className="-mx-1 rounded px-1 font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+        <Link href="/" className="-mx-1 flex items-center gap-2 rounded px-1 font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+          <LogoMark />
           {brand.name}
         </Link>
         <nav className="flex items-center gap-1 text-sm sm:gap-4">
           <Link href="/library" className={navLink}>
             My videos
           </Link>
-          <span className="rounded-md border bg-panel px-2.5 py-1 font-mono text-xs tabular" aria-label={`${balance} credits`}>
-            {formatCredits(balance)} <span className="text-muted-foreground max-sm:hidden">credits</span>
-          </span>
+          {showBalance && (
+            <span className="rounded-md border bg-panel px-2.5 py-1 font-mono text-xs tabular" aria-label={`${balance} credits`}>
+              {formatCredits(balance)} <span className="text-muted-foreground max-sm:hidden">credits</span>
+            </span>
+          )}
           {account === "signed-out" && (
             <Link href="/sign-in" className={navLink}>
               Sign in

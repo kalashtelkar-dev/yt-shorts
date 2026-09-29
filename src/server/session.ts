@@ -17,9 +17,13 @@ export async function getViewer(): Promise<SessionUser | null> {
   return session?.user ?? null;
 }
 
-/** The balance to show: the real one, or for a first-time visitor the starter credits they'd get. */
+/**
+ * The balance to show: the real one. A first-time visitor sees the starter credits they'll get on
+ * their first montage, but only in anonymous mode; with accounts, credits come with signing up.
+ */
 export async function viewerBalance(viewer: SessionUser | null): Promise<number> {
-  return viewer ? getBalance(viewer.id) : (await getSettings()).starterCredits;
+  if (viewer) return getBalance(viewer.id);
+  return env.AUTH_MODE === "full" ? 0 : (await getSettings()).starterCredits;
 }
 
 export class RateLimitedError extends Error {}

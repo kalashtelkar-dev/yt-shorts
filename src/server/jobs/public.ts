@@ -79,6 +79,7 @@ export async function listJobs(userId: string, limit = 50): Promise<LibraryItem[
       videoTitle: meta.title ?? null,
       progress: status === "succeeded" ? 1 : job.stepsTotal ? job.stepsDone / job.stepsTotal : 0,
       poster: thumb ? (posters[thumb] ?? null) : null,
+      error: status === "failed" ? (job.errorPublic ?? "Something went wrong. Your credits were returned.") : null,
     };
   });
 }

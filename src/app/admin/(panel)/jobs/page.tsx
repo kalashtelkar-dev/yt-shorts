@@ -72,7 +72,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
               </option>
             ))}
           </select>
-          <Button type="submit" variant="secondary">
+          <Button type="submit">
             Filter
           </Button>
         </form>
@@ -238,7 +238,7 @@ async function JobPane({ id, back }: { id: string; back: string }) {
             <p className="text-sm text-muted-foreground">Refund and retry are available once the job finishes.</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : "Refund credits"} variant="secondary">
+              <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : "Refund credits"}>
                 <input type="hidden" name="jobId" value={job.id} />
                 <Field label="Reason">
                   <Input name="reason" required minLength={3} maxLength={500} disabled={refunded || job.chargedCredits === 0} placeholder="e.g. Kills were cut off" />

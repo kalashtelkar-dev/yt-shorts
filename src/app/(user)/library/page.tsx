@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { Clapperboard, Play, VideoOff } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { formatWhen } from "@/lib/format";
@@ -58,7 +59,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
         </div>
       ) : (
         <>
-          <nav aria-label="Show" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
+          <nav aria-label="Show" className="-mx-4 -my-1 flex gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:mx-0 sm:px-1">
             {FILTERS.map((f) => (
               <Link
                 key={f.key}
@@ -98,14 +99,18 @@ function Tile({ item, priority }: { item: LibraryItem; priority: boolean }) {
   const making = item.status === "running" || item.status === "queued";
   const meta =
     item.status === "failed"
-      ? "Didn't finish, credits returned"
+      ? `${item.durationSec} s, ${formatWhen(item.createdAt)}`
       : making
         ? `${item.durationSec} s, ${item.status === "queued" ? "waiting to start" : `${Math.round(item.progress * 100)}% done`}`
         : `${item.durationSec} s${item.kills !== null ? `, ${item.kills} kills` : ""}, ${formatWhen(item.createdAt)}`;
   return (
     <Link href={`/jobs/${item.id}`} className="group flex flex-col gap-2 rounded-xl focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
       <span className="relative block aspect-[9/16] overflow-hidden rounded-xl border bg-panel transition-colors group-hover:border-input">
-        {item.poster && <Image src={item.poster} alt="" fill unoptimized priority={priority} sizes="(min-width: 1024px) 240px, (min-width: 640px) 30vw, 45vw" className="object-cover" />}
+        {item.poster ? (
+          <Image src={item.poster} alt="" fill unoptimized priority={priority} sizes="(min-width: 1024px) 240px, (min-width: 640px) 30vw, 45vw" className="object-cover" />
+        ) : (
+          <TileFace item={item} />
+        )}
         <span className={cn("absolute top-2 left-2 rounded-md bg-black/75 px-2 py-1 text-xs font-medium", status.className)}>{status.label}</span>
         {making && (
           <span className="absolute inset-x-0 bottom-0 h-1 bg-border" aria-hidden>
@@ -120,5 +125,37 @@ function Tile({ item, priority }: { item: LibraryItem; priority: boolean }) {
         <span className="truncate text-sm text-muted-foreground">{meta}</span>
       </span>
     </Link>
+  );
+}
+
+/** What a tile shows when there's no cover yet: why it failed, how far along it is, or a play mark. */
+function TileFace({ item }: { item: LibraryItem }) {
+  if (item.status === "failed") {
+    return (
+      <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[repeating-linear-gradient(135deg,transparent_0_10px,var(--panel-raised)_10px_11px)] p-4 pb-12 text-center">
+        <span className="flex size-11 items-center justify-center rounded-full border bg-background">
+          <VideoOff className="size-5 text-muted-foreground" aria-hidden />
+        </span>
+        <span className="text-sm font-medium">Didn&apos;t finish</span>
+        <span className="line-clamp-4 text-xs text-muted-foreground">{item.error}</span>
+        <span className="absolute inset-x-3 bottom-3 rounded-md border bg-background/80 px-2 py-1 text-xs text-success">Credits returned</span>
+      </span>
+    );
+  }
+  if (item.status === "running" || item.status === "queued") {
+    return (
+      <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
+        <Clapperboard className="size-6 text-muted-foreground" aria-hidden />
+        <span className="font-mono text-3xl tabular">{item.status === "queued" ? "0%" : `${Math.round(item.progress * 100)}%`}</span>
+        <span className="text-xs text-muted-foreground">{item.status === "queued" ? "Waiting to start" : "Making your montage"}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="absolute inset-0 flex items-center justify-center">
+      <span className="flex size-12 items-center justify-center rounded-full border bg-background/60">
+        <Play className="size-5 translate-x-px" aria-hidden />
+      </span>
+    </span>
   );
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { refundAction, retryAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/action-form";
-import { Empty, Field, JobStatus, PageHeader, Panel, Table, UserLabel } from "@/components/admin/bits";
+import { Empty, Field, JobStatus, PageHeader, Pager, pageOf, pageParam, Panel, Table, UserLabel } from "@/components/admin/bits";
 import { Input } from "@/components/ui/input";
 import { formatClock, formatCredits, formatRupees, formatTime, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
@@ -11,9 +11,10 @@ import { jobDetail } from "@/server/admin/queries";
 export const metadata: Metadata = { title: "Job" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminJobPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminJobPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ep?: string }> }) {
   await requireAdmin();
   const { id } = await params;
+  const ep = pageParam((await searchParams).ep);
   const d = await jobDetail(id);
   if (!d) notFound();
   const { job } = d;
@@ -37,7 +38,7 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <PageHeader title="Job">
+      <PageHeader title="Job" back={{ href: `/admin/jobs?job=${id}`, label: "Back to jobs" }}>
         <p className="font-mono text-xs text-muted-foreground">{job.id}</p>
       </PageHeader>
 
@@ -58,7 +59,7 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
             <p className="text-sm text-muted-foreground">Refund and retry are available once the job finishes.</p>
           ) : (
             <div className="flex flex-col gap-6">
-              <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : "Refund credits"} variant="secondary">
+              <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : "Refund credits"}>
                 <input type="hidden" name="jobId" value={job.id} />
                 <Field label="Reason">
                   <Input name="reason" required minLength={3} maxLength={500} disabled={refunded || job.chargedCredits === 0} placeholder="e.g. Kills were cut off" />
@@ -130,12 +131,13 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Panel title="Events (what the user saw)">
           <ol className="flex flex-col gap-1.5 font-mono text-xs">
-            {d.events.map((e) => (
+            {pageOf(d.events, ep).rows.map((e) => (
               <li key={e.id} className={e.level === "error" ? "text-danger" : e.level === "warn" ? "text-warning" : "text-muted-foreground"}>
                 <span className="tabular">{formatTime(e.createdAt.toISOString())}</span> <span className="font-sans">{e.message}</span>
               </li>
             ))}
           </ol>
+          <Pager page={ep} hasMore={pageOf(d.events, ep).hasMore} params={{}} param="ep" />
         </Panel>
         <Panel title="Credits">
           {d.ledger.length === 0 ? (

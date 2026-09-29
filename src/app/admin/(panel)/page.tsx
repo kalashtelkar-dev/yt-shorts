@@ -58,6 +58,9 @@ export default async function Overview() {
             ))}
           </ul>
         )}
+        <Link href="/admin/jobs?status=failed" className="mt-3 inline-flex rounded text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+          See all failed jobs
+        </Link>
       </Panel>
     </>
   );

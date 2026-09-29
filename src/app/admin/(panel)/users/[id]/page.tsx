@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { adjustCreditsAction, roleAction, suspendAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/action-form";
-import { Empty, Field, JobStatus, PageHeader, Panel, selectClass, Table } from "@/components/admin/bits";
+import { Empty, Field, JobStatus, PageHeader, Pager, pageParam, Panel, selectClass, Table } from "@/components/admin/bits";
 import { Input } from "@/components/ui/input";
 import { formatCredits, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
@@ -22,16 +22,19 @@ const KIND: Record<string, string> = {
   release: "Release",
 };
 
-export default async function UserPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function UserPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ lp?: string; jp?: string }> }) {
   const admin = await requireAdmin();
   const { id } = await params;
-  const u = await userDetail(id);
+  const sp = await searchParams;
+  const lp = pageParam(sp.lp);
+  const jp = pageParam(sp.jp);
+  const u = await userDetail(id, lp, jp);
   if (!u) notFound();
   const self = u.id === admin.id;
 
   return (
     <>
-      <PageHeader title={u.isAnonymous ? `Guest · ${u.id.slice(0, 8)}` : u.email}>
+      <PageHeader title={u.isAnonymous ? `Guest · ${u.id.slice(0, 8)}` : u.email} back={{ href: "/admin/users", label: "Back to users" }}>
         <p className="font-mono text-xs text-muted-foreground">{u.id}</p>
       </PageHeader>
 
@@ -74,7 +77,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                 <p className="text-sm text-muted-foreground">Suspended users can browse but can&apos;t start new montages.</p>
               </ActionForm>
               {!u.isAnonymous && (
-                <ActionForm action={roleAction} submitLabel="Save role" variant="secondary">
+                <ActionForm action={roleAction} submitLabel="Save role">
                   <input type="hidden" name="userId" value={u.id} />
                   <Field label="Role">
                     <select name="role" defaultValue={u.role} className={selectClass}>
@@ -116,6 +119,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
             </tbody>
           </Table>
         )}
+        <Pager page={lp} hasMore={u.ledgerHasMore} params={{ jp: jp ? String(jp) : undefined }} param="lp" />
       </Panel>
 
       <Panel title="Jobs">
@@ -147,6 +151,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
             </tbody>
           </Table>
         )}
+        <Pager page={jp} hasMore={u.jobsHasMore} params={{ lp: lp ? String(lp) : undefined }} param="jp" />
       </Panel>
     </>
   );

@@ -1,13 +1,15 @@
 "use client";
 
-import { Activity, Coins, LayoutDashboard, ListVideo, Package, Receipt, ScrollText, Users } from "lucide-react";
+import { Activity, Coins, Images, LayoutDashboard, ListVideo, Package, Receipt, ScrollText, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/admin", label: "Overview", short: "Overview", icon: LayoutDashboard },
   { href: "/admin/jobs", label: "Jobs", short: "Jobs", icon: ListVideo },
+  { href: "/admin/gallery", label: "Gallery", short: "Gallery", icon: Images },
   { href: "/admin/users", label: "Users", short: "Users", icon: Users },
   { href: "/admin/credits", label: "Credits", short: "Credits", icon: Coins },
   { href: "/admin/catalog", label: "Catalog", short: "Catalog", icon: Package },
@@ -19,6 +21,9 @@ const LINKS = [
 /** A row of tabs on phones, an icon rail with short labels on desktop. */
 export function AdminNav() {
   const path = usePathname();
+  const current = useRef<HTMLAnchorElement>(null);
+  // On phones the tab row scrolls; keep the current page in view.
+  useEffect(() => current.current?.scrollIntoView({ block: "nearest", inline: "nearest" }), [path]);
   return (
     <nav aria-label="Admin" className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] lg:flex-col lg:items-stretch lg:overflow-visible lg:px-2 lg:pb-0">
       {LINKS.map(({ href, label, short, icon: Icon }) => {
@@ -27,6 +32,7 @@ export function AdminNav() {
           <Link
             key={href}
             href={href}
+            ref={active ? current : undefined}
             title={label}
             aria-current={active ? "page" : undefined}
             className={cn(

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Empty, PageHeader, Panel, Table } from "@/components/admin/bits";
+import { Empty, PageHeader, Pager, pageOf, pageParam, Panel, Table } from "@/components/admin/bits";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCredits } from "@/lib/format";
 import { listCatalog, pipelinesInUse } from "@/server/admin/catalog";
@@ -8,14 +8,16 @@ import { requireAdmin } from "@/server/admin/guard";
 
 export const metadata: Metadata = { title: "Catalog" };
 
-export default async function CatalogPage() {
+export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   await requireAdmin();
+  const page = pageParam((await searchParams).page);
   const items = await listCatalog();
+  const shown = pageOf(items, page);
   const groups = pipelinesInUse(items);
   return (
     <>
       <PageHeader title="Catalog">
-        <Link href="/admin/catalog/new" className={buttonVariants({ variant: "secondary" })}>
+        <Link href="/admin/catalog/new" className={buttonVariants()}>
           New item
         </Link>
       </PageHeader>
@@ -34,7 +36,7 @@ export default async function CatalogPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((i) => (
+              {shown.rows.map((i) => (
                 <tr key={i.id}>
                   <td>
                     <Link href={`/admin/catalog/${i.id}`} className="font-medium hover:underline">
@@ -56,6 +58,7 @@ export default async function CatalogPage() {
             </tbody>
           </Table>
         )}
+        <Pager page={page} hasMore={shown.hasMore} params={{}} />
       </Panel>
       {groups.length > 0 && (
         <Panel title="Pipelines in use">

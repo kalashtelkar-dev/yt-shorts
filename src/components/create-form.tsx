@@ -31,6 +31,7 @@ export function CreateForm({
   intro,
   maxUploadMb,
   needsAccount = false,
+  starterCredits = 0,
 }: {
   items: CatalogOption[];
   balance: number;
@@ -38,6 +39,8 @@ export function CreateForm({
   maxUploadMb: number;
   /** AUTH_MODE=full and nobody is signed in: the form shows the price, and the button goes to sign-up. */
   needsAccount?: boolean;
+  /** Free credits a new account gets, shown to visitors who need to sign up. */
+  starterCredits?: number;
 }) {
   const [slug, setSlug] = useState(items[0].slug);
   const item = items.find((i) => i.slug === slug) ?? items[0];
@@ -198,6 +201,11 @@ export function CreateForm({
         )}
 
         <div className="sticky bottom-0 -mx-4 mt-auto flex flex-col gap-2 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          {needsAccount && starterCredits > 0 && (
+            <p className="text-sm text-muted-foreground">
+              New accounts get <span className="font-mono text-foreground tabular">{formatCredits(starterCredits)}</span> free credits.
+            </p>
+          )}
           {!needsAccount && short > 0 && (
             <p className="text-sm text-danger" aria-live="polite">
               This needs {formatCredits(price)} credits and you have {formatCredits(balance)}. Pick a shorter length.

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LogoMark } from "@/components/logo";
 import { notFound, redirect } from "next/navigation";
 import { brand } from "@/config/brand";
 import { env } from "@/config/env";
@@ -18,7 +19,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
       <header className="flex h-14 items-center border-b">
-        <Link href="/" className="-mx-1 rounded px-1 font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+        <Link href="/" className="-mx-1 flex items-center gap-2 rounded px-1 font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+          <LogoMark />
           {brand.name}
         </Link>
       </header>

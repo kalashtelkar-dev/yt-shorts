@@ -28,7 +28,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
           <option value="anonymous">Guests</option>
           <option value="all">Everyone</option>
         </select>
-        <Button type="submit" variant="secondary">
+        <Button type="submit">
           Search
         </Button>
       </form>

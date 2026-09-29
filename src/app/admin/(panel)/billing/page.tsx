@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { saveSettingsAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/action-form";
-import { Empty, Field, PageHeader, Panel, Table } from "@/components/admin/bits";
+import { Empty, Field, PageHeader, Pager, pageOf, pageParam, Panel, Table } from "@/components/admin/bits";
 import { Input } from "@/components/ui/input";
 import { formatClock, formatCredits, formatRupees } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -15,8 +15,9 @@ export const dynamic = "force-dynamic";
 
 const rupees = (paise: number | null) => (paise === null ? "" : (paise / 100).toFixed(2));
 
-export default async function BillingPage() {
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   await requireAdmin();
+  const page = pageParam((await searchParams).page);
   const [s, report] = await Promise.all([getSettings(), costReport(30)]);
   const sell = report.sellPaisePerCredit;
   const revenue = sell ? report.totals.netCredits * sell : null;
@@ -65,7 +66,7 @@ export default async function BillingPage() {
               </tr>
             </thead>
             <tbody>
-              {report.rows.map((r) => {
+              {pageOf(report.rows, page).rows.map((r) => {
                 const perMontage = r.succeeded ? Math.round(r.costPaise / r.succeeded) : null; // failed runs' cost spread over successes
                 const pricePaise = r.price !== null && sell ? r.price * sell : null;
                 const margin = pricePaise !== null && perMontage !== null ? pricePaise - perMontage : null;
@@ -89,6 +90,7 @@ export default async function BillingPage() {
             </tbody>
           </Table>
         )}
+        <Pager page={page} hasMore={pageOf(report.rows, page).hasMore} params={{}} />
         <p className="pt-3 text-xs text-muted-foreground">
           Cost per montage includes the compute of failed runs for the same style and length. Compute is billed at {formatRupees(report.costPaisePerSecond)} per second.
         </p>
@@ -103,7 +105,7 @@ export default async function BillingPage() {
             <Field label="Sell price per credit (₹, for checkout later)">
               <Input name="sellRupeesPerCredit" type="number" step="0.01" min={0.01} defaultValue={rupees(s.sellPaisePerCredit)} placeholder="Not set" className="font-mono" />
             </Field>
-            <Field label="Free starter credits for new visitors">
+            <Field label="Free starter credits for new accounts">
               <Input name="starterCredits" type="number" step={1} min={0} required defaultValue={s.starterCredits} className="font-mono" />
             </Field>
             <Field label="Montages running at once per user">

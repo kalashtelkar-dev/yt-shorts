@@ -19,7 +19,9 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Credits" />
-      <Panel title="Add or remove credits" className="max-w-xl">
+      {/* Wide screens: the form stays on the left while the log fills the right. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:items-start">
+      <Panel title="Add or remove credits" className="xl:sticky xl:top-6">
         <ActionForm action={adjustCreditsAction} submitLabel="Apply">
           <Field label="User (email or user ID)">
             <Input name="user" required autoComplete="off" placeholder="name@example.com or a user ID" />
@@ -52,7 +54,7 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
                 <tr key={l.id}>
                   <td className="font-mono text-xs whitespace-nowrap text-muted-foreground tabular">{formatWhen(l.createdAt.toISOString())}</td>
                   <td><UserLabel id={l.userId} email={email} isAnonymous={isAnonymous} /></td>
-                  <td>{KIND[l.kind] ?? l.kind}</td>
+                  <td className="whitespace-nowrap">{KIND[l.kind] ?? l.kind}</td>
                   <td className="text-right font-mono tabular">{l.delta > 0 ? `+${formatCredits(l.delta)}` : formatCredits(l.delta)}</td>
                   <td className="text-muted-foreground">
                     {l.reason}
@@ -70,6 +72,7 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
         )}
         <Pager page={page} hasMore={hasMore} params={{}} />
       </Panel>
+      </div>
     </>
   );
 }

@@ -5,7 +5,7 @@ import { catalogItems, jobs, mediaIndex, users } from "@/db/schema";
 import { chargeForJob, getBalance, grant } from "@/server/credits";
 import { startJob, sweep } from "./lifecycle";
 import { signedVideo } from "./public";
-import { ensureIndex, indexInputs, shuffleKills, styleInput } from "./staged";
+import { ensureIndex, indexInputs, introMoments, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
 const INDEX = { gameplay: "tpl_Yn4z8LVxNvFw", gameplayUpload: "tpl_MR-vL8OuXjf7", song: "tpl_8nvlocGpQ3nT" };
@@ -174,6 +174,15 @@ describe("staged styles (mock Engine X)", () => {
     }
     expect(orders.size).toBeGreaterThan(20); // different jobs, different orders
     expect(shuffleKills({ kills: [67, 176, 177], totalKills: 3 }, undefined)).toEqual({ kills: [{ t: 67 }, { t: 176, more: "+1 s" }], totalKills: 3 }); // bare numbers
+  });
+
+  it("takes intro moments from just before kills that have no other kill in the 12 s before them", () => {
+    const kills = { kills: [{ t: 5 }, { t: 89 }, { t: 92 }, { t: 238 }, { t: 400 }] };
+    const intro = introMoments(kills, "7").flex;
+    expect(intro.map((m) => m.start).sort((a, b) => a - b)).toEqual([80, 229, 391]); // 5 is too early, 92 follows 89
+    expect(introMoments(kills, "7")).toEqual({ flex: intro }); // one job, one order
+    expect(introMoments({ kills: [] }, "7")).toEqual({ flex: [] });
+    expect(introMoments(undefined, "7")).toEqual({ flex: [] });
   });
 
   it("sends a style only the inputs it declares", () => {

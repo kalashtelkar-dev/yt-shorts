@@ -184,6 +184,25 @@ export function shuffleKills(kills: unknown, seed: string | undefined): unknown 
   return { ...(kills as object), kills: groups.map(entry) };
 }
 
+const INTRO_LEAD = 9; // the intro starts this many seconds before a kill: the player alive and moving in a live round
+const INTRO_CLEAR = 12; // ...a kill with no other kill in the 12 s before it, so the intro shows none
+/**
+ * Intro moments, taken from the kill times instead of the image model: the approach to a kill (K-9 s onward). A real
+ * job's image model twice offered the agent-select screen as "knife out" (2026-09-29); before a kill the player is
+ * always in a live round. Up to 5, in a seeded random order.
+ */
+export function introMoments(kills: unknown, seed: string | undefined): { flex: { start: number; what: string }[] } {
+  const list = (kills as { kills?: unknown })?.kills;
+  const times = (Array.isArray(list) ? list : []).map((k) => Number(typeof k === "object" && k ? (k as { t?: unknown }).t : k)).filter(Number.isFinite).sort((a, b) => a - b);
+  const starts = times.filter((t, i) => t - INTRO_LEAD >= 1 && (i === 0 || t - times[i - 1] >= INTRO_CLEAR)).map((t) => t - INTRO_LEAD);
+  const next = seeded(seed ?? "1");
+  for (let n = starts.length - 1; n > 0; n--) {
+    const j = Math.floor(next() * (n + 1));
+    [starts[n], starts[j]] = [starts[j], starts[n]];
+  }
+  return { flex: starts.slice(0, 5).map((start) => ({ start, what: "moving through the map, just before a fight" })) };
+}
+
 // Always one line that draws nothing: an empty list would make Engine X skip the text steps and leave the render without
 // its text layer (pipelines/build.py draws only lines with text). Its late line start (a) keeps it through Ultra's
 // "only after the intro" filter.
@@ -195,7 +214,7 @@ export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<st
   const all: Record<string, string> = {
     video: String(g.video ?? ""),
     kills: JSON.stringify(shuffleKills(g.kills ?? { kills: [], totalKills: 0 }, i.killSeed)),
-    flex: JSON.stringify(g.flex ?? { flex: [] }),
+    flex: JSON.stringify(introMoments(g.kills, i.killSeed)),
     gameDurationSec: String(g.durationSec ?? ""),
     audio: String(s.audio ?? ""),
     songDurationSec: String(s.durationSec ?? ""),

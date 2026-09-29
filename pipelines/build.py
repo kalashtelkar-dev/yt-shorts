@@ -273,18 +273,24 @@ def ultra_video(first, dur, out=OUT, into=IN):
     t, f = motion("t", out, into), motion("in/60", out, into)
     return (first + layout + ";[v$1pre]rotate=a='" + t["a"] + "':c=black,zoompan=z='" + f["z"] + "':d=1:x='iw/2-iw/zoom/2+" + f["x"]
             + "':y='ih/2-ih/zoom/2':s=1080x1920:fps=60[v$1];")
-# The game sound in the same steps. It plays only where the picture runs at normal speed: natural pitch, exactly under
-# its picture, with 20 ms fades so the cuts don't click. In slow motion and the speed ramp it's silent and the song carries
-# the moment, as in the Kill Montage's slow clips. (Slowed tape-style, gunshots came out deep and dragged, the ramp squeaked,
-# and the voice removal ate those pitched sounds: the user heard it all as out of sync, 2026-09-29.) The silent pieces
-# still run at their step's speed (asetrate), so every piece is exactly as long as its picture.
+# The game sound in the same steps, always exactly under its picture:
+#  - normal speed (1x): natural pitch, 20 ms fades so the cuts don't click;
+#  - slow motion (0.5x, including the kill): slowed with the picture, tape-style (asetrate: lower, one clean boom per
+#    shot, never time-stretched); muting it left the kill shot silent, so the next gunfire, 2 s later, sounded like
+#    a late gunshot (the user, 2026-09-29);
+#  - the speed ramp: silent (sped up, it squeaked, and the voice removal ate it).
+# Every piece runs at its step's speed, so every piece is exactly as long as its picture.
 FADE = 0.02
 def ultra_sound():
     labels = "abcdefghijklmnop"[:len(ULTRA_STEPS)]
     u, pieces = 0.0, []
     for c, (length, v) in zip(labels, ULTRA_STEPS):
+        out = round(length / v - FADE, 4)  # the piece's length on screen, less the fade
+        fades = f",afade=t=in:d={FADE},afade=t=out:st={out:g}:d={FADE}"
         if v == 1:
-            shape = f",afade=t=in:d={FADE},afade=t=out:st={round(length - FADE, 4):g}:d={FADE}"
+            shape = fades
+        elif v == 0.5:
+            shape = f",asetrate={round(48000 * v)},aresample=48000" + fades
         else:
             shape = f",asetrate={round(48000 * v)},aresample=48000,volume=0"
         pieces.append(f"[g$1{c}]atrim={round(u, 4):g}:{round(u + length, 4):g},asetpts=PTS-STARTPTS{shape}[h$1{c}];")

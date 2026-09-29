@@ -8,7 +8,7 @@ The stage pipelines behind the edit styles (see `docs/edit-styles/`), built from
 | `gameplay-index-upload.json` | same, from an uploaded file | `tpl_MR-vL8OuXjf7` |
 | `song-index.json` | song link → audio, duration, loudness, lyrics as force-aligned segments | `tpl_8nvlocGpQ3nT` |
 | `style-kill-montage.json` | indexes → Kill Montage | `tpl_P0krMNymIjdb` |
-| `style-ultra-edit.json` | indexes → Ultra Edit | `tpl_3n1GmO9Glodb` |
+| `style-ultra-edit.json` | indexes → Ultra Edit | `tpl_9nMrXrS54mk3` |
 | `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_UbAzXGQjRxHH` |
 
 **Changing a pipeline:**

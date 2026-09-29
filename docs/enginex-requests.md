@@ -379,3 +379,11 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Ultra final mix:** both tracks go through `loudnorm` (game −16 LUFS, song −18 LUFS), then the limiter. Re-mixing the user's real 12:59 job this way puts the game sound at −4 to +4 dB against the song (it was −7 to −17).
 - **App:** when the gameplay index finds no kills, the job ends right away with the no-kills message and a refund; no render starts.
 - **Checked:** `check.py` (82 checks, including the kill decision: death dropped, a look-alike name dropped, a double kill kept, OCR misreads matched, empty results valid JSON). 123 app tests.
+
+## 34. Intro from before a kill; the kill's slow motion has its gunshot (2026-09-29)
+
+**Status:** style-ultra-edit imported as `tpl_9nMrXrS54mk3`, waiting to be published. It replaces `tpl_3n1GmO9Glodb`. The intro change is app code and already live.
+
+- **Intro (app, all styles):** `introMoments` builds the intro candidates from the kill times: 9 s before a kill that has no other kill in the 12 s before it (seeded order, up to 5). This replaces the image model's picks, which offered the agent-select screen twice, the second time labelled "Knife out and stylish movement". Verified on a fresh run: the intro is in-round gameplay (knife out, HUD, round timer).
+- **Ultra's kill sound:** the slow-motion steps (0.5×) carry the game sound again, slowed tape-style and faded. Only the ramp is silent. Muting slow motion (§32) left the kill shot silent; on a real sniper kill the shot fires exactly at K, where the slow motion starts, and the user heard the next gunfire 2 s later as a delayed gunshot. The flash-and-click test: 0–3 ms in normal speed and in the slowed kill, silence in the ramp.
+- **Also measured:** in that source the gunshot sound comes about 0.1 s after the shot appears in the picture, so the recording has a small delay of its own.

@@ -69,7 +69,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "ultra-edit",
     title: "Ultra Edit",
     description: "Every kill slowed down, sped up and spun into the next, with loud gunshots and your song's words.",
-    templateId: "tpl_3n1GmO9Glodb", // style-ultra-edit
+    templateId: "tpl_9nMrXrS54mk3", // style-ultra-edit
     indexTemplates: INDEX,
     enabled: true,
     beta: true,

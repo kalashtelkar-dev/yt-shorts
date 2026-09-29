@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { adminAuditLog, catalogItems, creditLedger, jobEvents, jobs, userBalances, users } from "@/db/schema";
 import { enginex } from "@/server/enginex/client";
@@ -143,6 +143,26 @@ export async function galleryItems(catalogSlug: string | null, page = 0) {
 export type JobStatus = (typeof jobs.$inferSelect)["status"];
 export const JOB_STATUSES: JobStatus[] = ["queued", "starting", "running", "succeeded", "failed", "canceled"];
 
+/**
+ * Run time per style and length, from finished jobs: average, fastest, slowest, and the credits that time uses
+ * (1 credit = 1 s, what usage pricing charges; older jobs were charged a fixed price, so chargedCredits would mislead).
+ */
+export async function runTimeStats() {
+  return db
+    .select({
+      catalogSlug: jobs.catalogSlug,
+      durationSec: jobs.durationSec,
+      runs: sql<number>`count(*)::int`,
+      avgMs: sql<number>`round(avg(${jobs.runMs}))::int`,
+      minMs: sql<number>`min(${jobs.runMs})::int`,
+      maxMs: sql<number>`max(${jobs.runMs})::int`,
+      avgCredits: sql<number>`round(avg(ceil(${jobs.runMs} / 1000.0)))::int`,
+    })
+    .from(jobs)
+    .where(and(eq(jobs.status, "succeeded"), sql`${jobs.runMs} is not null`))
+    .groupBy(jobs.catalogSlug, jobs.durationSec);
+}
+
 export async function listAllJobs(status: JobStatus | null, catalogSlug: string | null, page = 0, q = "") {
   const filters: SQL[] = [];
   if (status) filters.push(eq(jobs.status, status));
@@ -186,7 +206,10 @@ export async function listAllJobs(status: JobStatus | null, catalogSlug: string 
     .orderBy(desc(jobs.createdAt))
     .limit(PAGE + 1)
     .offset(page * PAGE);
-  const slugs = await db.select({ slug: catalogItems.slug, title: catalogItems.title }).from(catalogItems);
+  const slugs = await db
+    .select({ slug: catalogItems.slug, title: catalogItems.title, durations: catalogItems.durations })
+    .from(catalogItems)
+    .orderBy(asc(catalogItems.sortOrder));
   return { rows: rows.slice(0, PAGE), hasMore: rows.length > PAGE, slugs };
 }
 

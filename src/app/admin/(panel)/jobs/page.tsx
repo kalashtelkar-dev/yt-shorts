@@ -12,7 +12,7 @@ import { VideoPlayer } from "@/components/video-player";
 import { formatClock, formatCredits, formatRupees, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { requireAdmin } from "@/server/admin/guard";
-import { JOB_STATUSES, jobDetail, listAllJobs, type JobStatus as Status } from "@/server/admin/queries";
+import { JOB_STATUSES, jobDetail, listAllJobs, runTimeStats, type JobStatus as Status } from "@/server/admin/queries";
 import { signedVideo } from "@/server/jobs/public";
 
 export const metadata: Metadata = { title: "Jobs" };
@@ -36,7 +36,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const status = JOB_STATUSES.includes(sp.status as Status) ? (sp.status as Status) : null;
   const page = Math.max(0, Number(sp.page) || 0);
-  const { rows, hasMore, slugs } = await listAllJobs(status, sp.style || null, page, sp.q ?? "");
+  const [{ rows, hasMore, slugs }, times] = await Promise.all([listAllJobs(status, sp.style || null, page, sp.q ?? ""), runTimeStats()]);
   const titleOf = new Map(slugs.map((s) => [s.slug, s.title]));
   // A picked job (?job=) opens on every screen; otherwise desktop shows the newest and phones show the list.
   const picked = sp.job && /^[0-9a-f-]{36}$/i.test(sp.job) ? sp.job : null;
@@ -49,6 +49,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   return (
     <>
       <AutoRefresh active={rows.some((r) => ACTIVE.includes(r.status))} />
+      <RunTimes styles={slugs} times={times} />
       <div className="flex flex-wrap items-center justify-between gap-3 max-lg:flex-col max-lg:items-stretch">
         <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">Live queue</h1>
@@ -138,6 +139,72 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
         </section>
       </div>
     </>
+  );
+}
+
+type Times = Awaited<ReturnType<typeof runTimeStats>>;
+
+// How long each style takes at each length, so admins can set credit ranges from real runs.
+function RunTimes({ styles, times }: { styles: { slug: string; title: string; durations: number[] }[]; times: Times }) {
+  const lengths = [...new Set(styles.flatMap((s) => s.durations))].sort((a, b) => a - b);
+  const at = new Map(times.map((t) => [`${t.catalogSlug}:${t.durationSec}`, t]));
+  return (
+    <section aria-labelledby="run-times" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 id="run-times" className="text-lg font-semibold tracking-tight">
+          Run times
+        </h2>
+        <span className="text-xs text-muted-foreground">Finished jobs only. 1 credit is 1 second.</span>
+      </div>
+      <div className="overflow-x-auto rounded-xl border bg-panel">
+        <table className="w-full min-w-[40rem] text-sm">
+          <thead>
+            <tr className="border-b text-left text-xs text-muted-foreground">
+              <th scope="col" className="px-4 py-2.5 font-normal">
+                Style
+              </th>
+              {lengths.map((d) => (
+                <th key={d} scope="col" className="px-4 py-2.5 font-normal">
+                  {d} s
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {styles.map((s) => (
+              <tr key={s.slug} className="border-b last:border-b-0">
+                <th scope="row" className="px-4 py-3 text-left font-medium whitespace-nowrap">
+                  {s.title}
+                </th>
+                {lengths.map((d) => {
+                  const t = at.get(`${s.slug}:${d}`);
+                  return (
+                    <td key={d} className="px-4 py-3 align-top">
+                      {t ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="flex items-baseline gap-2">
+                            <span className="font-mono text-base tabular">{formatClock(t.avgMs)}</span>
+                            <span className="text-xs text-muted-foreground">avg, {formatCredits(t.avgCredits)} credits</span>
+                          </span>
+                          <span className="font-mono text-xs text-muted-foreground tabular">
+                            {formatClock(t.minMs)} fastest, {formatClock(t.maxMs)} slowest
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {t.runs} {t.runs === 1 ? "run" : "runs"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{s.durations.includes(d) ? "No runs yet" : "Not offered"}</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

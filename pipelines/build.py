@@ -414,7 +414,12 @@ def style(kind):
         g.util("lines_json", "json-parse", {"fenced": False}).edge("lines_in", "value", "lines_json", "text")
         g.util("lines_before", "json-filter", {"path": "s", "op": "less-or-equal"})
         g.edge("lines_json", "value", "lines_before", "value").edge("end_text", "value", "lines_before", "compareTo")
-        g.util("line_item", "json-stringify", {"indent": 0}).edge("lines_before", "items", "line_item", "value")
+        if ultra:  # the intro runs without lyrics: only lines that start once the kills do (the intro's length, see the cover)
+            g.util("lines_after_intro", "json-filter", {"path": "a", "op": "greater-or-equal"})
+            g.edge("lines_before", "items", "lines_after_intro", "value").edge("intro_len", "text", "lines_after_intro", "compareTo")
+            g.util("line_item", "json-stringify", {"indent": 0}).edge("lines_after_intro", "items", "line_item", "value")
+        else:
+            g.util("line_item", "json-stringify", {"indent": 0}).edge("lines_before", "items", "line_item", "value")
         g.util("lines_joined", "join", {"separator": ""}).edge("line_item", "value", "lines_joined", "value")
         prev = ("lines_joined", "value")
         def rewrite(nid, pattern, replace):

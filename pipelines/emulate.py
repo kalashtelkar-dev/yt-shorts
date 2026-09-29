@@ -51,8 +51,9 @@ def filt(items, p, compare_to):
         elif op == "matches": ok = re.search(str(cmp), jstr(v)) is not None
         else:
             a, b = num(v), num(cmp)
-            ok = {"equals": a == b, "not-equals": a != b, "greater": a > b, "greater-or-equal": a >= b,
-                  "less": a < b, "less-or-equal": a <= b}[op]
+            if op in ("equals", "not-equals"): ok = (a == b) == (op == "equals")
+            elif not isinstance(a, (int, float)) or not isinstance(b, (int, float)): ok = False  # JS: a missing value compares false
+            else: ok = {"greater": a > b, "greater-or-equal": a >= b, "less": a < b, "less-or-equal": a <= b}[op]
         if ok != bool(p.get("invert", False)): out.append(it)
     return Fan(out)
 

@@ -6,7 +6,7 @@ from emulate import run
 
 # lyric lines as the app sends them (src/server/jobs/lyrics.ts): 3-5 words, one or two rows, song seconds
 # lyrics as the app sends them (src/server/jobs/lyrics.ts): one item per step of a line building word by word
-NO_TEXT = {"s": 0, "e": 0, "t": "", "r": 0, "n": 0, "p": 0}  # the app always adds it, so the text steps never see an empty list
+NO_TEXT = {"s": 0, "e": 0, "t": "", "r": 0, "n": 0, "p": 0, "a": 9999}  # the app always adds it, so the text steps never see an empty list
 L1 = {"p": 0, "a": 0.49, "b": 1.21, "ix": -1, "iy": 0, "ox": 0, "oy": 1}   # in from the left, out downward
 L2 = {"p": 4, "a": 1.21, "b": 2.69, "ix": 0, "iy": 1, "ox": 1, "oy": 0}    # in from the bottom, out to the right
 L3 = {"p": 5, "a": 2.69, "b": 4.09, "ix": 1, "iy": 0, "ox": 0, "oy": -1}   # in from the right, out upward
@@ -166,7 +166,11 @@ check("ultra: zoom-tilt-slide out and pinch in on every clip", fc(u).count("rota
 check("ultra: play time = flex + 6.669 s per kill, faded 0.8 s before", abs(fade(u) - (min(1.25 + 2 * 6.669, 17.9) - 0.8)) < 0.01)
 fu = final("style-ultra-edit", up)[final("style-ultra-edit", up).index("-filter_complex") + 1]
 check("ultra: clean game sound loud under the song, limited", "volume=1.4[g]" in fu and "volume=0.85[m]" in fu and "alimiter=limit=0.95" in fu)
-check("ultra: karaoke lyrics", fc(u).count("drawtext") == len(draws))
+# Ultra: no lyrics over the intro (1.25 s here): "I'm so cool" (0.49) and "with my / pink" (1.21) start before it; "and my knee" (2.69) after
+ut = re.findall(r"text='([^']*)'", fc(u))
+check("ultra: lyrics start with the kills, never over the intro", ut == ["and my knee"])
+check("ultra: every line sung during the intro -> renders without text (the no-text line keeps the text steps running)", "drawtext" not in fc(build("style-ultra-edit", up, w=[L for L in lines if L.get("a", 0) < 1.25] + [NO_TEXT])))
+check("lyrical (not Ultra) still shows the lyrics over its intro", "text='I’m'" in fc(b))
 # the cover still (thumbnail): the first kill = intro length + 2.3 s, never past the fade; taken from the cut
 def cover(name, p, song=17.9):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]

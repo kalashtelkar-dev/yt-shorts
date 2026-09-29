@@ -184,8 +184,9 @@ export function shuffleKills(kills: unknown, seed: string | undefined): unknown 
 }
 
 // Always one line that draws nothing: an empty list would make Engine X skip the text steps and leave the render without
-// its text layer (pipelines/build.py draws only lines with text).
-const NO_TEXT = { s: 0, e: 0, t: "", r: 0, n: 0, p: 0 };
+// its text layer (pipelines/build.py draws only lines with text). Its late line start (a) keeps it through Ultra's
+// "only after the intro" filter.
+const NO_TEXT = { s: 0, e: 0, t: "", r: 0, n: 0, p: 0, a: 9999 };
 
 /** The style pipeline's inputs, from the two indexes. Only inputs the pipeline declares are sent. */
 export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<string, unknown>, s: Record<string, unknown>, declared: string[] | null) {

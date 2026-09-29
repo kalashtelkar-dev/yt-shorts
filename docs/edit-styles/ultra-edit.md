@@ -44,7 +44,7 @@ That's 6.67 s per kill on screen, so a 30 s edit holds the intro plus about four
 
 ## Lyrics
 
-Same as the Lyrical Kill Montage (see `lyrical-kill-montage.md`):
+**The lyrics start with the kills (the user's choice, 2026-09-29):** the intro plays without words. Only lines that start at or after the intro's end are shown (the intro's length comes from the plan, via the same node the cover still uses). Otherwise the same as the Lyrical Kill Montage (see `lyrical-kill-montage.md`):
 - force-aligned lines of 3–5 words, building word by word, never before the voice;
 - a random spot per line, never the centre;
 - one of ten looks per job.

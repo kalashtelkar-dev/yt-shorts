@@ -333,7 +333,7 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 
 ## 30. Lyric slides and a cover still (2026-09-29)
 
-**Status:** imported as drafts, waiting to be published: style-kill-montage `tpl_LPSgYFAGCRNm`, style-lyrical-kill-montage `tpl_1NpYWtbQLSyl`, style-ultra-edit `tpl_a0YeRa5UoNGV`. They replace `tpl_9zr6-gKhYQ-c`, `tpl_j3wvbIFebE78` and `tpl_bmpCX99umXNl`.
+**Status:** imported as drafts, waiting to be published: style-kill-montage `tpl_LPSgYFAGCRNm`, style-lyrical-kill-montage `tpl_1NpYWtbQLSyl`, style-ultra-edit `tpl_77AP46lxA4xC`. They replace `tpl_9zr6-gKhYQ-c`, `tpl_j3wvbIFebE78` and `tpl_bmpCX99umXNl`.
 
 - **Lyric slides (Lyrical and Ultra):**
   - **What the app adds:** each lyric step now carries its line's start `a` and end `b`, and the sides `ix,iy` / `ox,oy` (−1, 0 or 1), picked per line. A row's last step stays up 0.2 s longer.
@@ -342,3 +342,5 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
   - **Emulator:** it now handles `$10`–`$14` as JavaScript does.
 - **Cover still (all styles):** a `thumbnail` step (CPU `video/custom`) takes one 720 px JPEG from the cut. It's taken at the intro's length + 2.3 s, the first kill, capped at the fade start; with no intro, 2.3 s. It's a new output, `thumbnail`. The app keeps its key in `outputMeta.thumbnailKey` and signs it with the video for the player's `poster`.
 - **Checked:** `check.py` (69 checks). Local ffmpeg 7.1 renders show the slides (in from the left, out downward, with the next line rising from below), and a cover from the real Ultra cut at 3.55 s (the first kill, 78 KB).
+
+- **Ultra's lyrics start with the kills:** a new filter, `lines_after_intro` (json-filter `a` >= `intro_len`), keeps only lines that start after the intro. The app's no-text line carries `a: 9999`, so it always passes and the text steps never get an empty list. Ultra was re-imported as `tpl_77AP46lxA4xC`; Kill Montage and Lyrical are unchanged from the drafts above.

@@ -32,6 +32,9 @@ export type LibraryItem = {
   durationSec: number;
   kills: number | null;
   videoTitle: string | null;
+  progress: number; // 0..1
+  /** Signed link to the cover still, fresh on every render (never stored). */
+  poster: string | null;
 };
 
 export type CatalogOption = {

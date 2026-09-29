@@ -57,16 +57,28 @@ export async function listJobs(userId: string, limit = 50): Promise<LibraryItem[
     .where(eq(jobs.userId, userId))
     .orderBy(desc(jobs.createdAt))
     .limit(limit);
+  const metaOf = (job: typeof jobs.$inferSelect) => (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null; thumbnailKey?: unknown };
+  const thumbOf = (job: typeof jobs.$inferSelect) => {
+    const k = metaOf(job).thumbnailKey;
+    return job.status === "succeeded" && typeof k === "string" ? k : null;
+  };
+  // One signing call for every cover on the page; the library still renders if it fails.
+  const keys = rows.map((r) => thumbOf(r.job)).filter((k): k is string => !!k);
+  const posters: Record<string, string> = keys.length ? await enginex().signOutput(keys, 3600).catch(() => ({})) : {};
   return rows.map(({ job, title }) => {
-    const meta = (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null };
+    const meta = metaOf(job);
+    const status = toPublicStatus(job.status);
+    const thumb = thumbOf(job);
     return {
       id: job.id,
       title,
-      status: toPublicStatus(job.status),
+      status,
       createdAt: job.createdAt.toISOString(),
       durationSec: job.durationSec,
       kills: typeof meta.totalKills === "number" ? meta.totalKills : null,
       videoTitle: meta.title ?? null,
+      progress: status === "succeeded" ? 1 : job.stepsTotal ? job.stepsDone / job.stepsTotal : 0,
+      poster: thumb ? (posters[thumb] ?? null) : null,
     };
   });
 }

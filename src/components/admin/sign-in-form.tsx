@@ -6,6 +6,7 @@ import { signInAction } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/password-input";
 
 export function SignInForm() {
   const [state, action, pending] = useActionState(signInAction, null);
@@ -17,7 +18,7 @@ export function SignInForm() {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required />
+        <PasswordInput id="password" name="password" autoComplete="current-password" required />
       </div>
       {state && !state.ok && (
         <p role="alert" className="text-sm text-danger">

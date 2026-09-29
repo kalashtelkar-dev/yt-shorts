@@ -109,3 +109,16 @@ export async function healthView(range: Range): Promise<HealthView> {
     generatedAt: new Date(now).toISOString(),
   };
 }
+
+/** Latest check of each critical service, for the admin queue's status strip. */
+export async function fleetSnapshot(): Promise<{ id: string; name: string; status: ProbeStatus | "unknown"; latencyMs: number | null }[]> {
+  const probes = (await probeCatalog()).filter((p) => p.critical);
+  if (!probes.length) return [];
+  const idList = sql.join(probes.map((p) => sql`${p.id}`), sql`, `);
+  const latest = await db.execute<{ probe_id: string; status: ProbeStatus; latency_ms: number | null }>(sql`
+    select distinct on (probe_id) probe_id, status, latency_ms
+    from probe_results where probe_id in (${idList}) and checked_at > now() - interval '10 minutes'
+    order by probe_id, checked_at desc`);
+  const by = new Map(latest.map((r) => [r.probe_id, r]));
+  return probes.map((p) => ({ id: p.id, name: p.name, status: by.get(p.id)?.status ?? "unknown", latencyMs: by.get(p.id)?.latency_ms ?? null }));
+}

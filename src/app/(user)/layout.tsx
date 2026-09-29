@@ -39,7 +39,7 @@ export default async function UserLayout({ children }: { children: React.ReactNo
           )}
         </nav>
       </header>
-      <main className="flex-1 py-8 sm:py-12">{children}</main>
+      <main className="flex flex-1 flex-col py-5 sm:py-10">{children}</main>
     </div>
   );
 }

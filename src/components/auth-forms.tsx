@@ -1,11 +1,12 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useActionState, useId } from "react";
+import { useActionState, useId, useState } from "react";
 import { type AuthState, changePasswordAction, forgotAction, resendAction, resetAction, signInAction, signUpAction, verifyAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/password-input";
 import { cn } from "@/lib/utils";
 
 // Every form is a React form action: it works before hydration and shows a pending state.
@@ -43,6 +44,7 @@ function EmailField({ state }: { state: AuthState }) {
         spellCheck={false}
         required
         maxLength={254}
+        placeholder="you@example.com"
         defaultValue={state?.email}
         aria-invalid={invalid}
       />
@@ -55,42 +57,59 @@ function PasswordField({ state, isNew, label = "Password" }: { state: AuthState;
   return (
     <div className="grid gap-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input
+      <PasswordInput
         id={id}
         name="password"
-        type="password"
         autoComplete={isNew ? "new-password" : "current-password"}
+        placeholder={isNew ? "At least 8 characters" : undefined}
         required
         minLength={isNew ? 8 : undefined}
         maxLength={128}
         aria-invalid={state?.field === "password"}
-        aria-describedby={isNew ? `${id}-help` : undefined}
       />
-      {isNew && (
-        <p id={`${id}-help`} className="text-sm text-muted-foreground">
-          At least 8 characters.
-        </p>
-      )}
     </div>
   );
 }
 
+/** One real input under six display boxes, so paste and one-time-code autofill just work. */
 function CodeField({ state }: { state: AuthState }) {
+  const [code, setCode] = useState("");
+  const [focused, setFocused] = useState(true);
   return (
     <div className="grid gap-2">
       <Label htmlFor="otp">6-digit code</Label>
-      <Input
-        id="otp"
-        name="otp"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        pattern="\d{6}"
-        maxLength={6}
-        required
-        autoFocus
-        className="font-mono text-lg tracking-[0.4em] tabular"
-        aria-invalid={state?.field === "otp"}
-      />
+      <div className="relative">
+        <div className="grid grid-cols-6 gap-2" aria-hidden>
+          {Array.from({ length: 6 }, (_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "flex h-12 items-center justify-center rounded-lg border bg-panel font-mono text-xl tabular sm:h-14",
+                focused && i === Math.min(code.length, 5) ? "border-danger" : code[i] ? "border-input" : "border-border",
+                state?.field === "otp" && "border-danger/60",
+              )}
+            >
+              {code[i]}
+            </span>
+          ))}
+        </div>
+        <input
+          id="otp"
+          name="otp"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="\d{6}"
+          maxLength={6}
+          required
+          autoFocus
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className="absolute inset-0 size-full cursor-text opacity-0"
+          aria-invalid={state?.field === "otp"}
+        />
+      </div>
     </div>
   );
 }
@@ -184,7 +203,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
       <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />
       <div className="grid gap-2">
         <Label htmlFor="currentPassword">Current password</Label>
-        <Input id="currentPassword" name="currentPassword" type="password" autoComplete="current-password" required maxLength={128} aria-invalid={state?.field === "currentPassword"} />
+        <PasswordInput id="currentPassword" name="currentPassword" autoComplete="current-password" required maxLength={128} aria-invalid={state?.field === "currentPassword"} />
       </div>
       <PasswordField state={state} isNew label="New password" />
       <Message state={state} />

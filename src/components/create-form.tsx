@@ -81,12 +81,15 @@ export function CreateForm({
   const fieldError = errorFor("url") ?? (source === "upload" ? uploadError : null) ?? visibleFields.map((f) => errorFor(f.name)).find(Boolean) ?? null;
 
   return (
-    <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start lg:gap-14">
+    // Phones: exactly one screen (below the header), no scrolling. The form keeps its size and the preview takes
+    // whatever height is left; the page only grows past the screen if the form alone doesn't fit.
+    <div className="flex flex-col gap-3 max-lg:h-[calc(100dvh-6rem)] max-lg:min-h-fit lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start lg:gap-14">
       {/* The one memorable element: a 9:16 frame hinting at what this style makes. On phones only its top 3/4
           shows, fading into a blur at the bottom, so the form starts higher up. */}
-      <div className="relative mx-auto w-full max-w-[min(16rem,calc(52dvh*9/16))] lg:sticky lg:top-8 lg:mx-0 lg:max-w-[340px]">
-      <div className="aspect-[9/12] overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:aspect-auto lg:overflow-visible lg:[mask-image:none]">
-      <Frame>
+      <div className="flex min-h-36 flex-1 basis-0 justify-center lg:sticky lg:top-8 lg:block lg:min-h-0 lg:flex-none lg:basis-auto">
+      <div className="relative aspect-[9/12] h-full max-w-full lg:aspect-auto lg:h-auto lg:w-full lg:max-w-[340px]">
+      <div className="size-full overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:h-auto lg:overflow-visible lg:[mask-image:none]">
+      <Frame className="@container">
         {/* The art is cropped to 3:4: on phones it fills exactly the visible top 3/4 of the frame; desktop's full
             9:16 frame shows its middle. */}
         <div className="absolute inset-x-0 top-0 h-3/4 lg:h-full">
@@ -94,7 +97,10 @@ export function CreateForm({
         </div>
         <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 lg:top-4 lg:right-4">
           <KillRow killer={playerName || "you"} victim="Reyna" you />
-          <KillRow killer={playerName || "you"} victim="Jett" you />
+          {/* A small preview (short phones) keeps one row and the length, so the art still shows. */}
+          <div className="@max-[12rem]:hidden">
+            <KillRow killer={playerName || "you"} victim="Jett" you />
+          </div>
         </div>
         {hint.lyric && (
           <p className="absolute top-[38%] left-4 text-xl leading-none font-black tracking-tight [text-shadow:2px_2px_0_#000] lg:text-3xl" aria-hidden>
@@ -105,12 +111,13 @@ export function CreateForm({
         )}
         {hint.slow && <span className="absolute bottom-[44%] left-3 rounded bg-black/70 px-1.5 py-1 font-mono text-[11px] lg:bottom-14 lg:left-4">0.5× slow-mo</span>}
         <p className="absolute inset-x-3 bottom-[37%] flex justify-between gap-2 font-mono text-[11px] lg:inset-x-4 lg:bottom-4 lg:text-xs">
-          <span className="truncate rounded bg-black/70 px-1.5 py-1">{item.title}</span>
+          <span className="truncate rounded bg-black/70 px-1.5 py-1 @max-[12rem]:invisible">{item.title}</span>
           <span className="rounded bg-black/70 px-1.5 py-1 tabular">{durationSec}s</span>
         </p>
       </Frame>
       </div>
       <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 backdrop-blur-[3px] [mask-image:linear-gradient(to_top,#000,transparent)] lg:hidden" />
+      </div>
       </div>
 
       <form
@@ -126,7 +133,7 @@ export function CreateForm({
           e.preventDefault();
           confirmRef.current?.showModal();
         }}
-        className="flex min-w-0 flex-col gap-4 lg:max-w-lg lg:gap-6"
+        className="flex min-w-0 shrink-0 flex-col gap-3 lg:max-w-lg lg:gap-6"
       >
         <div className="max-lg:sr-only">{intro}</div>
 
@@ -150,7 +157,7 @@ export function CreateForm({
                 </label>
               ))}
             </div>
-            <p className="min-h-10 text-sm text-muted-foreground" aria-live="polite">
+            <p className="text-sm text-muted-foreground max-lg:sr-only lg:min-h-10" aria-live="polite">
               {item.beta && <span className="mr-1.5 rounded border border-warning/40 px-1.5 py-0.5 text-[11px] text-warning">Beta</span>}
               {item.description}
             </p>
@@ -330,12 +337,12 @@ export function CreateForm({
 
 const rowInput = "h-8 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground/80";
 const rowButton =
-  "flex size-10 shrink-0 items-center justify-center rounded-lg border text-foreground hover:bg-panel-raised focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
+  "-my-1 flex size-10 shrink-0 items-center justify-center rounded-lg border text-foreground hover:bg-panel-raised focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
 
 /** One line of the form card: a small label above a borderless input. */
 function Row({ id, label, invalid, children }: { id: string; label: string; invalid: boolean; children: React.ReactNode }) {
   return (
-    <div className={cn("flex flex-col gap-0.5 border-b px-4 pt-2.5 pb-2 last:border-b-0 focus-within:bg-panel-raised", invalid && "shadow-[inset_2px_0_0_var(--accent-red)]")}>
+    <div className={cn("flex flex-col border-b px-4 pt-2 pb-1.5 last:border-b-0 focus-within:bg-panel-raised lg:gap-0.5 lg:pt-2.5 lg:pb-2", invalid && "shadow-[inset_2px_0_0_var(--accent-red)]")}>
       <label htmlFor={id} className={cn("text-xs", invalid ? "text-danger" : "text-muted-foreground")}>
         {label}
       </label>
@@ -347,7 +354,7 @@ function Row({ id, label, invalid, children }: { id: string; label: string; inva
 /** The last line of the form card: what this edit usually costs, with how it's worked out behind the i. */
 function CostRow({ range, available, short, needsAccount, starterCredits }: { range: { min: number; max: number }; available: number; short: number; needsAccount: boolean; starterCredits: number }) {
   return (
-    <details className="group border-t px-4 py-3">
+    <details className="group border-t px-4 py-2.5 lg:py-3">
       <summary className="flex min-h-7 cursor-pointer list-none items-center justify-between gap-3 rounded select-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
         <span className="text-sm text-muted-foreground">Estimated cost</span>
         <span className="flex items-center gap-2 text-sm">

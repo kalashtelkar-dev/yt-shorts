@@ -355,3 +355,12 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Fix, all styles:** the answer shape drops `notes`, since nothing reads it. It now says "with no other keys and nothing before or after the JSON".
 - **Fix, Ultra:** the planner is told an exact count, "use the first N kill entries", from `ULTRA_FIT` by length (15 s → 3, 30 s → 5, 45 s → 7, 60 s → 9, 90 s → 14, 120 s → 18, otherwise 9). There's no fuzzy "as many as fit", and no rendering 12 clips for a 30 s edit.
 - **Checked:** `check.py` (76 checks). The failed job's inputs, rendered into the new prompt, read "use the first 5 kill entries".
+
+## 32. Ultra's game sound only at normal speed; every job runs fresh (2026-09-29)
+
+**Status:** style-ultra-edit imported as `tpl_IuDfzl7HgL2b`, waiting to be published. It replaces `tpl_vHJuWtlDPYYj`. Kill Montage and Lyrical are unchanged.
+
+- **The user:** the game sound felt wrong everywhere (slow motion, the ramp, dropouts, even at normal speed) and blamed reused data.
+- **Measured on their 12:59 job:** the edit is in sync with the recording to within a frame. The final is identical frame for frame, and its sound is 5 ms off. But the voice removal kept only 8–38% of the sound in some stretches.
+- **Fix:** Ultra's game sound plays only in the 1× steps (natural pitch, 20 ms fades). The slow and ramp steps are silent (`volume=0`, same lengths). The flash-and-click test: clicks exactly on their flashes (0–3 ms) in normal speed, silence in slow motion and the ramp.
+- **App:** every job now runs its own gameplay and song index; nothing is shared between jobs (the index key includes the job id).

@@ -23,7 +23,7 @@ The third style (the user's spec, 2026-09-29): every kill gets the same cinemati
 
 That's 6.67 s per kill on screen, so a 30 s edit holds the intro plus about four kills (the planner is told to plan only that many).
 - **One list for picture and sound:** the picture's time map (one piecewise `setpts`) and the game sound's pieces are both generated from the same step list, so they can't drift apart.
-- **Tape-style sound:** each piece plays at its step's speed using `asetrate`, so slower sounds lower and a gunshot stays one sound, exactly under its picture.
+- **Game sound only at normal speed (the user, 2026-09-29):** the game sound plays in the 1× steps at natural pitch, exactly under its picture, with 20 ms fades. In slow motion and the ramp it's silent and the song carries the moment, as in the Kill Montage's slow clips. The shots leading up to each kill fall in the 1× step just before it. Tape-style slow-down (the version before) made gunshots deep and dragged, made the ramp squeak, and those pitched sounds were what the voice removal ate; the user heard all of it as out of sync. The silent pieces still run at their step's speed, so every piece is exactly as long as its picture.
 - **The first version was out of sync (2026-09-29):**
   - **The flaw:** it warped the picture along a smooth curve but sped the sound up at one average rate (and time-stretched it with `atempo`, which repeats slices).
   - **Measured on the user's job:** the sound ran up to about 0.5 s ahead of the picture in every ramp.

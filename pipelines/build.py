@@ -249,14 +249,21 @@ def ultra_video(first, dur, out=OUT, into=IN):
     t, f = motion("t", out, into), motion("in/60", out, into)
     return (first + layout + ";[v$1pre]rotate=a='" + t["a"] + "':c=black,zoompan=z='" + f["z"] + "':d=1:x='iw/2-iw/zoom/2+" + f["x"]
             + "':y='ih/2-ih/zoom/2':s=1080x1920:fps=60[v$1];")
-# The game sound in the same steps, each played tape-style at its step's speed (asetrate: slower is lower, so a gunshot
-# stays one sound exactly under its picture; atempo's time-stretch repeated slices, doubling shots in slow motion).
+# The game sound in the same steps. It plays only where the picture runs at normal speed: natural pitch, exactly under
+# its picture, with 20 ms fades so the cuts don't click. In slow motion and the speed ramp it's silent and the song carries
+# the moment, as in the Kill Montage's slow clips. (Slowed tape-style, gunshots came out deep and dragged, the ramp squeaked,
+# and the voice removal ate those pitched sounds: the user heard it all as out of sync, 2026-09-29.) The silent pieces
+# still run at their step's speed (asetrate), so every piece is exactly as long as its picture.
+FADE = 0.02
 def ultra_sound():
     labels = "abcdefghijklmnop"[:len(ULTRA_STEPS)]
     u, pieces = 0.0, []
     for c, (length, v) in zip(labels, ULTRA_STEPS):
-        speed = "" if v == 1 else f",asetrate={round(48000 * v)},aresample=48000"
-        pieces.append(f"[g$1{c}]atrim={round(u, 4):g}:{round(u + length, 4):g},asetpts=PTS-STARTPTS{speed}[h$1{c}];")
+        if v == 1:
+            shape = f",afade=t=in:d={FADE},afade=t=out:st={round(length - FADE, 4):g}:d={FADE}"
+        else:
+            shape = f",asetrate={round(48000 * v)},aresample=48000,volume=0"
+        pieces.append(f"[g$1{c}]atrim={round(u, 4):g}:{round(u + length, 4):g},asetpts=PTS-STARTPTS{shape}[h$1{c}];")
         u += length
     return ("amovie='{in0}':seek_point=$2,atrim=start=$2:duration=6,asetpts=PTS-STARTPTS,aresample=48000,asplit=" + str(len(labels))
             + "".join(f"[g$1{c}]" for c in labels) + ";" + "".join(pieces) + "".join(f"[h$1{c}]" for c in labels) + f"concat=n={len(labels)}:v=0:a=1[a$1];")

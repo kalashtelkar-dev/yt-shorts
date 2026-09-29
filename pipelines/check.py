@@ -1,6 +1,6 @@
 """Regression check for the style pipelines: builds each style's render command from fixed inputs with the
 emulator and asserts what it must contain. Run after changing build.py:  python3 pipelines/check.py"""
-import json, os, sys
+import json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 from emulate import run
 
@@ -36,7 +36,7 @@ def build(name, p, song=17.9, cap=60, w=lines, look="0"):
     return run(g, seeds, ("render_gate", "value"))
 def fc(args): return args[args.index("-filter_complex") + 1]
 def t(args): return float(args[args.index("-t") + 1])
-def fade(args): return float(fc(args).split("fade=t=out:st=")[1].split(":")[0])
+def fade(args): return float(re.search(r"(?<!a)fade=t=out:st=([\d.]+)", fc(args)).group(1))  # the picture's fade out, not a sound fade
 
 failures = []
 def check(label, cond):
@@ -161,7 +161,8 @@ kill1 = fc(u)[fc(u).index("[v1];") + 5:fc(u).index("[a2];")]
 pic = [(float(a), float(v)) for a, v in re.findall(r"\(T-([\d.]+)\)/([\d.]+)", kill1)]
 snd = [(float(a), round(int(r) / 48000, 4) if r else 1.0) for a, r in re.findall(r"atrim=([\d.]+):[\d.]+,asetpts=PTS-STARTPTS(?:,asetrate=(\d+))?", kill1)]
 check("ultra: picture and game sound change speed at the same moments by the same amounts", len(pic) == 12 and pic == snd)
-check("ultra: game sound slowed tape-style (one sound per shot), never time-stretched", "atempo" not in fc(u) and fc(u).count("asetrate=24000") == 4 and fc(u).count("amovie='{in0}'") == 3 and "amovie='{in1}'" not in fc(u))
+check("ultra: game sound only at normal speed (natural pitch, 20 ms fades), silent in slow motion and the ramp",
+      "atempo" not in fc(u) and fc(u).count(",volume=0[") == 20 and fc(u).count("afade=t=in:d=0.02") == 4 and fc(u).count("amovie='{in0}'") == 3 and "amovie='{in1}'" not in fc(u))
 check("ultra: zoom-tilt-slide out and pinch in on every clip", fc(u).count("rotate=a=") == 3 and fc(u).count("zoompan=z='1+0.6*") == 3)
 check("ultra: play time = flex + 6.669 s per kill, faded 0.8 s before", abs(fade(u) - (min(1.25 + 2 * 6.669, 17.9) - 0.8)) < 0.01)
 fu = final("style-ultra-edit", up)[final("style-ultra-edit", up).index("-filter_complex") + 1]

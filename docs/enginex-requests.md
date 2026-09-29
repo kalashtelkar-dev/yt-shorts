@@ -364,3 +364,18 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Measured on their 12:59 job:** the edit is in sync with the recording to within a frame. The final is identical frame for frame, and its sound is 5 ms off. But the voice removal kept only 8–38% of the sound in some stretches.
 - **Fix:** Ultra's game sound plays only in the 1× steps (natural pitch, 20 ms fades). The slow and ramp steps are silent (`volume=0`, same lengths). The flash-and-click test: clicks exactly on their flashes (0–3 ms) in normal speed, silence in slow motion and the ramp.
 - **App:** every job now runs its own gameplay and song index; nothing is shared between jobs (the index key includes the job id).
+
+## 33. The right gameplay: deaths aren't kills, no menus in the intro, and audible game sound (2026-09-29)
+
+**Status:** imported as drafts, waiting to be published: gameplay-index `tpl_Yn4z8LVxNvFw` (replaces `tpl_yYsSXHkQXJBP`), gameplay-index-upload `tpl_MR-vL8OuXjf7` (replaces `tpl_K6Lo3rwFya4A`), style-ultra-edit `tpl_3n1GmO9Glodb` (replaces `tpl_IuDfzl7HgL2b`). Kill Montage, Lyrical and song-index are unchanged.
+
+- **What the user's 13:14 Ultra video showed:**
+  - **The intro was the agent-select screen.** The intro finder offered "Agent select screen showing Neon and Raze" at 0 s.
+  - **One kill clip was the player dying.** The kill feed read `taffishmegafan > Me`, and the kill finder counted it despite the instruction.
+  - **The game sound was 7–17 dB under the song.**
+- **gameplay-index (both):**
+  - **Kill finder:** the model now only transcribes rows with the player in them as `{t, killer, victim}`. The pipeline keeps a row only when the killer matches the player's OCR-tolerant name pattern (`^\W*(?:name)\W*$` inside the killer field). This runs on the rows as text (mark, drop, tidy, wrap), because a filter's list would fan out, or be skipped when empty. The output is `{"kills":[...]}`.
+  - **Intro finder:** told "only inside a live round, first-person with the weapon and HUD; never agent select, loading, menus, the scoreboard, death/spectating screens or replays".
+- **Ultra final mix:** both tracks go through `loudnorm` (game −16 LUFS, song −18 LUFS), then the limiter. Re-mixing the user's real 12:59 job this way puts the game sound at −4 to +4 dB against the song (it was −7 to −17).
+- **App:** when the gameplay index finds no kills, the job ends right away with the no-kills message and a refund; no render starts.
+- **Checked:** `check.py` (82 checks, including the kill decision: death dropped, a look-alike name dropped, a double kill kept, OCR misreads matched, empty results valid JSON). 123 app tests.

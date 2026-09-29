@@ -5,7 +5,7 @@ import type { catalogItems } from "./schema";
 // while several steps run in parallel, the earliest stage listed wins.
 // All styles are staged (docs/edit-styles/, pipelines/README.md): gameplay-index and song-index run in
 // parallel and are cached, then the style pipeline plans and renders.
-const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_8nvlocGpQ3nT" };
+const INDEX = { gameplay: "tpl_Yn4z8LVxNvFw", gameplayUpload: "tpl_MR-vL8OuXjf7", song: "tpl_8nvlocGpQ3nT" };
 const FIELDS = [
   { name: "playerName", label: "Your in-game name", type: "text" as const, required: true, max: 32, help: "Exactly as it shows in the kill feed" },
   { name: "songUrl", label: "Song (YouTube link)", type: "url" as const, required: true, help: "The montage runs as long as the song, up to the length you pick" },
@@ -69,7 +69,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "ultra-edit",
     title: "Ultra Edit",
     description: "Every kill slowed down, sped up and spun into the next, with loud gunshots and your song's words.",
-    templateId: "tpl_IuDfzl7HgL2b", // style-ultra-edit
+    templateId: "tpl_3n1GmO9Glodb", // style-ultra-edit
     indexTemplates: INDEX,
     enabled: true,
     beta: true,

@@ -8,7 +8,7 @@ import { signedVideo } from "./public";
 import { ensureIndex, indexInputs, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
-const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_8nvlocGpQ3nT" };
+const INDEX = { gameplay: "tpl_Yn4z8LVxNvFw", gameplayUpload: "tpl_MR-vL8OuXjf7", song: "tpl_8nvlocGpQ3nT" };
 const T0 = Date.UTC(2026, 8, 28, 10, 0, 0);
 const stageMap = [
   { match: "download", label: "Downloading your video" },
@@ -132,6 +132,16 @@ describe("staged styles (mock Engine X)", () => {
     const row = await load(job.id);
     expect(row.status).toBe("failed");
     expect(row.errorPublic).toMatch(/couldn't read the kill feed/);
+    expect(await getBalance(userId)).toBe(2000);
+  });
+
+  it("stops before the render, with the no-kills message and a refund, when the match has no kills by the player", async () => {
+    const job = await newJob({ playerName: "nokills" });
+    await startJob(job.id, T0);
+    for (const ms of [20_000, 22_000]) await tick(ms);
+    const row = await load(job.id);
+    expect(row).toMatchObject({ status: "failed", runId: null }); // no render run was started
+    expect(row.errorPublic).toMatch(/didn't find any kills by "nokills"/);
     expect(await getBalance(userId)).toBe(2000);
   });
 

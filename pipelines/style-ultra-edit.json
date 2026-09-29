@@ -1483,7 +1483,7 @@
         "engine": "util",
         "operation": "template",
         "params": {
-          "template": "[\"-y\", \"-i\", \"{in0}\", \"-i\", \"{in1}\", \"-i\", \"{in2}\", \"-filter_complex\", \"[2:a]aresample=48000,volume=1.4[g];[1:a]aresample=48000,volume=0.85[m];[m][g]amix=inputs=2:duration=shortest:normalize=0,alimiter=limit=0.95,afade=t=in:st=0:d=0.3,afade=t=out:st={{a}}:d=0.8[a]\", \"-map\", \"0:v\", \"-map\", \"[a]\", \"-c:v\", \"copy\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{b}}\", \"{out}\"]"
+          "template": "[\"-y\", \"-i\", \"{in0}\", \"-i\", \"{in1}\", \"-i\", \"{in2}\", \"-filter_complex\", \"[2:a]aresample=48000,loudnorm=I=-16:TP=-2:LRA=11,aresample=48000[g];[1:a]aresample=48000,loudnorm=I=-18:TP=-2:LRA=11,aresample=48000[m];[m][g]amix=inputs=2:duration=shortest:normalize=0,alimiter=limit=0.95,afade=t=in:st=0:d=0.3,afade=t=out:st={{a}}:d=0.8[a]\", \"-map\", \"0:v\", \"-map\", \"[a]\", \"-c:v\", \"copy\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{b}}\", \"{out}\"]"
         },
         "position": {
           "x": 600,

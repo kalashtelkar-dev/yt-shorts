@@ -7,7 +7,7 @@ import { progressOf, stageDetail, stageFor } from "@/server/catalog";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError } from "@/server/enginex/types";
 import type { Settings } from "@/server/settings";
-import { publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
+import { noKillsMessage, publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
 import { seeded } from "@/lib/seeded";
 import { event, finishFailed, notify } from "./lifecycle";
 import { lyricItems } from "./lyrics";
@@ -244,6 +244,12 @@ export async function advanceStaged(job: Job, settings: Settings, stageMap: Stag
   }
 
   if (g.status === "succeeded" && s.status === "succeeded") {
+    // No kills by this player: say so now, with what to check, instead of a render that has nothing to cut.
+    const found = (g.output?.kills as { kills?: unknown } | undefined)?.kills;
+    if (!Array.isArray(found) || found.length === 0) {
+      const name = String((job.input as Record<string, unknown>).playerName ?? "your name");
+      return finishFailed(job, { errorRaw: "no kills found (gameplay index)", errorPublic: noKillsMessage(name), runMs: elapsedMs }, settings);
+    }
     const input = styleInput(job, g.output ?? {}, s.output ?? {}, await declaredInputs(job.templateId, now));
     try {
       const { runId } = await enginex().runPipeline(job.templateId, input, job.id);

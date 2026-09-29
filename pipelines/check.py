@@ -166,7 +166,8 @@ check("ultra: game sound only at normal speed (natural pitch, 20 ms fades), sile
 check("ultra: zoom-tilt-slide out and pinch in on every clip", fc(u).count("rotate=a=") == 3 and fc(u).count("zoompan=z='1+0.6*") == 3)
 check("ultra: play time = flex + 6.669 s per kill, faded 0.8 s before", abs(fade(u) - (min(1.25 + 2 * 6.669, 17.9) - 0.8)) < 0.01)
 fu = final("style-ultra-edit", up)[final("style-ultra-edit", up).index("-filter_complex") + 1]
-check("ultra: clean game sound loud under the song, limited", "volume=1.4[g]" in fu and "volume=0.85[m]" in fu and "alimiter=limit=0.95" in fu)
+check("ultra: game sound and song brought to set loudness (game 2 LU above), then limited",
+      "loudnorm=I=-16:TP=-2:LRA=11,aresample=48000[g]" in fu and "loudnorm=I=-18:TP=-2:LRA=11,aresample=48000[m]" in fu and "alimiter=limit=0.95" in fu)
 # Ultra: no lyrics over the intro (1.25 s here): "I'm so cool" (0.49) and "with my / pink" (1.21) start before it; "and my knee" (2.69) after
 ut = re.findall(r"text='([^']*)'", fc(u))
 check("ultra: lyrics start with the kills, never over the intro", ut == ["and my knee"])
@@ -199,6 +200,25 @@ check("ultra: the planner is told exactly how many kill clips fill the length", 
 ug = json.load(open(os.path.join(HERE, "style-ultra-edit.json")))["graph"]
 check("ultra: the prompt asks for the first N entries", "use the first {{r}} kill entries" in next(n for n in ug["nodes"] if n["id"] == "plan_prompt")["params"]["template"]
       and "fit.text->plan_prompt.r" in {e["id"] for e in ug["edges"]})
+# gameplay-index: the model transcribes the rows with the player in them; only rows where the player is the KILLER count
+def kills_from(rows, name):
+    g = json.load(open(os.path.join(HERE, "gameplay-index.json")))["graph"]
+    return run(g, {("player_name", "value"): name, ("find_kills", "json"): {"rows": rows}}, ("kills_found", "value"))
+fed = [{"t": 32, "killer": "taffishmegafan", "victim": "Me"},            # the player dying (a real run counted this)
+       {"t": 92, "killer": "Me", "victim": "Clove"}, {"t": 238, "killer": "Me", "victim": "Reyna"},
+       {"t": 238, "killer": "Me", "victim": "Sage"},                      # a double kill: both rows count
+       {"t": 300, "killer": "Meatball", "victim": "Jett"}]               # another player whose name starts with "Me"
+k = kills_from(fed, "Me")
+check("gameplay-index: only rows with the player as killer are kills (deaths and look-alike names dropped)",
+      [r["t"] for r in k["kills"]] == [92, 238, 238])
+check("gameplay-index: OCR-misread names still match (N0va = Nova)", [r["t"] for r in kills_from([{"t": 5, "killer": "N0va", "victim": "x"}, {"t": 9, "killer": "x", "victim": "Nova"}], "Nova")["kills"]] == [5])
+check("gameplay-index: only deaths -> no kills (an empty list, not missing)", kills_from([{"t": 32, "killer": "taffishmegafan", "victim": "Me"}], "Me") == {"kills": []})
+check("gameplay-index: no rows at all -> no kills", kills_from([], "Me") == {"kills": []})
+check("gameplay-index: a kill first, last or alone keeps valid JSON", [len(kills_from(r, "Me")["kills"]) for r in (
+    [{"t": 1, "killer": "Me", "victim": "a"}, {"t": 2, "killer": "b", "victim": "Me"}], [{"t": 2, "killer": "b", "victim": "Me"}, {"t": 3, "killer": "Me", "victim": "c"}],
+    [{"t": 3, "killer": "Me", "victim": "c"}])] == [1, 1, 1])
+fl = next(n for n in json.load(open(os.path.join(HERE, "gameplay-index.json")))["graph"]["nodes"] if n["id"] == "flex_prompt")["params"]["template"]
+check("gameplay-index: the intro is live-round gameplay, never agent select, menus or the scoreboard", "Never the agent select screen" in fl and "the scoreboard" in fl)
 # Engine X's limits: a regex pattern or replacement holds at most 2000 characters (validate refuses more)
 for f in sorted(os.listdir(HERE)):
     if f.endswith(".json"):

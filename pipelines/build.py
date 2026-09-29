@@ -55,6 +55,28 @@ def gameplay_index(upload=False):
     g.edge("stamp_font", "file", "kill_feed", "input")
     g.edge("player_name", "value", "kill_instruction", "a")
     for a, b in (("name_escape", "text"),): g.edge("player_name", "value", a, b)
+    # The model only transcribes the rows with the player in them (killer, victim); the pipeline decides what's a kill: the
+    # killer must be the player (the OCR-tolerant name pattern the kill feed is already filtered with). A real run counted
+    # "taffishmegafan > Me" (the player dying) as a kill, though the instruction said to ignore those, 2026-09-29.
+    feed = g.N["kill_instruction"]["params"]["template"]
+    intro = feed[:feed.index("In each kill-feed row")]
+    g.N["kill_instruction"]["params"]["template"] = intro + (
+        "Each kill-feed row reads: killer name, weapon icon, victim name. The killer is always the name on the LEFT (first), the victim the name on the RIGHT (second).\n"
+        "Task: list every kill-feed row that has the player's name in it, once, at the first second it appears. A row stays on screen for about 5 seconds, so it repeats in "
+        "consecutive frames: list it when it first appears, and again only if it reappears after a gap of more than 2 seconds. When several new rows appear at once, list each.\n"
+        "For each row give t (that second), killer (the first name, exactly as read) and victim (the second name, exactly as read).\n"
+        "Answer exactly in this shape: {\"rows\":[{\"t\":number,\"killer\":string,\"victim\":string}]}, in time order, with no other keys. If there are none, answer {\"rows\":[]}.")
+    # All on the rows as one text (a filter's list would make the next steps run per row, or be skipped when empty):
+    # mark the rows whose killer is the player, drop the rest, tidy the commas, wrap as {"kills":[...]}.
+    g.util("feed_rows", "json-path", {"path": "rows", "fallback": "[]"}).edge("find_kills", "json", "feed_rows", "value")
+    g.util("rows_text", "json-stringify", {"indent": 0}).edge("feed_rows", "value", "rows_text", "value")
+    g.util("killer_pattern", "template", {"template": r'\{(?=[^{}]*"killer":"\W*(?:{{a}})\W*")[^{}]*\}'}).edge("name_b", "text", "killer_pattern", "a")
+    g.util("mark_kills", "regex", {"flags": "g", "replace": "§$&§"}).edge("rows_text", "value", "mark_kills", "text").edge("killer_pattern", "value", "mark_kills", "pattern")
+    g.util("drop_rows", "regex", {"flags": "g", "pattern": r"(?<!§)\{[^{}]*\}(?!§)", "replace": ""}).edge("mark_kills", "text", "drop_rows", "text")
+    g.util("unmark", "regex", {"flags": "g", "pattern": "§", "replace": ""}).edge("drop_rows", "text", "unmark", "text")
+    g.util("tidy_commas", "regex", {"flags": "g", "pattern": r",(?=,|\])|(?<=\[),", "replace": ""}).edge("unmark", "text", "tidy_commas", "text")
+    g.util("kills_wrap", "template", {"template": '{"kills":{{a}}}'}).edge("tidy_commas", "text", "kills_wrap", "a")
+    g.util("kills_found", "json-parse", {"fenced": False}).edge("kills_wrap", "value", "kills_found", "text")
     # flex candidates: ~120 time-stamped frames spread over the whole recording, read by the vision model
     g.util("flex_frames_n", "number", {"value": 120})
     g.util("flex_fps", "math", {"op": "divide"}).edge("flex_frames_n", "value", "flex_fps", "a").edge(*dur, "flex_fps", "b")
@@ -69,20 +91,22 @@ def gameplay_index(upload=False):
     g.edge(*src, "flex_sheets_video", "input").edge("stamp_font", "file", "flex_sheets_video", "input").edge("flex_args_list", "value", "flex_sheets_video", "args")
     g.node("flex_sheets", engine="video", operation="frames", params={"tier": "cpu", "mode": "keyframes", "format": "jpg", "quality": 3})
     g.edge("flex_sheets_video", "file", "flex_sheets", "input")
-    g.util("kills_text", "json-stringify", {"indent": 0}).edge("find_kills", "json", "kills_text", "value")
+    g.util("kills_text", "json-stringify", {"indent": 0}).edge("kills_found", "value", "kills_text", "value")
     g.util("flex_prompt", "template", {"template":
         "These contact sheets show one first-person Valorant/CS2 gameplay recording, {{b}} seconds long. Each sheet is a 4x4 grid of frames, read left to right, top to bottom, "
         "spread evenly over the recording; every frame is stamped top-left with its time (HH:MM:SS.mmm).\n"
         "The player's kills happen at these times (seconds): {{a}}\n\n"
         "Find up to 5 FLEX moments for the intro of a montage: 2 to 4 seconds where the player shows off without killing anyone - knife out, weapon inspect, "
         "stylish walking or jumping, buying, using an ability - at least 6 seconds away from every kill. Prefer knife out or weapon inspect, then movement.\n"
+        "Only moments inside a live round, in first-person view with the weapon and the HUD on screen. Never the agent select screen, a loading screen, a menu, "
+        "the scoreboard, a death or spectating screen, or a replay.\n"
         "start is the recording time in seconds (convert the stamp: 00:01:23.500 = 83.5) where the moment begins.\n"
         "Answer exactly in this shape, best first: {\"flex\": [{\"start\": number, \"what\": string}]}. If nothing fits, answer {\"flex\": []}."})
     g.edge("kills_text", "value", "flex_prompt", "a").edge(*dur, "flex_prompt", "b")
     g.node("flex_pick", engine="llm", operation="chat", params={"system": "You are a gaming video editor choosing intro shots. You answer only with valid JSON.", "json": True, "maxTokens": 2048, "temperature": 0.2})
     g.edge("llm", "connection", "flex_pick", "connection").edge("flex_prompt", "value", "flex_pick", "prompt").edge("flex_sheets", "frames", "flex_pick", "images")
     g.node("out", kind="output", fields=["video", "durationSec", "kills", "flex"] + ([] if upload else ["title"]))
-    g.edge("video_file", "value", "out", "video").edge(*dur, "out", "durationSec").edge("find_kills", "json", "out", "kills").edge("flex_pick", "json", "out", "flex")
+    g.edge("video_file", "value", "out", "video").edge(*dur, "out", "durationSec").edge("kills_found", "value", "out", "kills").edge("flex_pick", "json", "out", "flex")
     if not upload: g.edge("download", "title", "out", "title")
     return g.doc("gameplay-index" + ("-upload" if upload else ""),
         "Gameplay " + ("upload" if upload else "link") + " + player name -> the video, its length, the player's kill times (1 fps kill-feed OCR, name-tolerant) and up to 5 intro-flex moments "
@@ -477,10 +501,15 @@ def style(kind):
     g.N["make_montage"]["params"]["output"] = "cut.mp4"
     g.node("clean_audio", engine="transcribe", operation="separate", params={"model": "vocals", "stems": ["instrumental"], "format": "wav"})
     g.edge("make_montage", "file", "clean_audio", "input")
-    game, song, limit = ("1.4", "0.85", ",alimiter=limit=0.95") if ultra else ("0.3", "1", "")
+    if ultra:
+        # Both brought to a set loudness first, the game 2 LU above the song: a quiet source recording (the voice removed)
+        # sat 7-17 dB under a mastered song at a fixed x1.4 and was hardly heard (measured on a real job, 2026-09-29).
+        game_fx, song_fx, limit = "loudnorm=I=-16:TP=-2:LRA=11,aresample=48000", "loudnorm=I=-18:TP=-2:LRA=11,aresample=48000", ",alimiter=limit=0.95"
+    else:
+        game_fx, song_fx, limit = "volume=0.3", "volume=1", ""
     g.util("final_args", "template", {"template": json.dumps([
         "-y", "-i", "{in0}", "-i", "{in1}", "-i", "{in2}", "-filter_complex",
-        f"[2:a]aresample=48000,volume={game}[g];[1:a]aresample=48000,volume={song}[m];[m][g]amix=inputs=2:duration=shortest:normalize=0{limit},"
+        f"[2:a]aresample=48000,{game_fx}[g];[1:a]aresample=48000,{song_fx}[m];[m][g]amix=inputs=2:duration=shortest:normalize=0{limit},"
         "afade=t=in:st=0:d=0.3,afade=t=out:st={{a}}:d=0.8[a]",
         "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-t", "{{b}}", "{out}"])})
     g.edge("fade_start", "value", "final_args", "a").edge("cap", "value", "final_args", "b")

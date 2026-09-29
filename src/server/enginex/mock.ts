@@ -4,7 +4,8 @@ import { EngineXError, type EngineXClient, type Run, type RunStep } from "./type
 
 // ENGINEX_MODE=mock. Stateless so web and worker processes agree: the run id encodes the
 // start time and scenario, and progress is derived from elapsed time.
-// Scenario from the input's playerName: contains "fail" → fails at OCR, "timeout" → never finishes.
+// Scenario from the input's playerName: contains "fail" → fails at OCR, "timeout" → never finishes, "nokills" → the
+// gameplay index finishes but finds no kills by that player.
 
 // Step names and outputs mirror the real pipelines. The run id also says which pipeline kind ran:
 // "single" (the one-run Kill Montage), or the staged ones: "gameplay" (gameplay-index), "song" (song-index), "style".
@@ -41,8 +42,8 @@ const ALL_STEPS = Object.values(STEPS).flat();
 
 function outputFor(kind: MockKind, runId: string): Record<string, unknown> {
   if (kind === "gameplay") {
-    return { video: `mock/${runId}/video.mp4`, durationSec: 1800, title: "Mock match",
-      kills: { kills: [{ t: 51 }, { t: 157 }, { t: 249 }, { t: 293 }, { t: 591 }], totalKills: 5 }, flex: { flex: [{ start: 20, what: "knife out" }] } };
+    const kills = runId.includes("-nokills-") ? [] : [{ t: 51 }, { t: 157 }, { t: 249 }, { t: 293 }, { t: 591 }];
+    return { video: `mock/${runId}/video.mp4`, durationSec: 1800, title: "Mock match", kills: { kills }, flex: { flex: [{ start: 20, what: "knife out" }] } };
   }
   if (kind === "song") {
     return { audio: `mock/${runId}/song.m4a`, durationSec: 22, title: "Mock song", loudness: "0.000000,-30.0\n0.250000,-20.0",
@@ -55,10 +56,10 @@ function outputFor(kind: MockKind, runId: string): Record<string, unknown> {
   return { montage: `mock/${runId}/montage.mp4`, clips: [], totalKills: 7, title: "Mock montage" };
 }
 
-type Scenario = "ok" | "fail" | "timeout";
+type Scenario = "ok" | "fail" | "timeout" | "nokills";
 
 export function mockRunAt(runId: string, now: number): Run {
-  const m = /^mock-(\d+)-(ok|fail|timeout)-(?:(single|gameplay|song|style)-)?/.exec(runId);
+  const m = /^mock-(\d+)-(ok|fail|timeout|nokills)-(?:(single|gameplay|song|style)-)?/.exec(runId);
   if (!m) throw new EngineXError("not_found", "Run not found", false, 404);
   const started = Number(m[1]);
   const scenario = m[2] as Scenario;
@@ -94,7 +95,7 @@ export function mockRunAt(runId: string, now: number): Run {
   if (failed) {
     return { runId, status: "failed", steps, output: null, error: `step ${failAt.step} failed: worker exited with code 137`, runMs: elapsed };
   }
-  if (scenario === "ok" && elapsed >= total) {
+  if ((scenario === "ok" || scenario === "nokills") && elapsed >= total) {
     return { runId, status: "succeeded", steps, output: outputFor(kind, runId), error: null, runMs: total };
   }
   return { runId, status: elapsed === 0 ? "queued" : "running", steps, output: null, error: null, runMs: null };
@@ -102,8 +103,8 @@ export function mockRunAt(runId: string, now: number): Run {
 
 // The staged pipelines (pipelines/README.md), so the mock answers getPipeline like Engine X would.
 const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "style" | "style-lyrical"> = {
-  tpl_yYsSXHkQXJBP: "gameplay", tpl_K6Lo3rwFya4A: "gameplay-upload", tpl_8nvlocGpQ3nT: "song",
-  tpl_P0krMNymIjdb: "style", tpl_UbAzXGQjRxHH: "style-lyrical", tpl_IuDfzl7HgL2b: "style-lyrical",
+  tpl_Yn4z8LVxNvFw: "gameplay", "tpl_MR-vL8OuXjf7": "gameplay-upload", tpl_8nvlocGpQ3nT: "song",
+  tpl_P0krMNymIjdb: "style", tpl_UbAzXGQjRxHH: "style-lyrical", tpl_3n1GmO9Glodb: "style-lyrical",
 };
 const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"];
 function mockInputs(templateId: string): string[] {
@@ -128,7 +129,7 @@ function kindOf(templateId: string): MockKind {
 export const mockClient: EngineXClient = {
   async runPipeline(templateId, input, idempotencyKey) {
     const hint = String(input.playerName ?? input.musicUrl ?? "").toLowerCase();
-    const scenario: Scenario = hint.includes("timeout") ? "timeout" : hint.includes("fail") ? "fail" : "ok";
+    const scenario: Scenario = hint.includes("timeout") ? "timeout" : hint.includes("nokills") ? "nokills" : hint.includes("fail") ? "fail" : "ok";
     return { runId: `mock-${Date.now()}-${scenario}-${kindOf(templateId)}-${idempotencyKey}` };
   },
   async getRun(runId) {

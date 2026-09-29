@@ -100,6 +100,11 @@ def run(graph, seeds, target):
             keys = [k.strip() for k in p["keys"].split(",")]
             return {"value": {k: v["value"][k] for k in keys if k in v["value"]}}  # order of the keys given
         if op == "json-stringify": return {"value": jstr(v["value"])}
+        if op == "json-build":
+            keys = [k.strip() for k in p["keys"].split(",")]
+            vals = [v.get(port) for port in "abcdefghijklmnopqrstuvwxyz"[:len(keys)]]
+            return {"value": {k: (list(x) if isinstance(x, Fan) else x) for k, x in zip(keys, vals)
+                              if not (p.get("dropEmpty", True) and x in (None, "", [], {}))}}
         if op == "json-unique":
             seen, keep = set(), []
             for it in list(v["value"]):

@@ -59,7 +59,7 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
             <p className="text-sm text-muted-foreground">Refund and retry are available once the job finishes.</p>
           ) : (
             <div className="flex flex-col gap-6">
-              <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : "Refund credits"}>
+              <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : job.chargedCredits === 0 ? "Nothing to refund" : "Refund credits"} disabled={refunded || job.chargedCredits === 0}>
                 <input type="hidden" name="jobId" value={job.id} />
                 <Field label="Reason">
                   <Input name="reason" required minLength={3} maxLength={500} disabled={refunded || job.chargedCredits === 0} placeholder="e.g. Kills were cut off" />

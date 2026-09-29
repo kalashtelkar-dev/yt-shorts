@@ -35,7 +35,7 @@ export function SelectField({
         aria-label={label}
         aria-invalid={invalid || undefined}
         className={cn(
-          "h-11 w-full bg-panel-raised px-3 text-base hover:border-muted-foreground/50 sm:h-10 sm:text-sm dark:bg-panel-raised dark:hover:bg-panel-raised",
+          "h-11 w-full bg-panel-raised px-3 data-[size=default]:h-11 sm:data-[size=default]:h-10 text-base hover:border-muted-foreground/50 sm:h-10 sm:text-sm dark:bg-panel-raised dark:hover:bg-panel-raised",
           // An empty-value option like "All statuses" is a real choice, not a hint: keep it white.
           !placeholder && "data-placeholder:text-foreground",
           className,

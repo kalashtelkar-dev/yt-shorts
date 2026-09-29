@@ -13,13 +13,12 @@ import { formatClock, formatCredits, formatRupees, formatWhen } from "@/lib/form
 import { cn } from "@/lib/utils";
 import { requireAdmin } from "@/server/admin/guard";
 import { JOB_STATUSES, jobDetail, listAllJobs, type JobStatus as Status } from "@/server/admin/queries";
-import { fleetSnapshot } from "@/server/health/queries";
 import { signedVideo } from "@/server/jobs/public";
 
 export const metadata: Metadata = { title: "Jobs" };
 export const dynamic = "force-dynamic";
 
-type Search = { status?: string; style?: string; page?: string; job?: string };
+type Search = { status?: string; style?: string; page?: string; job?: string; q?: string };
 
 const ACTIVE: Status[] = ["queued", "starting", "running"];
 const DOT: Record<string, string> = {
@@ -30,7 +29,6 @@ const DOT: Record<string, string> = {
   failed: "bg-muted-foreground",
   canceled: "bg-muted-foreground/50",
 };
-const PROBE_DOT: Record<string, string> = { up: "bg-success", degraded: "bg-warning", down: "bg-danger" };
 
 // A control room: the live queue on the left, the picked job on the right. On phones it's one or the other.
 export default async function JobsPage({ searchParams }: { searchParams: Promise<Search> }) {
@@ -38,12 +36,12 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const status = JOB_STATUSES.includes(sp.status as Status) ? (sp.status as Status) : null;
   const page = Math.max(0, Number(sp.page) || 0);
-  const [{ rows, hasMore, slugs }, fleet] = await Promise.all([listAllJobs(status, sp.style || null, page), fleetSnapshot().catch(() => [])]);
+  const { rows, hasMore, slugs } = await listAllJobs(status, sp.style || null, page, sp.q ?? "");
   const titleOf = new Map(slugs.map((s) => [s.slug, s.title]));
   // A picked job (?job=) opens on every screen; otherwise desktop shows the newest and phones show the list.
   const picked = sp.job && /^[0-9a-f-]{36}$/i.test(sp.job) ? sp.job : null;
   const selected = picked ?? rows[0]?.id ?? null;
-  const keep = { status: status ?? undefined, style: sp.style || undefined, page: page ? String(page) : undefined };
+  const keep = { q: sp.q?.trim() || undefined, status: status ?? undefined, style: sp.style || undefined, page: page ? String(page) : undefined };
   const hrefFor = (job?: string) => `?${new URLSearchParams(Object.entries({ ...keep, job }).filter(([, v]) => v) as [string, string][])}`;
   const running = rows.filter((r) => r.status === "running" || r.status === "starting").length;
   const queued = rows.filter((r) => r.status === "queued").length;
@@ -51,45 +49,35 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   return (
     <>
       <AutoRefresh active={rows.some((r) => ACTIVE.includes(r.status))} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 max-lg:flex-col max-lg:items-stretch">
         <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">Live queue</h1>
           <span className="font-mono text-xs text-muted-foreground tabular">
             {running} running · {queued} queued
           </span>
         </div>
-        <form className="flex w-full gap-2 sm:w-auto">
-          {picked && <input type="hidden" name="job" value={picked} />}
+        {/* Phones: search on its own line, the two filters side by side, then the button. Wider: one row. */}
+        <form role="search" className="grid w-full grid-cols-2 gap-2 lg:flex lg:w-auto lg:items-center">
+          <Input name="q" type="search" defaultValue={sp.q ?? ""} placeholder="Job id, email, style, player or link" aria-label="Search jobs" className="col-span-2 lg:w-64" />
           <SelectField
             name="status"
             label="Status"
             defaultValue={status ?? ""}
             options={[{ value: "", label: "All statuses" }, ...JOB_STATUSES.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) }))]}
-            className="sm:w-36"
+            className="lg:w-36"
           />
-          <SelectField name="style" label="Style" defaultValue={sp.style ?? ""} options={[{ value: "", label: "All styles" }, ...slugs.map((s) => ({ value: s.slug, label: s.title }))]} className="sm:w-48" />
-          <Button type="submit">
-            Filter
+          <SelectField name="style" label="Style" defaultValue={sp.style ?? ""} options={[{ value: "", label: "All styles" }, ...slugs.map((s) => ({ value: s.slug, label: s.title }))]} className="lg:w-44" />
+          <Button type="submit" className="col-span-2 lg:col-auto">
+            Search
           </Button>
         </form>
       </div>
 
-      {fleet.length > 0 && (
-        <Link href="/admin/health" aria-label="Service health" className="-mx-4 flex gap-5 overflow-x-auto px-4 py-1 text-sm whitespace-nowrap [scrollbar-width:none] sm:mx-0 sm:px-0">
-          {fleet.map((p) => (
-            <span key={p.id} className="flex items-center gap-1.5 text-muted-foreground">
-              <span className={cn("size-2 rounded-full", PROBE_DOT[p.status] ?? "bg-input")} aria-hidden />
-              {p.name}
-              <span className="font-mono text-xs text-foreground tabular">{p.latencyMs !== null ? `${p.latencyMs} ms` : p.status.replace("_", " ")}</span>
-            </span>
-          ))}
-        </Link>
-      )}
 
       <div className="grid grid-cols-1 overflow-hidden rounded-xl border bg-panel lg:h-[calc(100dvh-12rem)] lg:min-h-[32rem] lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]">
         <section aria-label="Jobs" className={cn("flex min-h-0 flex-col lg:border-r", picked && "max-lg:hidden")}>
           {rows.length === 0 ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">No jobs match.</p>
+            <p className="p-6 text-center text-sm text-muted-foreground">No jobs match{sp.q ? ` "${sp.q.trim()}"` : ""}. Try a shorter search or clear the filters.</p>
           ) : (
             <ul className="min-h-0 flex-1 overflow-y-auto">
               {rows.map((j) => {
@@ -137,7 +125,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
             </ul>
           )}
           <div className="px-4 pb-2">
-            <Pager page={page} hasMore={hasMore} params={{ status: status ?? undefined, style: sp.style }} />
+            <Pager page={page} hasMore={hasMore} params={{ q: sp.q?.trim() || undefined, status: status ?? undefined, style: sp.style }} />
           </div>
         </section>
 
@@ -234,7 +222,7 @@ async function JobPane({ id, back }: { id: string; back: string }) {
             <p className="text-sm text-muted-foreground">Refund and retry are available once the job finishes.</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : "Refund credits"}>
+              <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : job.chargedCredits === 0 ? "Nothing to refund" : "Refund credits"} disabled={refunded || job.chargedCredits === 0}>
                 <input type="hidden" name="jobId" value={job.id} />
                 <Field label="Reason">
                   <Input name="reason" required minLength={3} maxLength={500} disabled={refunded || job.chargedCredits === 0} placeholder="e.g. Kills were cut off" />

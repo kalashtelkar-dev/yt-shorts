@@ -58,7 +58,7 @@ export async function signInAction(_prev: FormState, form: FormData): Promise<Fo
     await auth.api.signOut({ headers: new Headers({ cookie: cookieHeader }) }).catch(() => {});
     return wrong;
   }
-  redirect("/admin");
+  redirect("/admin/health");
 }
 
 export async function signOutAction() {

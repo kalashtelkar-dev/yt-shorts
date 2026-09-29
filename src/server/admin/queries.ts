@@ -1,7 +1,7 @@
 import "server-only";
-import { and, desc, eq, gte, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { adminAuditLog, catalogItems, creditLedger, incidents, jobEvents, jobs, userBalances, users } from "@/db/schema";
+import { adminAuditLog, catalogItems, creditLedger, jobEvents, jobs, userBalances, users } from "@/db/schema";
 import { enginex } from "@/server/enginex/client";
 import type { RunStep } from "@/server/enginex/types";
 
@@ -9,37 +9,6 @@ import type { RunStep } from "@/server/enginex/types";
 
 const PAGE = 20;
 const SUB_PAGE = 20;
-const IST_TODAY = sql`(date_trunc('day', now() at time zone 'Asia/Kolkata') at time zone 'Asia/Kolkata')`;
-
-export async function overviewStats() {
-  const window = async (since: SQL) => {
-    const [r] = await db
-      .select({
-        total: sql<number>`count(*)::int`,
-        succeeded: sql<number>`count(*) filter (where ${jobs.status} = 'succeeded')::int`,
-        failed: sql<number>`count(*) filter (where ${jobs.status} in ('failed', 'canceled'))::int`,
-        running: sql<number>`count(*) filter (where ${jobs.status} in ('queued', 'starting', 'running'))::int`,
-        avgRunMs: sql<number | null>`avg(${jobs.runMs}) filter (where ${jobs.status} = 'succeeded')::int`,
-        costPaise: sql<number>`coalesce(sum(${jobs.computeCostPaise}), 0)::int`,
-      })
-      .from(jobs)
-      .where(gte(jobs.createdAt, since));
-    const [c] = await db
-      .select({ used: sql<number>`coalesce(-sum(${creditLedger.delta}) filter (where ${creditLedger.kind} in ('charge', 'refund')), 0)::int` })
-      .from(creditLedger)
-      .where(gte(creditLedger.createdAt, since));
-    return { ...r, creditsUsed: c.used };
-  };
-  const [today, week] = await Promise.all([window(IST_TODAY), window(sql`now() - interval '7 days'`)]);
-  const recentFailures = await db
-    .select({ id: jobs.id, createdAt: jobs.createdAt, catalogSlug: jobs.catalogSlug, errorRaw: jobs.errorRaw })
-    .from(jobs)
-    .where(inArray(jobs.status, ["failed", "canceled"]))
-    .orderBy(desc(jobs.createdAt))
-    .limit(5);
-  return { today, week, recentFailures };
-}
-
 export async function listUsers(q: string, kind: "real" | "all" | "anonymous", page = 0) {
   const filters: SQL[] = [];
   if (kind === "real") filters.push(eq(users.isAnonymous, false));
@@ -174,10 +143,25 @@ export async function galleryItems(catalogSlug: string | null, page = 0) {
 export type JobStatus = (typeof jobs.$inferSelect)["status"];
 export const JOB_STATUSES: JobStatus[] = ["queued", "starting", "running", "succeeded", "failed", "canceled"];
 
-export async function listAllJobs(status: JobStatus | null, catalogSlug: string | null, page = 0) {
+export async function listAllJobs(status: JobStatus | null, catalogSlug: string | null, page = 0, q = "") {
   const filters: SQL[] = [];
   if (status) filters.push(eq(jobs.status, status));
   if (catalogSlug) filters.push(eq(jobs.catalogSlug, catalogSlug));
+  const term = q.trim().slice(0, 200);
+  if (term) {
+    // Job id (the short id shown in the queue is its start), user email, style, player name, or the match / song link.
+    const like = `%${term.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
+    filters.push(
+      or(
+        ilike(sql`${jobs.id}::text`, `${term.replace(/[%_\\]/g, "")}%`),
+        ilike(users.email, like),
+        ilike(jobs.catalogSlug, like),
+        ilike(sql`${jobs.input}->>'playerName'`, like),
+        ilike(jobs.sourceUrl, like),
+        ilike(sql`${jobs.input}->>'musicUrl'`, like),
+      )!,
+    );
+  }
   const rows = await db
     .select({
       id: jobs.id,
@@ -253,6 +237,3 @@ export async function resolveUserId(q: string): Promise<string | null> {
   return u?.id ?? null;
 }
 
-export async function ongoingIncidents() {
-  return db.select({ id: incidents.id, probeId: incidents.probeId, severity: incidents.severity, startedAt: incidents.startedAt }).from(incidents).where(sql`${incidents.resolvedAt} is null`);
-}

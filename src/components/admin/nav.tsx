@@ -1,20 +1,19 @@
 "use client";
 
-import { Activity, Coins, Images, LayoutDashboard, ListVideo, Package, Receipt, ScrollText, Users } from "lucide-react";
+import { Activity, Coins, Images, ListVideo, Package, Receipt, ScrollText, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/admin", label: "Overview", short: "Overview", icon: LayoutDashboard },
+  { href: "/admin/health", label: "Service health", short: "Health", icon: Activity },
   { href: "/admin/jobs", label: "Jobs", short: "Jobs", icon: ListVideo },
   { href: "/admin/gallery", label: "Gallery", short: "Gallery", icon: Images },
   { href: "/admin/users", label: "Users", short: "Users", icon: Users },
   { href: "/admin/credits", label: "Credits", short: "Credits", icon: Coins },
   { href: "/admin/catalog", label: "Catalog", short: "Catalog", icon: Package },
   { href: "/admin/billing", label: "Billing", short: "Billing", icon: Receipt },
-  { href: "/admin/health", label: "Service health", short: "Health", icon: Activity },
   { href: "/admin/audit", label: "Audit log", short: "Audit", icon: ScrollText },
 ];
 
@@ -29,7 +28,7 @@ export function AdminNav() {
   return (
     <nav aria-label="Admin" className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] lg:flex-col lg:items-stretch lg:overflow-visible lg:px-2 lg:pb-0">
       {LINKS.map(({ href, label, short, icon: Icon }) => {
-        const active = href === "/admin" ? path === "/admin" : path.startsWith(href);
+        const active = path.startsWith(href);
         return (
           <Link
             key={href}

@@ -12,12 +12,15 @@ export function ActionForm({
   submitLabel,
   variant = "default",
   className,
+  disabled = false,
   children,
 }: {
   action: (prev: FormState, form: FormData) => Promise<FormState>;
   submitLabel: string;
   variant?: "default" | "outline" | "destructive" | "secondary";
   className?: string;
+  /** Nothing to do (e.g. already refunded): the button shows it and can't be pressed. */
+  disabled?: boolean;
   children?: React.ReactNode;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
@@ -37,7 +40,7 @@ export function ActionForm({
     <form ref={ref} onSubmit={submit} className={cn("flex flex-col gap-3", className)}>
       {children}
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" variant={variant} disabled={pending}>
+        <Button type="submit" variant={variant} disabled={pending || disabled}>
           {pending && <Loader2 className="animate-spin" aria-hidden />}
           {submitLabel}
         </Button>

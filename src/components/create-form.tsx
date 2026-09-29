@@ -27,20 +27,24 @@ const pill = "has-focus-visible:ring-3 has-focus-visible:ring-ring/50 cursor-poi
 
 export function CreateForm({
   items,
-  balance,
+  available,
   intro,
   maxUploadMb,
   needsAccount = false,
   starterCredits = 0,
+  canBuy = false,
 }: {
   items: CatalogOption[];
-  balance: number;
+  /** Credits a new job can count on: balance minus what running jobs hold. */
+  available: number;
   intro: React.ReactNode;
   maxUploadMb: number;
   /** AUTH_MODE=full and nobody is signed in: the form shows the price, and the button goes to sign-up. */
   needsAccount?: boolean;
   /** Free credits a new account gets, shown to visitors who need to sign up. */
   starterCredits?: number;
+  /** Buying credits is open: a short balance links to the account page. */
+  canBuy?: boolean;
 }) {
   const [slug, setSlug] = useState(items[0].slug);
   const item = items.find((i) => i.slug === slug) ?? items[0];
@@ -59,8 +63,9 @@ export function CreateForm({
   const uploadBusy = source === "upload" && upload.kind !== "done";
   // Styles can offer different lengths; keep the pick when it exists, else the nearest one.
   const durationSec = item.durations.includes(durationChoice) ? durationChoice : item.durations.reduce((a, b) => (Math.abs(b - durationChoice) < Math.abs(a - durationChoice) ? b : a));
-  const price = item.prices[String(durationSec)] ?? 0;
-  const short = price - balance;
+  const range = item.creditRanges[String(durationSec)] ?? { min: 0, max: 0 };
+  // To start, the top of the range must be free; the montage then uses only the time it takes.
+  const short = needsAccount ? 0 : range.max - available;
   const playerName = fields.playerName?.trim();
   const visibleFields = item.fields.filter((f) => !f.advanced && f.type !== "range");
   const hint = PREVIEW[item.slug] ?? {};
@@ -200,17 +205,9 @@ export function CreateForm({
           </p>
         )}
 
+        <CreditMeter range={range} available={available} needsAccount={needsAccount} starterCredits={starterCredits} />
+
         <div className="sticky bottom-0 -mx-4 mt-auto flex flex-col gap-2 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-          {needsAccount && starterCredits > 0 && (
-            <p className="text-sm text-muted-foreground">
-              New accounts get <span className="font-mono text-foreground tabular">{formatCredits(starterCredits)}</span> free credits.
-            </p>
-          )}
-          {!needsAccount && short > 0 && (
-            <p className="text-sm text-danger" aria-live="polite">
-              This needs {formatCredits(price)} credits and you have {formatCredits(balance)}. Pick a shorter length.
-            </p>
-          )}
           <div className="flex items-stretch gap-3">
             <fieldset className="flex shrink-0 rounded-xl border bg-panel p-1">
               <legend className="sr-only">Length</legend>
@@ -229,21 +226,21 @@ export function CreateForm({
               ))}
             </fieldset>
             {needsAccount ? (
-              <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 flex-col gap-0 rounded-xl leading-tight")}>
+              <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 rounded-xl")}>
                 Create a free account
-                <span className="font-mono text-xs font-normal opacity-85 tabular">{formatCredits(price)} credits</span>
+              </Link>
+            ) : short > 0 && canBuy ? (
+              <Link href="/account" className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 rounded-xl")}>
+                Add credits
               </Link>
             ) : (
               <button
                 type="submit"
                 disabled={pending || short > 0 || uploadBusy}
-                className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 flex-col gap-0 rounded-xl leading-tight")}
+                className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 rounded-xl")}
               >
-                <span className="flex items-center gap-2">
-                  {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-                  {pending ? "Starting…" : upload.kind === "uploading" && source === "upload" ? "Uploading…" : "Make my montage"}
-                </span>
-                <span className="font-mono text-xs font-normal opacity-85 tabular">{formatCredits(price)} credits</span>
+                {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                {pending ? "Starting…" : upload.kind === "uploading" && source === "upload" ? "Uploading…" : "Make my montage"}
               </button>
             )}
           </div>
@@ -271,5 +268,44 @@ function Row({ id, label, invalid, children }: { id: string; label: string; inva
       </label>
       <div className="flex items-center gap-2">{children}</div>
     </div>
+  );
+}
+
+/**
+ * How many credits this edit usually uses, on a bar with the user's free credits marked. Starting needs the top of
+ * the range free; the montage then uses only the editing time it takes (charged after it's made).
+ */
+function CreditMeter({ range, available, needsAccount, starterCredits }: { range: { min: number; max: number }; available: number; needsAccount: boolean; starterCredits: number }) {
+  const mine = needsAccount ? starterCredits : available;
+  const scale = Math.max(mine, range.max, 1) * 1.15;
+  const at = (v: number) => `${(v / scale) * 100}%`;
+  const short = range.max - mine;
+  return (
+    <section aria-label="Credits for this montage" className="flex flex-col gap-3 rounded-2xl border px-4 py-3" aria-live="polite">
+      <p className="flex justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">This edit uses</span>
+        <span>
+          <span className="font-mono tabular">
+            {formatCredits(range.min)}–{formatCredits(range.max)}
+          </span>{" "}
+          credits
+        </span>
+      </p>
+      <div className="relative h-7" aria-hidden>
+        <div className="absolute inset-x-0 top-3 h-1.5 rounded-full bg-border" />
+        <div className={cn("absolute top-3 h-1.5 rounded-full", short > 0 ? "bg-danger" : "bg-muted-foreground")} style={{ left: at(range.min), width: `calc(${at(range.max)} - ${at(range.min)})` }} />
+        <div className="absolute top-1.5 h-[18px] w-[3px] -translate-x-1/2 rounded-full bg-foreground" style={{ left: at(mine) }} />
+        <span className="absolute -top-2.5 -translate-x-1/2 font-mono text-[10px] whitespace-nowrap tabular" style={{ left: `clamp(2.5rem, ${at(mine)}, calc(100% - 2.5rem))` }}>
+          {needsAccount ? "new account" : "you"} {formatCredits(mine)}
+        </span>
+      </div>
+      <p className={cn("text-sm", short > 0 && !needsAccount ? "text-danger" : "text-muted-foreground")}>
+        {needsAccount
+          ? `New accounts get ${formatCredits(starterCredits)} free credits. You only pay for the editing time it takes.`
+          : short > 0
+            ? `To start, you need ${formatCredits(range.max)} credits free: enough for the longest this edit usually takes. Add ${formatCredits(short)} more, or pick a shorter length.`
+            : "Charged after it's made, for the editing time it takes. If it fails, it's free."}
+      </p>
+    </section>
   );
 }

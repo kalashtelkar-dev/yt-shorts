@@ -145,8 +145,12 @@ function catalogFromForm(form: FormData): { input?: Record<string, unknown>; err
     .split(/[\s,]+/)
     .filter(Boolean)
     .map(Number);
-  const prices: Record<string, number> = {};
-  for (const [k, v] of form) if (k.startsWith("price:") && String(v).trim()) prices[k.slice(6)] = Number(v);
+  const creditRanges: Record<string, { min: number; max: number }> = {};
+  for (const d of durations) {
+    const min = String(form.get(`min:${d}`) ?? "").trim();
+    const max = String(form.get(`max:${d}`) ?? "").trim();
+    if (min && max) creditRanges[String(d)] = { min: Number(min), max: Number(max) };
+  }
   const json = {
     fields: jsonField(form, "fields", "Fields"),
     inputMap: jsonField(form, "inputMap", "Input map"),
@@ -167,7 +171,7 @@ function catalogFromForm(form: FormData): { input?: Record<string, unknown>; err
       beta: form.get("beta") === "on",
       sortOrder: Number(form.get("sortOrder") || 0),
       durations,
-      prices: Object.fromEntries(Object.entries(prices).filter(([d]) => durations.includes(Number(d)))),
+      creditRanges,
       fields: json.fields.value,
       inputMap: json.inputMap.value,
       stageMap: json.stageMap.value,
@@ -236,7 +240,13 @@ export async function saveSettingsAction(_prev: FormState, form: FormData): Prom
   if (!admin) return denied;
   const r = await updateSettings(admin, {
     costPaisePerSecond: rupeesToPaise(form.get("costRupeesPerSecond")) ?? 0,
-    sellPaisePerCredit: rupeesToPaise(form.get("sellRupeesPerCredit")),
+    sellPaisePerCredit: rupeesToPaise(form.get("sellRupeesPerCredit")) ?? 0,
+    minPurchasePaise: rupeesToPaise(form.get("minPurchaseRupees")) ?? 0,
+    maxPurchasePaise: rupeesToPaise(form.get("maxPurchaseRupees")) ?? 0,
+    gstRateBps: Math.round(Number(form.get("gstPercent")) * 100),
+    seller: Object.fromEntries(
+      ["legalName", "address", "stateCode", "gstin", "pan", "email", "phone", "website", "sac", "signatory"].map((k) => [k, String(form.get(`seller.${k}`) ?? "")]),
+    ),
     starterCredits: Number(form.get("starterCredits")),
     maxUploadMb: Number(form.get("maxUploadMb")),
     maxConcurrentJobsPerUser: Number(form.get("maxConcurrentJobsPerUser")),

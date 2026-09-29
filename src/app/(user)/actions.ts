@@ -1,9 +1,12 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { env } from "@/config/env";
 import type { ActionResult } from "@/lib/jobs";
 import { createJob, type CreateJobInput } from "@/server/jobs/create";
 import { signedVideo } from "@/server/jobs/public";
+import { confirmPurchase, saveBillingProfile, startPurchase, type CheckoutStart } from "@/server/payments";
 import { issueUpload } from "@/server/uploads";
 import { ensureUser, getViewer, RateLimitedError, SignInRequiredError } from "@/server/session";
 
@@ -64,6 +67,52 @@ export async function videoUrlAction(jobId: string): Promise<ActionResult<{ url:
     return video ? { ok: true, data: video } : { ok: false, error: { code: "not_found", message: "This video isn't available any more." } };
   } catch (e) {
     console.error("[videoUrl]", e instanceof Error ? e.message : e);
+    return serverError;
+  }
+}
+
+// ── Buying credits ──
+
+/** Payments need a signed-in account (never a guest), so credits and invoices have an owner who can sign back in. */
+async function payingUser() {
+  const viewer = await getViewer();
+  return viewer && !viewer.isAnonymous ? viewer : null;
+}
+const signInFirst = { ok: false as const, error: { code: "sign_in", message: "Sign in to buy credits." } };
+
+export async function saveBillingProfileAction(input: { stateCode: string; legalName?: string; gstin?: string }): Promise<ActionResult<null>> {
+  try {
+    const user = await payingUser();
+    if (!user) return signInFirst;
+    return await saveBillingProfile(user.id, input);
+  } catch (e) {
+    console.error("[saveBillingProfile]", e instanceof Error ? e.message : e);
+    return serverError;
+  }
+}
+
+export async function startPurchaseAction(amountRupees: number): Promise<ActionResult<CheckoutStart>> {
+  try {
+    if (!env.PAYMENTS_ENABLED) return { ok: false, error: { code: "unavailable", message: "Buying credits isn't open yet." } };
+    const user = await payingUser();
+    if (!user) return signInFirst;
+    return await startPurchase(user, amountRupees);
+  } catch (e) {
+    console.error("[startPurchase]", e instanceof Error ? e.message : e);
+    return serverError;
+  }
+}
+
+export async function confirmPurchaseAction(input: { orderId: string; paymentId: string; signature: string }): Promise<ActionResult<{ credits: number; invoiceId: string }>> {
+  try {
+    if (!env.PAYMENTS_ENABLED) return { ok: false, error: { code: "unavailable", message: "Buying credits isn't open yet." } };
+    const user = await payingUser();
+    if (!user) return signInFirst;
+    const r = await confirmPurchase(user.id, input);
+    if (r.ok) revalidatePath("/", "layout"); // the header balance
+    return r;
+  } catch (e) {
+    console.error("[confirmPurchase]", e instanceof Error ? e.message : e);
     return serverError;
   }
 }

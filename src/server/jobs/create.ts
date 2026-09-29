@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { catalogItems, jobEvents, jobs, users, type CatalogField } from "@/db/schema";
 import { MapInputError, mapInput } from "@/server/catalog";
-import { chargeForJob, InsufficientCreditsError } from "@/server/credits";
+import { checkStartGate, InsufficientCreditsError } from "@/server/credits";
 import { enqueueStart } from "@/server/queue";
 import { underLimit } from "@/server/redis";
 import { getSettings } from "@/server/settings";
@@ -13,7 +13,8 @@ import { cleanFileName, ownsUpload } from "@/server/uploads";
 import type { SessionUser } from "@/server/auth";
 import type { ActionResult } from "@/lib/jobs";
 
-// Starting a job (PLAN.md §5.1). Returns within the request: validate, charge, insert, enqueue.
+// Starting a job (PLAN.md §5.1). Returns within the request: validate, check credits, insert, enqueue.
+// Nothing is charged here: the job holds the top of its range, and pays for the time it used when it succeeds.
 
 const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "music.youtube.com"]);
 const JOB_STARTS_PER_HOUR = 10;
@@ -91,8 +92,8 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   // Staged styles always render with the style pipeline; the source only changes which gameplay index runs.
   const templateId = input.source === "upload" && !item.indexTemplates ? item.uploadTemplateId! : item.templateId;
   const uploadName = input.upload ? cleanFileName(input.upload.name).replace(/\.[^.]+$/, "") : undefined;
-  const price = item.prices[String(input.durationSec)];
-  if (!Number.isInteger(price) || price <= 0) return fail("unavailable", "This length isn't available right now. Pick another one.");
+  const range = item.creditRanges[String(input.durationSec)];
+  if (!range || !Number.isInteger(range.max) || range.max <= 0) return fail("unavailable", "This length isn't available right now. Pick another one.");
 
   const fields: Record<string, unknown> = {};
   for (const f of item.fields) {
@@ -130,6 +131,7 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   let jobId: string;
   try {
     jobId = await db.transaction(async (tx) => {
+      await checkStartGate(tx, user.id, range.max);
       const [job] = await tx
         .insert(jobs)
         .values({
@@ -143,16 +145,18 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
           sourceUrl,
           uploadKey: input.upload?.key ?? null,
           durationSec: input.durationSec,
-          chargedCredits: price,
+          maxCredits: range.max,
         })
         .returning({ id: jobs.id });
-      await chargeForJob(tx, user.id, job.id, price);
       await tx.insert(jobEvents).values({ jobId: job.id, message: "Queued" });
       return job.id;
     });
   } catch (e) {
     if (e instanceof InsufficientCreditsError) {
-      return fail("insufficient", `This montage costs ${price} credits and you have ${e.balance}.`);
+      return fail(
+        "insufficient",
+        `To start this one you need ${range.max} credits free, enough for the longest it usually takes. You have ${e.balance}. Add credits or pick a shorter length.`,
+      );
     }
     throw e;
   }

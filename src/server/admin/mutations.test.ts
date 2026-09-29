@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { adminAuditLog, catalogItems, jobs, users } from "@/db/schema";
-import { chargeForJob, getBalance, grant } from "@/server/credits";
+import { chargeForUsage, getBalance, grant } from "@/server/credits";
 import { isAdmin, type Admin } from "./guard";
 import { adjustUserCredits, refundJobByAdmin, retryJob, setRole, setSuspended } from "./mutations";
 
@@ -17,13 +17,17 @@ const newUser = async (over: Partial<typeof users.$inferInsert> = {}) => {
 };
 const auditFor = (target: string) => db.select().from(adminAuditLog).where(eq(adminAuditLog.target, target));
 
-async function finishedJob(status: "succeeded" | "failed", price = 100) {
+/** A finished job: a succeeded one paid `used` credits for its editing time; a failed one paid nothing. */
+async function finishedJob(status: "succeeded" | "failed", used = 100) {
   return db.transaction(async (tx) => {
     const [job] = await tx
       .insert(jobs)
-      .values({ userId, catalogItemId, catalogSlug: "t", templateId: "tpl_old", input: { playerName: "x" }, source: "url", durationSec: 30, chargedCredits: price, status })
+      .values({ userId, catalogItemId, catalogSlug: "t", templateId: "tpl_old", input: { playerName: "x" }, source: "url", durationSec: 30, maxCredits: used, status })
       .returning({ id: jobs.id });
-    await chargeForJob(tx, userId, job.id, price);
+    if (status === "succeeded") {
+      const charged = await chargeForUsage(tx, userId, job.id, used);
+      await tx.update(jobs).set({ chargedCredits: charged }).where(eq(jobs.id, job.id));
+    }
     return job.id;
   });
 }
@@ -63,7 +67,7 @@ describe("admin mutations", () => {
     expect(await auditFor(`user:${userId}`)).toHaveLength(0);
   });
 
-  it("refunds a succeeded job once; failed jobs were already refunded", async () => {
+  it("refunds a succeeded job once; failed jobs cost nothing", async () => {
     const ok = await finishedJob("succeeded");
     expect(await refundJobByAdmin(admin, ok, "Bad cut")).toMatchObject({ ok: true });
     expect(await refundJobByAdmin(admin, ok, "Again")).toMatchObject({ ok: false, error: { code: "already" } });
@@ -77,7 +81,7 @@ describe("admin mutations", () => {
     expect(r.ok).toBe(true);
     const [job] = await db.select().from(jobs).where(eq(jobs.id, r.ok ? r.data.jobId : ""));
     expect(job).toMatchObject({ status: "queued", templateId: "tpl_new", chargedCredits: 0, input: { playerName: "x" } });
-    expect(await getBalance(userId)).toBe(400); // the old charge stands until refunded; retry itself is free
+    expect(await getBalance(userId)).toBe(500); // the failed job cost nothing, and the retry is free
   });
 
   it("protects admins from locking themselves out", async () => {

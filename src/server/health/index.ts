@@ -11,6 +11,7 @@ import { engineProbe } from "./probes/engines";
 import { enginexProbe } from "./probes/enginex";
 import { postgresProbe } from "./probes/postgres";
 import { queueProbe } from "./probes/queue";
+import { razorpayProbe } from "./probes/razorpay";
 import { redisProbe } from "./probes/redis";
 import { smtpProbe } from "./probes/smtp";
 import { storageProbe } from "./probes/storage";
@@ -18,7 +19,7 @@ import { webProbe } from "./probes/web";
 import { workerProbe } from "./probes/worker";
 import type { Probe, ProbeResult, SweepContext } from "./types";
 
-// Only what the app actually uses: email only sends codes with AUTH_MODE=full (Razorpay joins with M12).
+// Only what the app actually uses: email only sends codes with AUTH_MODE=full; Razorpay only when checkout is on.
 const STATIC_PROBES: Probe[] = [
   webProbe,
   workerProbe,
@@ -26,6 +27,7 @@ const STATIC_PROBES: Probe[] = [
   redisProbe,
   queueProbe,
   ...(env.AUTH_MODE === "full" ? [smtpProbe] : []),
+  ...(env.PAYMENTS_ENABLED ? [razorpayProbe] : []),
   enginexProbe,
   storageProbe,
 ];

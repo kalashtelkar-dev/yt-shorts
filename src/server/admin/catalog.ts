@@ -49,14 +49,17 @@ export const catalogInput = z
     beta: z.boolean(),
     sortOrder: z.number().int().min(0).max(1000),
     durations: z.array(z.number().int().min(5).max(600)).min(1).max(6),
-    prices: z.record(z.string().regex(/^\d+$/), z.number().int().min(1).max(1_000_000)),
+    creditRanges: z.record(
+      z.string().regex(/^\d+$/),
+      z.strictObject({ min: z.number().int().min(1).max(1_000_000), max: z.number().int().min(1).max(1_000_000) }).refine((r) => r.min <= r.max, "The lowest can't be more than the highest"),
+    ),
     fields: z.array(fieldSchema).max(10),
     inputMap: inputMapSchema,
     stageMap: z.array(z.strictObject({ match: z.string().min(1).max(64), label: z.string().min(1).max(60), itemSeconds: z.number().int().min(1).max(3600).optional(), only: z.enum(["url", "upload"]).optional() })).max(40),
     outputKey: ident,
   })
   .superRefine((v, ctx) => {
-    for (const d of v.durations) if (!v.prices[String(d)]) ctx.addIssue({ code: "custom", path: ["prices"], message: `Set a price for ${d} s` });
+    for (const d of v.durations) if (!v.creditRanges[String(d)]) ctx.addIssue({ code: "custom", path: ["creditRanges"], message: `Set the credits range for ${d} s` });
     const names = v.fields.map((f) => f.name);
     if (new Set(names).size !== names.length) ctx.addIssue({ code: "custom", path: ["fields"], message: "Two fields have the same name" });
     for (const [k, expr] of Object.entries(v.inputMap)) {

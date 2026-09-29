@@ -18,7 +18,7 @@ export default async function UserLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
-      <header className="flex h-14 items-center justify-between gap-4 border-b">
+      <header className="flex h-14 items-center justify-between gap-4 border-b print:hidden">
         <Link href="/" className="-mx-1 flex items-center gap-2 rounded px-1 font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
           <LogoMark />
           {brand.name}
@@ -27,11 +27,20 @@ export default async function UserLayout({ children }: { children: React.ReactNo
           <Link href="/library" className={navLink}>
             My videos
           </Link>
-          {showBalance && (
-            <span className="rounded-md border bg-panel px-2.5 py-1 font-mono text-xs tabular" aria-label={`${balance} credits`}>
-              {formatCredits(balance)} <span className="text-muted-foreground max-sm:hidden">credits</span>
-            </span>
-          )}
+          {showBalance &&
+            (account === "signed-in" ? (
+              <Link
+                href="/account"
+                className="rounded-md border bg-panel px-2.5 py-1 font-mono text-xs tabular hover:border-input focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                aria-label={`${balance} credits. Add credits`}
+              >
+                {formatCredits(balance)} <span className="text-muted-foreground max-sm:hidden">credits</span>
+              </Link>
+            ) : (
+              <span className="rounded-md border bg-panel px-2.5 py-1 font-mono text-xs tabular" aria-label={`${balance} credits`}>
+                {formatCredits(balance)} <span className="text-muted-foreground max-sm:hidden">credits</span>
+              </span>
+            ))}
           {account === "signed-out" && (
             <Link href="/sign-in" className={navLink}>
               Sign in

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { catalogItems, creditLedger, jobEvents, jobs, users } from "@/db/schema";
-import { chargeForJob, getBalance, grant } from "@/server/credits";
+import { getBalance, grant } from "@/server/credits";
 import { getSettings } from "@/server/settings";
 import { pollJob, startJob, sweep } from "./lifecycle";
 
@@ -15,15 +15,13 @@ const stageMap = [
 let userId: string;
 let catalogItemId: string;
 
-async function newJob(playerName: string, price = 120) {
-  return db.transaction(async (tx) => {
-    const [job] = await tx
-      .insert(jobs)
-      .values({ userId, catalogItemId, catalogSlug: "kill-montage", templateId: "tpl_t", input: { youtubeUrl: "https://youtu.be/x", playerName }, source: "url", durationSec: 60, chargedCredits: price })
-      .returning();
-    await chargeForJob(tx, userId, job.id, price);
-    return job;
-  });
+/** A job as createJob leaves it: nothing charged, the top of its range held. */
+async function newJob(playerName: string, maxCredits = 120) {
+  const [job] = await db
+    .insert(jobs)
+    .values({ userId, catalogItemId, catalogSlug: "kill-montage", templateId: "tpl_t", input: { youtubeUrl: "https://youtu.be/x", playerName }, source: "url", durationSec: 60, maxCredits })
+    .returning();
+  return job;
 }
 
 const load = async (id: string) => (await db.select().from(jobs).where(eq(jobs.id, id)))[0];
@@ -41,7 +39,7 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers());
 
 describe("job lifecycle (mock Engine X)", () => {
-  it("starts once, tracks stages, and keeps the upfront charge on success", async () => {
+  it("starts once, tracks stages, and charges the editing time on success", async () => {
     const job = await newJob("Aqua");
     await Promise.all([startJob(job.id, T0), startJob(job.id, T0)]); // double start → one run
     let row = await load(job.id);
@@ -61,12 +59,12 @@ describe("job lifecycle (mock Engine X)", () => {
     expect(row.status).toBe("succeeded");
     expect(row.outputKey).toMatch(/montage\.mp4$/);
     expect(row.outputMeta).toMatchObject({ totalKills: 7 });
-    expect(row.chargedCredits).toBe(120);
-    expect(row.computeCostPaise).toBe(19 * settings.costPaisePerSecond); // mock runMs 19 000
-    expect(await getBalance(userId)).toBe(600 - 120);
+    expect(row.chargedCredits).toBe(19); // mock runMs 19 000 → 19 credits, 1 a second
+    expect(row.computeCostPaise).toBe(19 * settings.costPaisePerSecond);
+    expect(await getBalance(userId)).toBe(600 - 19);
   });
 
-  it("retries a transient failure once, then refunds with a friendly error", async () => {
+  it("retries a transient failure once, then fails with a friendly error and charges nothing", async () => {
     const job = await newJob("fail");
     await startJob(job.id, T0);
     at(60_000);
@@ -85,7 +83,7 @@ describe("job lifecycle (mock Engine X)", () => {
     expect(events.some((e) => e.level === "error" && !/137/.test(e.message))).toBe(true);
   });
 
-  it("times out and refunds", async () => {
+  it("times out and charges nothing", async () => {
     const job = await newJob("timeout");
     await startJob(job.id, T0);
     const settings = await getSettings();
@@ -97,7 +95,7 @@ describe("job lifecycle (mock Engine X)", () => {
     expect(row.errorPublic).toMatch(/too long/);
     expect(await getBalance(userId)).toBe(600);
     const ledger = await db.select().from(creditLedger).where(eq(creditLedger.jobId, job.id));
-    expect(ledger.map((l) => l.kind).sort()).toEqual(["charge", "refund"]);
+    expect(ledger).toHaveLength(0);
   });
 
   it("sweep starts queued jobs (resume after a restart)", async () => {

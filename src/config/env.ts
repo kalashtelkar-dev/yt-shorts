@@ -35,6 +35,7 @@ const schema = z
     SMTP_FROM: z.string().default("MontageAI <no-reply@example.com>"),
 
     PAYMENTS_ENABLED: bool,
+    PAYMENTS_PROVIDER: z.enum(["mock", "razorpay"]).default("mock"),
     RAZORPAY_KEY_ID: z.string().optional(),
     RAZORPAY_KEY_SECRET: z.string().optional(),
     RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
@@ -45,6 +46,12 @@ const schema = z
     }
     if (e.NODE_ENV === "production" && !e.BETTER_AUTH_SECRET) {
       ctx.addIssue({ code: "custom", message: "BETTER_AUTH_SECRET is required in production" });
+    }
+    if (e.PAYMENTS_ENABLED && e.PAYMENTS_PROVIDER === "mock" && e.NODE_ENV === "production") {
+      ctx.addIssue({ code: "custom", message: "PAYMENTS_PROVIDER=mock can't run in production; use razorpay" });
+    }
+    if (e.PAYMENTS_ENABLED && e.PAYMENTS_PROVIDER === "razorpay" && (!e.RAZORPAY_KEY_ID || !e.RAZORPAY_KEY_SECRET || !e.RAZORPAY_WEBHOOK_SECRET)) {
+      ctx.addIssue({ code: "custom", message: "RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET are required when PAYMENTS_PROVIDER=razorpay" });
     }
     if (e.NODE_ENV === "production" && e.AUTH_MODE === "full" && !e.SMTP_HOST) {
       ctx.addIssue({ code: "custom", message: "SMTP_HOST is required when AUTH_MODE=full (sign-up codes go by email)" });

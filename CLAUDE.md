@@ -44,12 +44,13 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 ## 5. Money, credits and time
 
 - Money is an **integer number of paise** (`amountPaise`). Time is an **integer number of milliseconds** (`runMs`). No floats for money or credits, ever.
-- Credits are integers. Each catalog item has a **fixed price per length** (`catalog_items.prices`, e.g. `{"30": 300, "60": 450}`), set by admins. Users always see the exact price before they start.
+- **1 credit = 1 second of editing.** Each catalog item has a **credit range per length** (`catalog_items.credit_ranges`, e.g. `{"30": {"min": 150, "max": 420}}`), set by admins from measured run times. Users always see the range before they start, never an exact price.
 - `credit_ledger` is **append-only**. Never `UPDATE` or `DELETE` ledger rows. Corrections are new rows.
 - Change balances only through `src/server/credits/*`, which, in **one DB transaction**, locks the user's balance row (`SELECT … FOR UPDATE`), inserts the ledger row, and updates `user_balances`.
-- The job lifecycle is **charge the fixed price when the job is created → keep it on success → refund it in full on failure, cancel or timeout**. Each step must be idempotent: check for an existing ledger row with the same `jobId` and `kind` first (a unique index backs this up).
-- Every job stores `computeCostPaise = ceil(runMs/1000) × settings.costPaisePerSecond` (default 30 = ₹0.30/s), even when it fails.
-- Unit tests for credits are required: charge and refund, double-refund protection, concurrent charges, and refusal when the balance is too low.
+- The job lifecycle (usage pricing, the user's call on 2026-09-29): **nothing is charged at creation.** The start gate needs `balance − the maxCredits held by the user's unfinished jobs ≥ range.max` (checked under the balance lock in the job-insert transaction; the job stores `maxCredits`). **On success**, charge `ceil(runMs/1000)` credits (staged jobs: the whole job, index runs included), capped at the balance so it never goes negative. **Failure, cancel or timeout costs nothing.** Each step is idempotent: one `charge` row per job (unique `jobId + kind`). Jobs from before this change (`maxCredits = 0`) were charged at start and are refunded on failure.
+- **Buying credits:** price per credit is GST-inclusive (`settings.sellPaisePerCredit`, default 20 = ₹0.20), minimum top-up `settings.minPurchasePaise` (₹100). Checkout goes through `src/server/payments/*` (provider interface: Razorpay, or the mock that's refused in production). A verified payment adds one `purchase` ledger row (unique `paymentId`) and issues a GST tax invoice (CGST+SGST for the seller's state, IGST otherwise; seller and buyer snapshotted; numbers `INV-<FY>-<n>` from `invoice_counters`) in one transaction. The browser confirmation and the webhook can both arrive; the first does the work.
+- Every job stores `computeCostPaise = ceil(runMs/1000) × settings.costPaisePerSecond` (default 20 = ₹0.20/s), even when it fails.
+- Unit tests for credits are required: the start gate with holds, parallel starts, charging after success (once, capped at the balance), failures costing nothing, purchases added once, and the GST split adding up exactly.
 
 ## 6. Auth and access
 
@@ -93,7 +94,7 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 
 - User routes (`/`, `/jobs/[id]`, `/library`): first-load JS ≤ 135 KB gzip (React 19 + Next 15 baseline is ~115 KB), LCP < 2.0 s, CLS < 0.05, INP < 200 ms on a mid-range phone over 4G.
 - Server Components by default. Put `'use client'` only on interactive leaves (the create form, progress stream, video player). Never make a whole page a client component.
-- Load fonts with `next/font` (self-hosted, `display: swap`, subset). No font or CSS requests to third parties.
+- Load fonts with `next/font` (self-hosted, `display: swap`, subset). No font or CSS requests to third parties. The one third-party script is Razorpay's checkout, loaded only when someone presses Pay.
 - React Flow and admin charts load through `next/dynamic`, only on `/admin` routes. They must never appear in a user-route bundle.
 - Every route segment gets a `loading.tsx` skeleton with the same dimensions as the final layout, so there's no layout shift.
 - The Generate button responds instantly: a React form action (`useActionState` + server action) shows the pending state, works before hydration, and redirects to `/jobs/:id`, which renders its first frame on the server from the DB (no client fetch waterfall).
@@ -105,7 +106,7 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - Put each probe in its own file in `src/server/health/probes/`, exporting `{ id, name, tier, critical, run(): Promise<ProbeResult> }`.
 - A probe must finish within 5 s (a timeout means `down`) and must not send real emails, create real payments or start pipelines.
 - A missing configuration returns `not_configured`, not `down`. Fleet uptime is worst-of across `critical` probes only.
-- Only probe what the app uses. Engine worker probes come from the engines in enabled catalog pipelines (read from their graphs). Add SMTP and Razorpay probes when those features ship (M10, M12).
+- Only probe what the app uses. Engine worker probes come from the engines in enabled catalog pipelines (read from their graphs). SMTP is probed with AUTH_MODE=full, Razorpay when checkout is on.
 - The worker runs the sweep every 30 s and keeps a heartbeat key in Redis (`worker:heartbeat`, 60 s TTL).
 
 ## 10. Testing
@@ -161,8 +162,9 @@ SMTP_USER=
 SMTP_PASS=                     # SMTP_PASSWORD also accepted
 SMTP_FROM="MontageAI <no-reply@example.com>"
 
-# Payments (later)
-PAYMENTS_ENABLED=false
+# Payments
+PAYMENTS_ENABLED=false         # true opens "Add credits" and checkout
+PAYMENTS_PROVIDER=mock         # mock (local only, refused in production) | razorpay
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=

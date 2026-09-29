@@ -2,7 +2,7 @@ import { eq, inArray } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { catalogItems, jobs, mediaIndex, users } from "@/db/schema";
-import { chargeForJob, getBalance, grant } from "@/server/credits";
+import { getBalance, grant } from "@/server/credits";
 import { startJob, sweep } from "./lifecycle";
 import { signedVideo } from "./public";
 import { ensureIndex, indexInputs, introMoments, shuffleKills, styleInput } from "./staged";
@@ -22,8 +22,8 @@ let catalogItemId: string;
 let tag: string;
 
 async function newJob(opts: { playerName?: string; musicUrl?: string; style?: string } = {}) {
-  return db.transaction(async (tx) => {
-    const [job] = await tx
+  {
+    const [job] = await db
       .insert(jobs)
       .values({
         userId,
@@ -34,12 +34,11 @@ async function newJob(opts: { playerName?: string; musicUrl?: string; style?: st
         input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
         source: "url",
         durationSec: 30,
-        chargedCredits: 300,
+        maxCredits: 300,
       })
       .returning();
-    await chargeForJob(tx, userId, job.id, 300);
     return job;
-  });
+  }
 }
 const load = async (id: string) => (await db.select().from(jobs).where(eq(jobs.id, id)))[0];
 const at = (ms: number) => vi.setSystemTime(T0 + ms);
@@ -99,7 +98,9 @@ describe("staged styles (mock Engine X)", () => {
     expect(row.outputMeta).toMatchObject({ totalKills: 5, title: "Mock match", thumbnailKey: expect.stringContaining("thumbnail.jpg") });
     // the result page gets fresh links to the video and its cover still
     expect(await signedVideo(job.id, userId)).toMatchObject({ url: expect.stringContaining(".mp4"), poster: expect.stringContaining("data:image/svg") });
-    expect(await getBalance(userId)).toBe(2000 - 600); // both jobs charged, nothing refunded
+    // Each job pays for its whole run, indexes included: started at T0, finished at T0 + 30 s → 30 credits.
+    expect(row.chargedCredits).toBe(30);
+    expect(await getBalance(userId)).toBe(2000 - 60);
   });
 
   it("never reuses another job's finished index, and a restarted job keeps its own run", async () => {

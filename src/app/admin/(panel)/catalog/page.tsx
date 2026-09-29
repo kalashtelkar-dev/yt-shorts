@@ -30,7 +30,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
               <tr>
                 <th>Style</th>
                 <th>Template</th>
-                <th>Prices</th>
+                <th>Credits per length</th>
                 <th>Status</th>
                 <th className="text-right">Order</th>
               </tr>
@@ -46,7 +46,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
                   </td>
                   <td className="font-mono text-xs">{i.templateId}</td>
                   <td className="font-mono text-xs tabular">
-                    {i.durations.map((d) => `${d}s ${i.prices[String(d)] ? formatCredits(i.prices[String(d)]) : "—"}`).join(" · ")}
+                    {i.durations.map((d) => { const r = i.creditRanges[String(d)]; return `${d}s ${r ? `${formatCredits(r.min)}–${formatCredits(r.max)}` : "—"}`; }).join(" · ")}
                   </td>
                   <td className="whitespace-nowrap">
                     {i.enabled ? <span className="text-success">Enabled</span> : <span className="text-muted-foreground">Off</span>}

@@ -2,42 +2,54 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { saveSettingsAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/action-form";
-import { Empty, Field, PageHeader, Pager, pageOf, pageParam, Panel, Table } from "@/components/admin/bits";
+import { Empty, Field, PageHeader, Pager, pageOf, pageParam, Panel, Table, UserLabel } from "@/components/admin/bits";
 import { Input } from "@/components/ui/input";
-import { formatClock, formatCredits, formatRupees } from "@/lib/format";
+import { env } from "@/config/env";
+import { formatClock, formatCredits, formatRupees, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { costReport } from "@/server/admin/billing";
 import { requireAdmin } from "@/server/admin/guard";
+import { listPayments } from "@/server/payments";
 import { getSettings } from "@/server/settings";
 
 export const metadata: Metadata = { title: "Billing" };
 export const dynamic = "force-dynamic";
 
-const rupees = (paise: number | null) => (paise === null ? "" : (paise / 100).toFixed(2));
+const rupeesText = (paise: number) => (paise / 100).toFixed(2);
+const STATUS: Record<string, string> = { paid: "text-success", created: "text-muted-foreground", failed: "text-danger" };
 
-export default async function BillingPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ page?: string; tp?: string }> }) {
   await requireAdmin();
-  const page = pageParam((await searchParams).page);
-  const [s, report] = await Promise.all([getSettings(), costReport(30)]);
-  const sell = report.sellPaisePerCredit;
-  const revenue = sell ? report.totals.netCredits * sell : null;
+  const sp = await searchParams;
+  const page = pageParam(sp.page);
+  const tp = pageParam(sp.tp);
+  const [s, report, txns] = await Promise.all([getSettings(), costReport(30), listPayments(tp)]);
+  const net = report.netPaisePerCredit;
+  const revenue = Math.round(report.totals.netCredits * net);
+  const rows = pageOf(report.rows, page);
 
   const tiles = [
     { label: "Compute cost", value: formatRupees(report.totals.costPaise), sub: `${formatRupees(report.totals.failedCostPaise)} of it on runs that failed` },
-    { label: "Credits earned", value: formatCredits(report.totals.netCredits), sub: "Charged and not refunded" },
-    { label: "Revenue at sell price", value: revenue === null ? "—" : formatRupees(revenue), sub: sell ? `${formatRupees(sell)} per credit` : "Set a sell price below" },
+    { label: "Credits used", value: formatCredits(report.totals.netCredits), sub: "Charged for finished montages" },
+    { label: "Earned after GST", value: formatRupees(revenue), sub: `${formatRupees(s.sellPaisePerCredit)} a credit incl. GST` },
     {
       label: "Margin",
-      value: revenue === null ? "—" : formatRupees(revenue - report.totals.costPaise),
-      sub: revenue === null ? "Needs a sell price" : "Revenue minus compute cost",
-      tone: revenue === null ? "" : revenue - report.totals.costPaise < 0 ? "text-danger" : "",
+      value: formatRupees(revenue - report.totals.costPaise),
+      sub: "Earned minus compute cost",
+      tone: revenue - report.totals.costPaise < 0 ? "text-danger" : "",
     },
   ];
 
   return (
     <>
       <PageHeader title="Billing" />
-      <p className="-mt-3 text-sm text-muted-foreground">Last {report.days} days. Prices per style and length are set in the <Link href="/admin/catalog" className="text-foreground underline underline-offset-4">catalog</Link>.</p>
+      <p className="-mt-3 text-sm text-muted-foreground">
+        Last {report.days} days. Credit ranges per style and length are set in the{" "}
+        <Link href="/admin/catalog" className="text-foreground underline underline-offset-4">
+          catalog
+        </Link>
+        .
+      </p>
 
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {tiles.map((t) => (
@@ -60,16 +72,19 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 <th className="text-right">Jobs</th>
                 <th className="text-right">Succeeded</th>
                 <th className="text-right">Median run</th>
+                <th className="text-right">Range shown</th>
+                <th className="text-right">Avg charged</th>
                 <th className="text-right">Cost per montage</th>
-                <th className="text-right">Price</th>
-                <th className="text-right">Margin per montage</th>
+                <th className="text-right">Earned per montage</th>
+                <th className="text-right">Margin</th>
               </tr>
             </thead>
             <tbody>
-              {pageOf(report.rows, page).rows.map((r) => {
+              {rows.rows.map((r) => {
                 const perMontage = r.succeeded ? Math.round(r.costPaise / r.succeeded) : null; // failed runs' cost spread over successes
-                const pricePaise = r.price !== null && sell ? r.price * sell : null;
-                const margin = pricePaise !== null && perMontage !== null ? pricePaise - perMontage : null;
+                const avgCredits = r.succeeded ? Math.round(r.netCredits / r.succeeded) : null;
+                const earned = avgCredits !== null ? Math.round(avgCredits * net) : null;
+                const margin = earned !== null && perMontage !== null ? earned - perMontage : null;
                 return (
                   <tr key={`${r.slug}-${r.durationSec}`}>
                     <td className="whitespace-nowrap">
@@ -78,11 +93,10 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                     <td className="text-right font-mono tabular">{r.jobs}</td>
                     <td className="text-right font-mono tabular">{r.succeeded}</td>
                     <td className="text-right font-mono tabular">{r.medianRunMs ? formatClock(r.medianRunMs) : "—"}</td>
+                    <td className="text-right font-mono tabular">{r.range ? `${formatCredits(r.range.min)}–${formatCredits(r.range.max)}` : "—"}</td>
+                    <td className="text-right font-mono tabular">{avgCredits === null ? "—" : formatCredits(avgCredits)}</td>
                     <td className="text-right font-mono tabular">{perMontage === null ? "—" : formatRupees(perMontage)}</td>
-                    <td className="text-right font-mono tabular">
-                      {r.price === null ? "—" : `${formatCredits(r.price)} cr`}
-                      {pricePaise !== null && <span className="block text-xs text-muted-foreground">{formatRupees(pricePaise)}</span>}
-                    </td>
+                    <td className="text-right font-mono tabular">{earned === null ? "—" : formatRupees(earned)}</td>
                     <td className={cn("text-right font-mono tabular", margin !== null && margin < 0 && "text-danger")}>{margin === null ? "—" : formatRupees(margin)}</td>
                   </tr>
                 );
@@ -90,24 +104,85 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             </tbody>
           </Table>
         )}
-        <Pager page={page} hasMore={pageOf(report.rows, page).hasMore} params={{}} />
+        <Pager page={page} hasMore={rows.hasMore} params={{ tp: tp ? String(tp) : undefined }} />
         <p className="pt-3 text-xs text-muted-foreground">
-          Cost per montage includes the compute of failed runs for the same style and length. Compute is billed at {formatRupees(report.costPaisePerSecond)} per second.
+          Cost per montage includes the compute of failed runs for the same style and length, at {formatRupees(report.costPaisePerSecond)} per second. Older montages were charged a fixed price.
         </p>
       </Panel>
 
-      <Panel title="Pricing and limits" className="max-w-3xl">
+      <Panel title="Transactions">
+        {!env.PAYMENTS_ENABLED && <p className="mb-3 text-sm text-muted-foreground">Checkout is switched off (PAYMENTS_ENABLED=false), so users can&apos;t buy credits yet.</p>}
+        {env.PAYMENTS_ENABLED && env.PAYMENTS_PROVIDER === "mock" && <p className="mb-3 text-sm text-warning">Mock payments are on: purchases here are local tests, not real money.</p>}
+        {txns.rows.length === 0 ? (
+          <Empty>No purchases yet.</Empty>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>User</th>
+                <th className="text-right">Paid</th>
+                <th className="text-right">Credits</th>
+                <th>Status</th>
+                <th>Invoice</th>
+              </tr>
+            </thead>
+            <tbody>
+              {txns.rows.map(({ payment: p, email, isAnonymous, invoiceId, invoiceNumber }) => (
+                <tr key={p.id}>
+                  <td className="font-mono text-xs whitespace-nowrap text-muted-foreground tabular">{formatWhen(p.createdAt.toISOString())}</td>
+                  <td>
+                    <UserLabel id={p.userId} email={email} isAnonymous={isAnonymous} />
+                  </td>
+                  <td className="text-right font-mono tabular">{formatRupees(p.amountPaise)}</td>
+                  <td className="text-right font-mono tabular">{formatCredits(p.credits)}</td>
+                  <td className={STATUS[p.status]}>
+                    {p.status === "created" ? "Not paid" : p.status === "paid" ? "Paid" : "Failed"}
+                    {p.provider === "mock" && <span className="ml-1.5 text-xs text-warning">test</span>}
+                  </td>
+                  <td>
+                    {invoiceId ? (
+                      <Link href={`/admin/billing/invoices/${invoiceId}`} className="font-mono text-xs hover:underline">
+                        {invoiceNumber}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+        <Pager page={tp} hasMore={txns.hasMore} params={{ page: page ? String(page) : undefined }} param="tp" />
+      </Panel>
+
+      <Panel title="Pricing, limits and invoice details" className="max-w-4xl">
         <ActionForm action={saveSettingsAction} submitLabel="Save settings">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <h3 className="text-sm font-medium">Pricing</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Engine X cost per second (₹)">
-              <Input name="costRupeesPerSecond" type="number" step="0.01" min={0} required defaultValue={rupees(s.costPaisePerSecond)} className="font-mono" />
+              <Input name="costRupeesPerSecond" type="number" step="0.01" min={0} required defaultValue={rupeesText(s.costPaisePerSecond)} className="font-mono" />
             </Field>
-            <Field label="Sell price per credit (₹, for checkout later)">
-              <Input name="sellRupeesPerCredit" type="number" step="0.01" min={0.01} defaultValue={rupees(s.sellPaisePerCredit)} placeholder="Not set" className="font-mono" />
+            <Field label="Price per credit, GST included (₹)">
+              <Input name="sellRupeesPerCredit" type="number" step="0.01" min={0.01} required defaultValue={rupeesText(s.sellPaisePerCredit)} className="font-mono" />
+            </Field>
+            <Field label="GST rate (%)">
+              <Input name="gstPercent" type="number" step="0.01" min={0} max={50} required defaultValue={s.gstRateBps / 100} className="font-mono" />
+            </Field>
+            <Field label="Smallest top-up, GST included (₹)">
+              <Input name="minPurchaseRupees" type="number" step="1" min={1} required defaultValue={s.minPurchasePaise / 100} className="font-mono" />
+            </Field>
+            <Field label="Largest top-up (₹)">
+              <Input name="maxPurchaseRupees" type="number" step="1" min={1} required defaultValue={s.maxPurchasePaise / 100} className="font-mono" />
             </Field>
             <Field label="Free starter credits for new accounts">
               <Input name="starterCredits" type="number" step={1} min={0} required defaultValue={s.starterCredits} className="font-mono" />
             </Field>
+          </div>
+
+          <h3 className="mt-4 text-sm font-medium">Limits</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Montages running at once per user">
               <Input name="maxConcurrentJobsPerUser" type="number" step={1} min={1} max={50} required defaultValue={s.maxConcurrentJobsPerUser} className="font-mono" />
             </Field>
@@ -118,11 +193,42 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               <Input name="maxUploadMb" type="number" step={1} min={1} required defaultValue={s.maxUploadMb} className="font-mono" />
             </Field>
           </div>
-        </ActionForm>
-      </Panel>
 
-      <Panel title="Transactions" className="max-w-3xl">
-        <p className="text-sm text-muted-foreground">Payments aren&apos;t switched on yet. Razorpay purchases will be listed here once checkout launches.</p>
+          <h3 className="mt-4 text-sm font-medium">On tax invoices</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Legal name">
+              <Input name="seller.legalName" defaultValue={s.seller.legalName ?? ""} maxLength={120} />
+            </Field>
+            <Field label="GSTIN">
+              <Input name="seller.gstin" defaultValue={s.seller.gstin ?? ""} maxLength={15} className="font-mono uppercase" />
+            </Field>
+            <Field label="Address">
+              <Input name="seller.address" defaultValue={s.seller.address ?? ""} maxLength={300} />
+            </Field>
+            <Field label="State code (GST, e.g. 29 for Karnataka)">
+              <Input name="seller.stateCode" defaultValue={s.seller.stateCode ?? ""} maxLength={2} inputMode="numeric" className="font-mono" />
+            </Field>
+            <Field label="PAN">
+              <Input name="seller.pan" defaultValue={s.seller.pan ?? ""} maxLength={10} className="font-mono uppercase" />
+            </Field>
+            <Field label="SAC code for the credits">
+              <Input name="seller.sac" defaultValue={s.seller.sac ?? ""} maxLength={8} inputMode="numeric" className="font-mono" placeholder="Ask your accountant" />
+            </Field>
+            <Field label="Support email">
+              <Input name="seller.email" type="email" defaultValue={s.seller.email ?? ""} />
+            </Field>
+            <Field label="Phone">
+              <Input name="seller.phone" defaultValue={s.seller.phone ?? ""} maxLength={30} />
+            </Field>
+            <Field label="Website">
+              <Input name="seller.website" defaultValue={s.seller.website ?? ""} maxLength={120} />
+            </Field>
+            <Field label="Authorised signatory (name)">
+              <Input name="seller.signatory" defaultValue={s.seller.signatory ?? ""} maxLength={80} />
+            </Field>
+          </div>
+          <p className="text-xs text-muted-foreground">Each invoice keeps the details it was issued with; changes here apply to new invoices.</p>
+        </ActionForm>
       </Panel>
     </>
   );

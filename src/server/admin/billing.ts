@@ -2,14 +2,33 @@ import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { adminAuditLog, catalogItems, settings } from "@/db/schema";
+import { adminAuditLog, catalogItems, settings, type CreditRange } from "@/db/schema";
+import { GSTIN_RE } from "@/lib/billing";
 import type { ActionResult } from "@/lib/jobs";
 import { getSettings } from "@/server/settings";
 import type { Admin } from "./guard";
 
+const text = (max: number) => z.string().trim().max(max).optional().transform((v) => v || undefined);
+export const sellerInput = z.strictObject({
+  legalName: text(120),
+  address: text(300),
+  stateCode: z.string().trim().regex(/^\d{2}$/, "Use the 2-digit GST state code").optional().or(z.literal("").transform(() => undefined)),
+  gstin: z.string().trim().toUpperCase().regex(GSTIN_RE, "That GSTIN doesn't look right").optional().or(z.literal("").transform(() => undefined)),
+  pan: z.string().trim().toUpperCase().regex(/^[A-Z]{5}\d{4}[A-Z]$/, "That PAN doesn't look right").optional().or(z.literal("").transform(() => undefined)),
+  email: z.email().optional().or(z.literal("").transform(() => undefined)),
+  phone: text(30),
+  website: text(120),
+  sac: z.string().trim().regex(/^\d{4,8}$/, "SAC codes are 4 to 8 digits").optional().or(z.literal("").transform(() => undefined)),
+  signatory: text(80),
+});
+
 export const settingsInput = z.strictObject({
   costPaisePerSecond: z.number().int().min(0).max(100_000),
-  sellPaisePerCredit: z.number().int().min(1).max(100_000).nullable(),
+  sellPaisePerCredit: z.number().int().min(1).max(100_000),
+  minPurchasePaise: z.number().int().min(100).max(10_000_000),
+  maxPurchasePaise: z.number().int().min(100).max(10_000_000),
+  gstRateBps: z.number().int().min(0).max(5000),
+  seller: sellerInput,
   starterCredits: z.number().int().min(0).max(1_000_000),
   maxUploadMb: z.number().int().min(1).max(20_000),
   maxConcurrentJobsPerUser: z.number().int().min(1).max(50),
@@ -17,7 +36,9 @@ export const settingsInput = z.strictObject({
 });
 
 export async function updateSettings(admin: Admin, raw: unknown): Promise<ActionResult<null>> {
-  const parsed = settingsInput.safeParse(raw);
+  const parsed = settingsInput
+    .refine((v) => v.minPurchasePaise <= v.maxPurchasePaise, { message: "The smallest top-up can't be more than the largest", path: ["minPurchasePaise"] })
+    .safeParse(raw);
   if (!parsed.success) {
     const i = parsed.error.issues[0];
     return { ok: false, error: { code: "invalid", message: `${String(i.path[0] ?? "Form")}: ${i.message}`, field: String(i.path[0] ?? "") } };
@@ -41,7 +62,7 @@ export type CostRow = {
   costPaise: number;
   failedCostPaise: number;
   netCredits: number;
-  price: number | null;
+  range: CreditRange | null;
 };
 
 /**
@@ -75,7 +96,7 @@ export async function costReport(days = 30) {
       and j.status in ('succeeded', 'failed', 'canceled')
     group by j.catalog_slug, j.duration_sec
     order by j.catalog_slug, j.duration_sec`);
-  const items = await db.select({ slug: catalogItems.slug, title: catalogItems.title, prices: catalogItems.prices }).from(catalogItems);
+  const items = await db.select({ slug: catalogItems.slug, title: catalogItems.title, creditRanges: catalogItems.creditRanges }).from(catalogItems);
   const bySlug = new Map(items.map((i) => [i.slug, i]));
 
   const rows: CostRow[] = result.map((r) => ({
@@ -88,11 +109,13 @@ export async function costReport(days = 30) {
     costPaise: r.cost_paise,
     failedCostPaise: r.failed_cost_paise,
     netCredits: r.net_credits,
-    price: bySlug.get(r.slug)?.prices[String(r.duration_sec)] ?? null,
+    range: bySlug.get(r.slug)?.creditRanges[String(r.duration_sec)] ?? null,
   }));
   const totals = rows.reduce(
     (t, r) => ({ costPaise: t.costPaise + r.costPaise, failedCostPaise: t.failedCostPaise + r.failedCostPaise, netCredits: t.netCredits + r.netCredits, jobs: t.jobs + r.jobs }),
     { costPaise: 0, failedCostPaise: 0, netCredits: 0, jobs: 0 },
   );
-  return { rows, totals, sellPaisePerCredit: s.sellPaisePerCredit, costPaisePerSecond: s.costPaisePerSecond, days };
+  // What a credit earns after GST, for revenue and margin.
+  const netPaisePerCredit = (s.sellPaisePerCredit * 10_000) / (10_000 + s.gstRateBps);
+  return { rows, totals, sellPaisePerCredit: s.sellPaisePerCredit, netPaisePerCredit, costPaisePerSecond: s.costPaisePerSecond, days };
 }

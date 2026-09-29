@@ -3,7 +3,8 @@ import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import { catalogItems, jobEvents, jobs, mediaIndex } from "@/db/schema";
 import { progressOf, stageDetail, stageFor } from "@/server/catalog";
-import { refundJob } from "@/server/credits";
+import { chargeForUsage, refundJob } from "@/server/credits";
+import { creditsForRun } from "@/lib/billing";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError, type Run } from "@/server/enginex/types";
 import { redis } from "@/server/redis";
@@ -75,7 +76,7 @@ export async function startJob(jobId: string, now = Date.now()) {
   }
 }
 
-/** One poll of a running job: progress, stage, timeout and the terminal outcome. Credits were charged at creation. */
+/** One poll of a running job: progress, stage, timeout and the terminal outcome. Credits are charged when it succeeds. */
 export async function pollJob(job: Job, settings: Settings, stageMap: { match: string; label: string }[], outputField: string, now = Date.now()) {
   let run: Run;
   try {
@@ -146,7 +147,8 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
   const killCount = Number(output.totalKills ?? plan.totalKills);
   const outputKey = typeof output[outputField] === "string" ? (output[outputField] as string) : null;
   const thumbnailKey = typeof output.thumbnail === "string" ? output.thumbnail : null; // the cover still (style pipelines)
-  const runMs = run.runMs ?? elapsed(job, now);
+  // Staged jobs also ran their gameplay and song indexes, so they pay for the whole job, not just the render run.
+  const runMs = job.indexTemplates ? elapsed(job, now) : (run.runMs ?? elapsed(job, now));
   if (!outputKey) {
     // The pipeline skips rendering when it finds no kills: tell the user that, not "something went wrong".
     const noKills = killCount === 0 || (clipList !== null && clipList.length === 0);
@@ -180,8 +182,13 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
         finishedAt: new Date(now),
       })
       .where(and(eq(jobs.id, job.id), eq(jobs.status, "running")))
-      .returning({ id: jobs.id });
+      .returning({ id: jobs.id, userId: jobs.userId }); // the owner now: a guest who signed up mid-run moved the job
     if (!claimed) return false;
+    // Pay for the editing time used. Jobs from before usage pricing were charged at start (maxCredits 0): skip.
+    if (job.maxCredits > 0) {
+      const charged = await chargeForUsage(tx, claimed.userId, job.id, creditsForRun(runMs));
+      await tx.update(jobs).set({ chargedCredits: charged }).where(eq(jobs.id, job.id));
+    }
     await tx.insert(jobEvents).values({ jobId: job.id, message: totalKills ? `Done. Found ${totalKills} kill${totalKills === 1 ? "" : "s"}` : "Done" });
     return true;
   });
@@ -208,6 +215,7 @@ export async function finishFailed(
       .where(and(eq(jobs.id, job.id), inArray(jobs.status, ["queued", "starting", "running"])))
       .returning({ id: jobs.id });
     if (!claimed) return false;
+    // Only jobs from before usage pricing were charged up front; new jobs charged nothing, so this is a no-op for them.
     await refundJob(job.id, f.status === "canceled" ? "Job canceled" : "Job did not finish", tx);
     await tx.insert(jobEvents).values({ jobId: job.id, level: "error", message: f.errorPublic });
     return true;

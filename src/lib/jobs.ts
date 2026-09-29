@@ -47,7 +47,8 @@ export type CatalogOption = {
   description: string;
   beta: boolean;
   durations: number[];
-  prices: Record<string, number>;
+  /** Credits each length usually uses (1 a second); starting needs `max` free. */
+  creditRanges: Record<string, { min: number; max: number }>;
   fields: { name: string; label: string; type: "text" | "url" | "textarea" | "range"; required?: boolean; max?: number; advanced?: boolean; help?: string }[];
 };
 

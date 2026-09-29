@@ -46,8 +46,8 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     inputMap: INPUT_MAP,
     stageMap: STAGE_MAP,
     outputKey: "montage",
-    // ponytail: placeholder prices; set real ones in the admin once runMs per length is measured.
-    prices: { "30": 300, "60": 450, "90": 600 },
+    // Credits = seconds of editing. From measured run times (Sep 2026); admins tune them in the catalog.
+    creditRanges: { "30": { min: 120, max: 360 }, "60": { min: 180, max: 600 }, "90": { min: 240, max: 900 } },
   },
   {
     slug: "lyrical-kill-montage",
@@ -63,7 +63,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     inputMap: INPUT_MAP,
     stageMap: STAGE_MAP,
     outputKey: "montage",
-    prices: { "30": 350, "60": 500, "90": 650 },
+    creditRanges: { "30": { min: 90, max: 300 }, "60": { min: 150, max: 480 }, "90": { min: 240, max: 720 } },
   },
   {
     slug: "ultra-edit",
@@ -79,6 +79,6 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     inputMap: INPUT_MAP,
     stageMap: STAGE_MAP,
     outputKey: "montage",
-    prices: { "30": 400, "60": 550, "90": 700 },
+    creditRanges: { "30": { min: 150, max: 420 }, "60": { min: 360, max: 900 }, "90": { min: 540, max: 1200 } },
   },
 ];

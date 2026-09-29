@@ -18,7 +18,7 @@ const base = () => ({
   beta: false,
   sortOrder: 1,
   durations: [30, 60],
-  prices: { "30": 300, "60": 450 },
+  creditRanges: { "30": { min: 120, max: 300 }, "60": { min: 200, max: 450 } },
   fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32 }],
   inputMap: { youtubeUrl: "$source.url", playerName: "$fields.playerName", durationSec: "$durationSec" },
   stageMap: [{ match: "download", label: "Downloading" }, { match: "read_feed", label: "Reading", itemSeconds: 10 }],
@@ -95,7 +95,8 @@ describe("saveCatalogItem", () => {
   it.each([
     [{ inputMap: { youtubeUrl: "${process.env.X}" } }, /isn't supported/],
     [{ inputMap: { playerName: "$fields.nope" } }, /doesn't exist/],
-    [{ prices: { "30": 300 } }, /price for 60/],
+    [{ creditRanges: { "30": { min: 120, max: 300 } } }, /range for 60/],
+    [{ creditRanges: { "30": { min: 400, max: 300 }, "60": { min: 200, max: 450 } } }, /lowest/],
     [{ slug: "Kill Montage" }, /lowercase/],
     [{ fields: [{ name: "a", label: "A", type: "text" }, { name: "a", label: "B", type: "text" }], inputMap: {} }, /same name/],
   ])("rejects bad input %j", async (patch, message) => {
@@ -114,16 +115,32 @@ describe("saveCatalogItem", () => {
 describe("billing", () => {
   it("updates settings with an audit entry, and validates", async () => {
     const [before] = await db.select().from(settings).where(eq(settings.id, 1));
-    const next = { costPaisePerSecond: 30, sellPaisePerCredit: 50, starterCredits: 600, maxUploadMb: 2048, maxConcurrentJobsPerUser: 2, maxRunMinutes: 60 };
+    const next = {
+      costPaisePerSecond: 30,
+      sellPaisePerCredit: 50,
+      minPurchasePaise: 10_000,
+      maxPurchasePaise: 500_000,
+      gstRateBps: 1800,
+      seller: { legalName: "Test Co", gstin: "29AALCD7580N1ZQ", stateCode: "29" },
+      starterCredits: 600,
+      maxUploadMb: 2048,
+      maxConcurrentJobsPerUser: 2,
+      maxRunMinutes: 60,
+    };
     expect(await updateSettings(admin, next)).toMatchObject({ ok: true });
     expect(await updateSettings(admin, { ...next, maxRunMinutes: 1 })).toMatchObject({ ok: false });
     const log = await db.select().from(adminAuditLog).where(eq(adminAuditLog.adminId, admin.id));
     expect(log[0]).toMatchObject({ action: "settings.update", after: next });
-    if (before) await db.update(settings).set({ sellPaisePerCredit: before.sellPaisePerCredit }).where(eq(settings.id, 1));
+    expect(await updateSettings(admin, { ...next, seller: { gstin: "not-a-gstin" } })).toMatchObject({ ok: false });
+    expect(await updateSettings(admin, { ...next, minPurchasePaise: 600_000 })).toMatchObject({ ok: false });
+    if (before) {
+      const { id: _id, updatedAt: _u, ...rest } = before;
+      await db.update(settings).set(rest).where(eq(settings.id, 1)); // the tests share the dev database
+    }
   });
 
   it("reports cost and net credits per style and length", async () => {
-    const [item] = await db.insert(catalogItems).values({ slug, title: "Report test", templateId: "tpl_ok", prices: { "30": 300 } }).returning();
+    const [item] = await db.insert(catalogItems).values({ slug, title: "Report test", templateId: "tpl_ok", creditRanges: { "30": { min: 120, max: 300 } } }).returning();
     const common = { userId: admin.id, catalogItemId: item.id, catalogSlug: slug, templateId: "tpl_ok", input: {}, source: "url" as const, durationSec: 30 };
     await db.insert(jobs).values([
       { ...common, status: "succeeded", runMs: 100_000, computeCostPaise: 3000, chargedCredits: 300 },
@@ -131,6 +148,6 @@ describe("billing", () => {
       { ...common, status: "failed", runMs: 50_000, computeCostPaise: 1500, chargedCredits: 300 },
     ]);
     const row = (await costReport(30)).rows.find((r) => r.slug === slug)!;
-    expect(row).toMatchObject({ jobs: 3, succeeded: 2, medianRunMs: 150_000, costPaise: 10_500, failedCostPaise: 1500, netCredits: 600, price: 300 });
+    expect(row).toMatchObject({ jobs: 3, succeeded: 2, medianRunMs: 150_000, costPaise: 10_500, failedCostPaise: 1500, netCredits: 600, range: { min: 120, max: 300 } });
   });
 });

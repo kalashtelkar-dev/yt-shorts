@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { catalogItems, jobs, users } from "@/db/schema";
 import type { SessionUser } from "@/server/auth";
-import { getBalance, grant } from "@/server/credits";
+import { availableCredits, getBalance, grant } from "@/server/credits";
 import { redis } from "@/server/redis";
 import { cleanFileName, issueUpload } from "@/server/uploads";
 import { createJob, randomLyricLook, randomVariation } from "./create";
@@ -23,7 +23,7 @@ beforeEach(async () => {
     templateId: "tpl_t",
     uploadTemplateId: "tpl_upload",
     durations: [30, 60, 90],
-    prices: { "30": 100, "60": 200 }, // 90 has no price
+    creditRanges: { "30": { min: 40, max: 100 }, "60": { min: 80, max: 200 } }, // 90 has no range
     fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32 }],
     inputMap: { youtubeUrl: "$source.url", video: "$source.key", videoTitle: "$source.name", playerName: "$fields.playerName" },
   });
@@ -31,12 +31,13 @@ beforeEach(async () => {
 });
 
 describe("createJob", () => {
-  it("charges the price, snapshots the template and stores the mapped input", async () => {
+  it("charges nothing up front, holds the top of the range, snapshots the template and stores the mapped input", async () => {
     const r = await createJob(user, { catalogSlug: slug, url, durationSec: 60, fields: { playerName: "  Aqua " } });
     expect(r.ok).toBe(true);
     const [job] = await db.select().from(jobs).where(eq(jobs.userId, user.id));
-    expect(job).toMatchObject({ status: "queued", templateId: "tpl_t", chargedCredits: 200, input: { youtubeUrl: url, playerName: "Aqua" } });
-    expect(await getBalance(user.id)).toBe(50);
+    expect(job).toMatchObject({ status: "queued", templateId: "tpl_t", chargedCredits: 0, maxCredits: 200, input: { youtubeUrl: url, playerName: "Aqua" } });
+    expect(await getBalance(user.id)).toBe(250);
+    expect(await availableCredits(user.id)).toBe(50);
   });
 
   it.each([
@@ -60,15 +61,16 @@ describe("createJob", () => {
     expect(r.ok).toBe(false);
   });
 
-  it("refuses a length without a price", async () => {
+  it("refuses a length without a credits range", async () => {
     const r = await createJob(user, { catalogSlug: slug, url, durationSec: 90, fields: { playerName: "Aqua" } });
     expect(r).toMatchObject({ ok: false, error: { code: "unavailable" } });
   });
 
-  it("says how many credits are missing", async () => {
-    await createJob(user, { catalogSlug: slug, url, durationSec: 60, fields: { playerName: "Aqua" } });
+  it("needs the top of the range free, counting what running jobs hold", async () => {
+    await createJob(user, { catalogSlug: slug, url, durationSec: 60, fields: { playerName: "Aqua" } }); // holds 200 of 250
     const r = await createJob(user, { catalogSlug: slug, url, durationSec: 60, fields: { playerName: "Aqua" } });
-    expect(r).toMatchObject({ ok: false, error: { code: "insufficient", message: "This montage costs 200 credits and you have 50." } });
+    expect(r).toMatchObject({ ok: false, error: { code: "insufficient", message: expect.stringContaining("you need 200 credits free") } });
+    expect(r).toMatchObject({ error: { message: expect.stringContaining("You have 50") } });
   });
 
   it("blocks suspended users", async () => {

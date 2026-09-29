@@ -10,6 +10,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  type AnyPgColumn,
   timestamp,
   uniqueIndex,
   uuid,
@@ -114,6 +115,7 @@ export type StageMapEntry = { match: string; label: string; itemSeconds?: number
  * (results cached in media_index), then `templateId` is the style pipeline that plans and renders.
  */
 export type IndexTemplates = { gameplay: string; gameplayUpload?: string | null; song: string };
+export type CreditRange = { min: number; max: number };
 
 export const catalogItems = pgTable("catalog_items", {
   id: uuid().primaryKey().defaultRandom(),
@@ -133,8 +135,11 @@ export const catalogItems = pgTable("catalog_items", {
   inputMap: jsonb().$type<InputMap>().notNull().default({}),
   stageMap: jsonb().$type<StageMapEntry[]>().notNull().default([]),
   outputKey: text().notNull().default("montage"),
-  /** Fixed price in credits per length, e.g. {"30": 300, "60": 450}. Charged at start, refunded on failure. */
-  prices: jsonb().$type<Record<string, number>>().notNull().default({}),
+  /**
+   * Expected credits per length, e.g. {"30": {"min": 150, "max": 420}}. Users see the range before they start and
+   * need `max` available to start; they pay for the editing time actually used, after it's made (1 credit a second).
+   */
+  creditRanges: jsonb().$type<Record<string, CreditRange>>().notNull().default({}),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -197,7 +202,10 @@ export const jobs = pgTable(
     errorPublic: text(),
     errorRaw: text(),
     runMs: integer(),
+    /** Credits used, charged after the job succeeds (0 until then, and for failed jobs). */
     chargedCredits: integer().notNull().default(0),
+    /** The top of the range at start: held against the balance while the job runs, so parallel jobs can't overspend. */
+    maxCredits: integer().notNull().default(0),
     computeCostPaise: integer(),
     createdAt: createdAt(),
     startedAt: timestamp({ withTimezone: true }),
@@ -269,7 +277,8 @@ export const ledgerKind = pgEnum("ledger_kind", [
 ]);
 
 // Append-only: a trigger in the migrations rejects UPDATE and DELETE.
-// Jobs use "charge" (at start) and "refund" (on failure); reserve/release are unused legacy kinds.
+// Jobs use "charge" after they succeed (older jobs were charged at start and refunded on failure);
+// "purchase" is a paid top-up (paymentId set); reserve/release are unused legacy kinds.
 export const creditLedger = pgTable(
   "credit_ledger",
   {
@@ -280,6 +289,7 @@ export const creditLedger = pgTable(
     delta: integer().notNull(),
     kind: ledgerKind().notNull(),
     jobId: uuid().references(() => jobs.id),
+    paymentId: uuid().references((): AnyPgColumn => payments.id),
     adminId: text().references(() => users.id),
     reason: text(),
     createdAt: createdAt(),
@@ -288,6 +298,8 @@ export const creditLedger = pgTable(
     index().on(t.userId, t.createdAt),
     // One charge and at most one refund per job: makes lifecycle steps idempotent in the DB.
     uniqueIndex().on(t.jobId, t.kind).where(sql`${t.jobId} is not null`),
+    // One purchase row per payment, however many times the webhook and the browser both confirm it.
+    uniqueIndex().on(t.paymentId).where(sql`${t.paymentId} is not null`),
   ],
 );
 
@@ -305,8 +317,15 @@ export const settings = pgTable(
   "settings",
   {
     id: integer().primaryKey().default(1),
-    costPaisePerSecond: integer().notNull().default(30),
-    sellPaisePerCredit: integer(),
+    costPaisePerSecond: integer().notNull().default(20),
+    /** What users pay per credit, GST included. */
+    sellPaisePerCredit: integer().notNull().default(20),
+    /** Smallest top-up, GST included. */
+    minPurchasePaise: integer().notNull().default(10000),
+    maxPurchasePaise: integer().notNull().default(500000),
+    gstRateBps: integer().notNull().default(1800),
+    /** The business on tax invoices (name, address, GSTIN…). Snapshotted onto each invoice. */
+    seller: jsonb().$type<Seller>().notNull().default({}),
     starterCredits: integer().notNull().default(600),
     maxUploadMb: integer().notNull().default(2048),
     maxConcurrentJobsPerUser: integer().notNull().default(2),
@@ -315,6 +334,89 @@ export const settings = pgTable(
   },
   (t) => [check("settings_single_row", sql`${t.id} = 1`)],
 );
+
+export type Seller = {
+  legalName?: string;
+  address?: string;
+  stateCode?: string;
+  gstin?: string;
+  pan?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  sac?: string;
+  signatory?: string;
+};
+
+// ── Payments and tax invoices ──
+
+export const paymentStatus = pgEnum("payment_status", ["created", "paid", "failed"]);
+
+/** One checkout: created before the payment sheet opens, marked paid once the provider's signature checks out. */
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => users.id),
+    provider: text().notNull(), // 'razorpay' | 'mock'
+    providerOrderId: text().notNull().unique(),
+    providerPaymentId: text().unique(),
+    amountPaise: integer().notNull(), // GST included
+    credits: integer().notNull(),
+    status: paymentStatus().notNull().default("created"),
+    method: text(),
+    raw: jsonb(),
+    createdAt: createdAt(),
+    paidAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [index().on(t.userId, t.createdAt.desc()), index().on(t.status, t.createdAt.desc())],
+);
+
+/** Buyer details for tax invoices, asked once at the first purchase. */
+export const billingProfiles = pgTable("billing_profiles", {
+  userId: text()
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  stateCode: text().notNull(), // GST state code, e.g. "29" for Karnataka
+  legalName: text(),
+  gstin: text(),
+  updatedAt: updatedAt(),
+});
+
+/** A tax invoice per paid payment. Seller and buyer are snapshots, so later edits don't change old invoices. */
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    number: text().notNull().unique(), // INV-<financial year>-<4+ digits>
+    userId: text()
+      .notNull()
+      .references(() => users.id),
+    paymentId: uuid()
+      .notNull()
+      .unique()
+      .references(() => payments.id),
+    seller: jsonb().$type<Seller>().notNull(),
+    buyer: jsonb().$type<{ email: string; legalName: string | null; gstin: string | null; stateCode: string }>().notNull(),
+    credits: integer().notNull(),
+    taxablePaise: integer().notNull(),
+    cgstPaise: integer().notNull().default(0),
+    sgstPaise: integer().notNull().default(0),
+    igstPaise: integer().notNull().default(0),
+    totalPaise: integer().notNull(),
+    gstRateBps: integer().notNull(),
+    issuedAt: createdAt(),
+  },
+  (t) => [index().on(t.userId, t.issuedAt.desc())],
+);
+
+/** Next invoice number per financial year, taken with one atomic UPDATE … RETURNING. */
+export const invoiceCounters = pgTable("invoice_counters", {
+  fy: integer().primaryKey(), // the year the financial year starts (April)
+  last: integer().notNull().default(0),
+});
 
 // ── Admin audit ──
 

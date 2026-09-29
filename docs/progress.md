@@ -252,3 +252,26 @@ Built and tested with `AUTH_MODE=full`; ships with `AUTH_MODE=anonymous`, where 
 **To go live:** publish the five pipelines in Engine X, then set Kill Montage and Lyrical Kill Montage to the staged config in the admin catalog (or with the audited save script), and run one real job per style.
 
 **Manual checks (mock):** make a Kill Montage with a song link → stages go "Reading the kill feed" → "Planning your edit" → "Rendering your montage" → done; a second job with the same links goes straight to the render; player name "fail" → kill-feed error and refund; a song link containing "fail" → song error and refund.
+
+## Credits by editing time, buying credits, GST invoices (2026-09-29)
+
+**What changed**
+- Usage pricing: 1 credit = 1 second of editing. Nothing is charged when a montage starts; it pays for the time it used when it succeeds (capped at the balance). Failed montages cost nothing. To start, the balance minus what running jobs hold must cover the top of the style's range.
+- Catalog prices became credit ranges per length (`credit_ranges`, min–max); Create shows a range meter with your free credits (design B), and "Add credits" when short.
+- Account page (design B): credits wheel (₹100 minimum, GST included, ₹0.20 a credit so ₹100 = 500), "that makes about" per style, Profile tab with invoice details, password, sign out.
+- Billing page (design A): every credit movement with the balance after it, filters, paging, invoice links; desktop has a summary column.
+- Payments: provider interface (Razorpay; mock for local testing, refused in production), webhook `/api/webhooks/razorpay`, one purchase ledger row per payment, GST tax invoice per purchase (CGST+SGST in Karnataka, IGST elsewhere), printable / save as PDF, admin transactions list and invoice view. Razorpay health probe when checkout is on.
+- Admin Billing: price per credit, top-up limits, GST rate, seller details for invoices; cost report on actual charged credits.
+- Fixed: the DB pool is cached across dev hot reloads (each reload used to open 10 more connections until Postgres refused new ones).
+
+**Manual checks**
+1. `.env`: `PAYMENTS_ENABLED=true`, `PAYMENTS_PROVIDER=mock`. Sign in, open Account: scroll the wheel, Pay, fill the state once, confirm the test payment, see "Added N credits", open the invoice, print it.
+2. Billing shows the purchase with the balance after it and the invoice link; paging and filters work on phone and desktop.
+3. Create: pick Ultra Edit 90 s with fewer credits than its top → the meter turns red and the button becomes Add credits. With enough, start a montage: the balance doesn't drop until it finishes; then it drops by the seconds it took.
+4. A failed montage leaves the balance unchanged.
+5. Admin Billing: transactions list, invoice view, edit the seller details and price; Catalog: edit a style's ranges.
+
+**Open**
+- Real Razorpay needs keys (`PAYMENTS_PROVIDER=razorpay`, `RAZORPAY_KEY_ID/SECRET/WEBHOOK_SECRET`) and the webhook URL set in the Razorpay dashboard.
+- SAC code for the credits is blank on invoices until set in admin Billing (ask the accountant).
+- Credit ranges are from few measured runs; tune them in the catalog as more jobs finish.

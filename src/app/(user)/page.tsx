@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { catalogItems } from "@/db/schema";
 import type { CatalogOption } from "@/lib/jobs";
 import { env } from "@/config/env";
+import { availableCredits } from "@/server/credits";
 import { getViewer, viewerBalance } from "@/server/session";
 import { getSettings } from "@/server/settings";
 
@@ -17,7 +18,7 @@ export default async function CreatePage() {
         description: catalogItems.description,
         beta: catalogItems.beta,
         durations: catalogItems.durations,
-        prices: catalogItems.prices,
+        creditRanges: catalogItems.creditRanges,
         fields: catalogItems.fields,
         uploadTemplateId: catalogItems.uploadTemplateId,
         indexTemplates: catalogItems.indexTemplates,
@@ -26,11 +27,11 @@ export default async function CreatePage() {
       .where(eq(catalogItems.enabled, true))
       .orderBy(asc(catalogItems.sortOrder)),
   ]);
-  const [settings, balance] = await Promise.all([getSettings(), viewerBalance(viewer)]);
+  const [settings, balance, available] = await Promise.all([getSettings(), viewerBalance(viewer), viewer ? availableCredits(viewer.id) : Promise.resolve(0)]);
   const needsAccount = env.AUTH_MODE === "full" && (!viewer || !!viewer.isAnonymous);
   // Only lengths that have a price can be picked.
   const items: CatalogOption[] = rows
-    .map(({ uploadTemplateId, indexTemplates, ...r }) => ({ ...r, uploads: !!(uploadTemplateId || indexTemplates?.gameplayUpload), durations: r.durations.filter((d) => (r.prices[String(d)] ?? 0) > 0) }))
+    .map(({ uploadTemplateId, indexTemplates, ...r }) => ({ ...r, uploads: !!(uploadTemplateId || indexTemplates?.gameplayUpload), durations: r.durations.filter((d) => (r.creditRanges[String(d)]?.max ?? 0) > 0) }))
     .filter((r) => r.durations.length > 0);
 
   const intro = (
@@ -41,7 +42,7 @@ export default async function CreatePage() {
   );
 
   return items.length ? (
-    <CreateForm items={items} balance={balance} intro={intro} maxUploadMb={settings.maxUploadMb} needsAccount={needsAccount} starterCredits={settings.starterCredits} />
+    <CreateForm items={items} available={viewer ? available : balance} intro={intro} maxUploadMb={settings.maxUploadMb} needsAccount={needsAccount} starterCredits={settings.starterCredits} canBuy={env.PAYMENTS_ENABLED && env.AUTH_MODE === "full"} />
   ) : (
     <div className="flex max-w-lg flex-col gap-8">
       {intro}

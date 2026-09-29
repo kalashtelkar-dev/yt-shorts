@@ -25,6 +25,12 @@
   --warning: #f5a524;
   --brand-logo: #4f6bfe; /* Deepsoch mark */
 
+  /* Printed documents (tax invoices): paper and ink, the same in both themes. */
+  --paper: #ffffff;
+  --ink: #111111;
+  --ink-muted: #5f6368;
+  --ink-rule: #d9d9d9;
+
   /* shadcn aliases */
   --card: var(--panel);
   --card-foreground: var(--foreground);
@@ -67,6 +73,10 @@
   --color-danger: var(--accent-red);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-rule: var(--ink-rule);
 
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);

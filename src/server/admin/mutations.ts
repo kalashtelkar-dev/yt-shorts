@@ -67,7 +67,7 @@ export async function setRole(admin: Admin, userId: string, role: "user" | "admi
   });
 }
 
-/** Give back what a job cost (e.g. a bad result). Failed jobs were already refunded automatically. */
+/** Give back what a job cost (e.g. a bad result). Failed jobs cost nothing (older ones were refunded automatically). */
 export async function refundJobByAdmin(admin: Admin, jobId: string, reason: string): Promise<ActionResult<null>> {
   if (reason.trim().length < 3) return fail("invalid", "Add a reason for the refund.");
   return db.transaction(async (tx) => {

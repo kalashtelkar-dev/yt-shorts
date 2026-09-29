@@ -16,7 +16,7 @@ import { db } from "@/db";
 import { catalogItems, creditLedger, jobs, users, verifications } from "@/db/schema";
 import { mergeGuest } from "./account";
 import { auth } from "./auth";
-import { adjustCredits, chargeForJob, getBalance, grant, grantStarterOnce, refundJob } from "./credits";
+import { adjustCredits, chargeForUsage, getBalance, grant, grantStarterOnce, refundJob } from "./credits";
 import { applyHeldPassword, holdPassword, sendCode } from "./otp";
 import { inboxKey } from "@/lib/email";
 import { redis } from "./redis";
@@ -159,9 +159,10 @@ describe("guest → account", () => {
     const jobId = await db.transaction(async (tx) => {
       const [job] = await tx
         .insert(jobs)
-        .values({ userId: guestId, catalogItemId: item.id, catalogSlug: "t", templateId: "tpl_t", input: {}, source: "url", durationSec: 30, chargedCredits: 200 })
+        .values({ userId: guestId, catalogItemId: item.id, catalogSlug: "t", templateId: "tpl_t", input: {}, source: "url", durationSec: 30, maxCredits: 200, status: "succeeded" })
         .returning({ id: jobs.id });
-      await chargeForJob(tx, guestId, job.id, 200);
+      // A finished montage that used 200 credits of editing time.
+      await tx.update(jobs).set({ chargedCredits: await chargeForUsage(tx, guestId, job.id, 200) }).where(eq(jobs.id, job.id));
       return job.id;
     });
     return { guestId, cookie, jobId };

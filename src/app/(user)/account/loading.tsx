@@ -1,18 +1,19 @@
-// Same shape as the account page: heading, details panel, password form.
+// Same shape as the Account page (tabs, the buy card, the balance column) so nothing shifts when it loads.
 export default function Loading() {
   return (
-    <div className="flex max-w-lg animate-pulse flex-col gap-10 motion-reduce:animate-none" aria-busy="true" aria-label="Loading">
-      <div className="h-8 w-48 rounded-lg bg-panel sm:h-9" />
-      <div className="h-[8.5rem] rounded-xl bg-panel" />
-      <div className="flex flex-col gap-5">
-        <div className="h-6 w-40 rounded bg-panel" />
-        {[0, 1].map((i) => (
-          <div key={i} className="grid gap-2">
-            <div className="h-4 w-32 rounded bg-panel" />
-            <div className="h-11 rounded-lg bg-panel sm:h-10" />
-          </div>
-        ))}
-        <div className="h-12 w-44 rounded-lg bg-panel" />
+    <div className="flex animate-pulse flex-col gap-6 motion-reduce:animate-none" aria-busy="true" aria-label="Loading">
+      <div className="h-[3.25rem] max-w-md rounded-xl bg-panel" />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:gap-14">
+        <div className="flex flex-col gap-4">
+          <div className="h-9 w-48 rounded-lg bg-panel" />
+          <div className="h-[260px] rounded-2xl bg-panel" />
+          <div className="h-32 rounded-xl bg-panel" />
+          <div className="h-13 rounded-xl bg-panel" />
+        </div>
+        <div className="flex flex-col gap-4 max-lg:hidden">
+          <div className="h-24 rounded-2xl bg-panel" />
+          <div className="h-36 rounded-2xl bg-panel" />
+        </div>
       </div>
     </div>
   );

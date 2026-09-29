@@ -19,7 +19,7 @@ export type CatalogFormValues = {
   beta: boolean;
   sortOrder: number;
   durations: number[];
-  prices: Record<string, number>;
+  creditRanges: Record<string, { min: number; max: number }>;
   fields: unknown;
   inputMap: unknown;
   stageMap: unknown;
@@ -99,18 +99,27 @@ export function CatalogForm({ initial }: { initial: CatalogFormValues }) {
       </section>
 
       <section className="flex flex-col gap-4 rounded-xl border bg-panel p-4">
-        <h2 className="text-sm font-medium">Lengths and prices</h2>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-medium">Lengths and credits</h2>
+          <p className="text-sm text-muted-foreground">
+            1 credit is 1 second of editing. Users see the range before they start, need the highest free to start, and pay for the time actually used.
+          </p>
+        </div>
         <L label="Lengths users can pick (seconds)" hint="Comma-separated, e.g. 30, 60, 90">
           <Input name="durations" value={durationsText} onChange={(e) => setDurationsText(e.target.value)} className="max-w-xs font-mono" />
         </L>
         <div className="flex flex-wrap gap-4">
           {durations.map((d) => (
-            <label key={d} className="grid gap-1.5 text-sm">
-              <span className="font-medium">
-                Price for <span className="font-mono">{d} s</span> (credits)
-              </span>
-              <Input name={`price:${d}`} type="number" min={1} step={1} required defaultValue={initial.prices[String(d)] ?? ""} className="w-36 font-mono" />
-            </label>
+            <fieldset key={d} className="grid gap-1.5 text-sm">
+              <legend className="mb-1.5 font-medium">
+                <span className="font-mono">{d} s</span> uses (credits)
+              </legend>
+              <div className="flex items-center gap-2">
+                <Input name={`min:${d}`} aria-label={`Lowest credits for ${d} s`} type="number" min={1} step={1} required defaultValue={initial.creditRanges[String(d)]?.min ?? ""} className="w-24 font-mono" />
+                <span className="text-muted-foreground">to</span>
+                <Input name={`max:${d}`} aria-label={`Highest credits for ${d} s`} type="number" min={1} step={1} required defaultValue={initial.creditRanges[String(d)]?.max ?? ""} className="w-24 font-mono" />
+              </div>
+            </fieldset>
           ))}
         </div>
       </section>

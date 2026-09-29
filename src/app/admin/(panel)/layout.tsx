@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const admin = await requireAdmin();
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[5rem_minmax(0,1fr)]">
-      <aside className="border-b bg-background lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0 lg:py-4">
+      <aside className="border-b bg-background print:hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0 lg:py-4">
         <div className="flex h-14 items-center justify-between gap-4 px-4 lg:mb-4 lg:h-auto lg:justify-center lg:px-0">
           <Link href="/admin" className="flex items-center gap-2 rounded font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none" title={`${brand.name} admin`} aria-label={`${brand.name} admin home`}>
             <LogoMark className="lg:size-8" />

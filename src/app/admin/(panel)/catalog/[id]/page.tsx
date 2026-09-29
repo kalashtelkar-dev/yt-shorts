@@ -10,7 +10,7 @@ import { requireAdmin } from "@/server/admin/guard";
 
 export const metadata: Metadata = { title: "Catalog item" };
 
-const KEYS = ["title", "slug", "description", "templateId", "enabled", "beta", "sortOrder", "durations", "prices", "fields", "inputMap", "stageMap", "outputKey"] as const;
+const KEYS = ["title", "slug", "description", "templateId", "enabled", "beta", "sortOrder", "durations", "creditRanges", "fields", "inputMap", "stageMap", "outputKey"] as const;
 
 /** Which fields changed between two snapshots (newest first list). */
 function changed(curr: Record<string, unknown>, prev: Record<string, unknown> | undefined) {

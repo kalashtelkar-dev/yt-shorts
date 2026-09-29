@@ -45,7 +45,7 @@ The Kill Montage (see `kill-montage.md`) plus **the song's words on screen**, ti
 ## Lyrics on screen
 
 - **Source (song-index):** `transcribe/separate` gives the vocals stem. `transcribe/transcribe` (large-v3, English, its own alignment off) gives the segments. `transcribe/align`, the forced aligner, then times every word in each segment on the vocals.
-- **Never before the voice (the user's rule, 2026-09-29):** `voice-activity/segments` on the vocals stem marks where someone is singing. The aligner often stretches a phrase's first word back over the music before it ("Baby" at 1.07–2.71 s). So a word whose start falls in silence moves to where the voice comes in, as long as that's before the word ends. Otherwise the aligner's time stands.
+- **Never before the voice (the user's rule, 2026-09-29):** `voice-activity/segments` on the vocals stem marks where someone is singing. The aligner sometimes stretches a phrase's first word back over what came before it. In Industry Baby, an untranscribed producer tag made "Baby" 1.07–2.71 s, though it's sung from 2.37 s. A sung word has no silence inside it, so a word starts at the last point inside it where the voice comes in. On that song this moved 3 of 236 words, all long words with a silent gap. Otherwise the aligner's time stands.
 - **Lines, karaoke-style (the app, `src/server/jobs/lyrics.ts`; the user's choice, 2026-09-28):**
   - **Cutting:** each segment becomes lines of 3–5 words, cut evenly (7 words → 4 + 3). A line never mixes two segments.
   - **Build-up:** a line builds up word by word, each word appearing when it's sung. The line stays until its last word ends (or until the next line when the gap is under 0.3 s), then vanishes and the next line starts. Only one line is on screen at a time.

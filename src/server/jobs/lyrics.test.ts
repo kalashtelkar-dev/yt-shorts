@@ -79,8 +79,11 @@ describe("lyricItems", () => {
       [3.51, 3.61, "Baby bet ayy", 0],
     ]);
     expect(lyricItems([words], 1, [[2.2, 3.1], [3.5, 3.7]])).toEqual(lyricItems([words], 1, voice)); // [start, end] pairs too
+    // Industry Baby, real song-index output: a producer tag is voiced at 0.38-1.76 s, then silence, then "Baby" from 2.37 s
+    expect(lyricItems([words], 1, [{ start: 0.38, end: 1.76 }, { start: 2.37, end: 18.82 }])[0].s).toBe(2.37);
     // the voice isn't found inside the word (or there's no voice data): the aligner's time stands
     expect(lyricItems([words], 1, [{ start: 5, end: 6 }])[0].s).toBe(1.07);
+    expect(lyricItems([words], 1, [{ start: 0.5, end: 3.2 }])[0].s).toBe(1.07); // voiced right through the word
     expect(lyricItems([words], 1)[0].s).toBe(1.07);
   });
 

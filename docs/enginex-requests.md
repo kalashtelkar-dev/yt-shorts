@@ -273,4 +273,5 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 
 - **New step:** `voice` (`voice-activity/segments`: threshold 0.5, minSpeechMs 100, minSilenceMs 150, paddingMs 0) on the vocals stem. Its result is a new output, `voice`.
 - **Why:** the aligner put the first word of a phrase at the phrase start, over the music ("Baby" 1.07–2.71 s in Industry Baby), so its text appeared before the singing.
-- **App (`lyricItems`):** a word whose start is outside every voiced stretch (±0.05 s) moves to the next voiced start, if that comes before the word's end. Otherwise, or with no voice data, the aligner's time stands.
+- **Published and run on the test song** (`run_e90bd56c…`). The output is `[{start, end, duration}]`. The tag "D-D-Daytrip took it to ten" is voiced at 0.38–1.76 s, then the voice comes back at 2.37 s.
+- **App (`lyricItems`):** a word starts at the last point inside it where the voice comes in (a voiced start after its aligner start and more than 0.1 s before its end). Otherwise, or with no voice data, the aligner's time stands. On this song, 3 of 236 words moved: "Baby" 1.07 → 2.37, "to" 21.00 → 21.60, "over" 115.30 → 115.55.

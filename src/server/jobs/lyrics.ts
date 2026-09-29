@@ -7,10 +7,10 @@ import { seeded } from "@/lib/seeded";
 // pipelines/build.py SPOTS: upper or lower third, left, middle or right), never the same as the line before; the seed
 // makes one job's spots repeatable. Times are song seconds, which equal montage seconds.
 //
-// Words never show before the voice: an aligner often stretches a phrase's first word back over the music before it, so a
-// word whose start falls where the vocals stem is silent (song-index's voice-activity segments) moves to the moment the
-// voice comes in, if that's before the word ends. Without voice data, or when the voice isn't found inside the word, the
-// aligner's time stands.
+// Words never show before the voice. The aligner sometimes stretches a phrase's first word back over what came before it:
+// music, or an untranscribed producer tag ("Baby" at 1.07-2.71 s, sung from 2.37 s). A sung word has no silence inside it,
+// so when the vocals stem (song-index's voice-activity segments) goes quiet and the voice comes in again within a word,
+// the word starts at that last entry. Without voice data, or with no entry inside the word, the aligner's time stands.
 //
 // The pipeline draws one item per step: t is the row so far, shown from s to e. n is the full row's length, so every
 // step of a row starts at the same x (the row doesn't shift as words are added). r: 0 a one-row line, 1 and 2 the top
@@ -51,7 +51,8 @@ function rowBreak(words: string[]): number {
   return best;
 }
 
-const VOICE_EDGE = 0.05; // seconds of slack at a voiced stretch's edges
+const VOICE_EDGE = 0.05; // seconds of slack after the aligner's start
+const VOICE_TAIL = 0.1; // an entry this close to the word's end is the next word's
 
 /** Voiced stretches from voice-activity segments ({start, end} or [start, end]), in time order. */
 function voiced(voice: unknown): [number, number][] {
@@ -61,11 +62,10 @@ function voiced(voice: unknown): [number, number][] {
     .sort((a, b) => a[0] - b[0]);
 }
 
-/** The word's start, moved to where the voice comes in when the aligner put it in silence. */
+/** The word's start: the last point inside the word where the voice comes in, else the aligner's start. */
 function onVoice(w: Timed, spans: [number, number][]): number {
-  if (!spans.length || spans.some(([a, b]) => w.start >= a - VOICE_EDGE && w.start <= b + VOICE_EDGE)) return w.start;
-  const next = spans.find(([a]) => a > w.start);
-  return next && next[0] < w.end ? next[0] : w.start;
+  const entries = spans.map(([a]) => a).filter((a) => a > w.start + VOICE_EDGE && a < w.end - VOICE_TAIL);
+  return entries.length ? Math.max(...entries) : w.start;
 }
 
 export function lyricItems(segments: unknown, seed: string | number = 1, voice?: unknown): LyricItem[] {

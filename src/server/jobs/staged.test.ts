@@ -29,7 +29,7 @@ async function newJob(opts: { playerName?: string; musicUrl?: string; style?: st
         userId,
         catalogItemId,
         catalogSlug: "kill-montage",
-        templateId: opts.style ?? "tpl_LPSgYFAGCRNm",
+        templateId: opts.style ?? "tpl_P0krMNymIjdb",
         indexTemplates: INDEX,
         input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
         source: "url",
@@ -56,7 +56,7 @@ beforeEach(async () => {
   await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
   const [item] = await db
     .insert(catalogItems)
-    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_LPSgYFAGCRNm", indexTemplates: INDEX, stageMap })
+    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_P0krMNymIjdb", indexTemplates: INDEX, stageMap })
     .returning({ id: catalogItems.id });
   catalogItemId = item.id;
   await grant(userId, 2000, "test");

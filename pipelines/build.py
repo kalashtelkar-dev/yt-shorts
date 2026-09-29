@@ -1,5 +1,5 @@
 """Builds the stage pipelines from edit-studio v8's proven nodes (see docs/edit-styles/README.md)."""
-import json, copy, os, sys
+import json, copy, math, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 V8 = json.load(open(os.path.join(HERE, 'base', 'edit-studio-v8.json')))
 SRC = {n['id']: n for n in V8['graph']['nodes']}
@@ -131,9 +131,9 @@ MIXED_RULES = """3. Then the kill section: exactly ONE clip per kill entry (norm
    Make play times whole beats where you can, so the cuts land on beats.
 4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade."""
 ULTRA_STARTS = "CLIP STARTS, in RECORDING seconds (each 2 s before one kill entry, same order as the entries, separated by |): {{k}}"
-ULTRA_RULES = """3. Then the kill section: exactly ONE clip per kill entry, in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from CLIP STARTS.
+ULTRA_RULES = """3. Then the kill section: use the first {{r}} kill entries (all of them if there are fewer), exactly ONE clip each, in exactly the order they are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from CLIP STARTS.
    Every kill clip is speed 1, role "kill", len 6. The edit gives each one its own slow motion, speed ramp and transition, so each kill clip plays for 6.7 s. Ignore "more". Don't use a kill twice.
-4. Only as many kill clips as fit: the flex len plus 6.7 s per kill clip should reach the LENGTH (one more is fine; the end is trimmed with a fade)."""
+4. Those clips fill the LENGTH; the end is trimmed with a fade."""
 
 PLAN_HEAD = """You are planning a 9:16 Valorant/CS2 {style}, cut to a song.
 
@@ -156,7 +156,7 @@ Plan it:
 {kill_rules}
 5. totalKills is the number of kills inside the kept clips.
 {step6}Write each clip's keys in exactly this order: id, start, len, speed, role, kill. kill is the t of the entry the clip shows, copied exactly (0 for the flex clip). Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.
-Answer exactly in this shape: {{"beatSec": number, "dropAtSec": number, {hook_key}"clips": [{{"id": integer, "start": number, "len": number, "speed": number, "role": string, "kill": number}}], "totalKills": integer, "notes": string}}. If there are no kills, answer {{"beatSec": 0.5, "dropAtSec": 0, {hook_zero}"clips": [], "totalKills": 0, "notes": "no kills"}}."""
+Answer exactly in this shape: {{"beatSec": number, "dropAtSec": number, {hook_key}"clips": [{{"id": integer, "start": number, "len": number, "speed": number, "role": string, "kill": number}}], "totalKills": integer}}, with no other keys and nothing before or after the JSON. If there are no kills, answer {{"beatSec": 0.5, "dropAtSec": 0, {hook_zero}"clips": [], "totalKills": 0}}."""
 
 # Seconds each kill stays on screen before the next clip, by the montage length the user picked (the user's rule:
 # 15 s -> 1, 60 s -> 2, 90 s -> 4; 30 s sits between). Any other length uses "default".
@@ -271,6 +271,9 @@ def role_pat(flex):
     return (r'\{(?=[^}]*"id":"?(\d+)"?)(?=[^}]*"start":' + NUM + r')(?=[^}]*"len":' + NUM + r')'
             + ('(?=' if flex else '(?!') + r'[^}]*"role":"flex")[^}]*\}')
 
+# Ultra: how many kill clips fill each length (a 1.5 s intro + ULTRA_CLIP_SEC per kill, the last one trimmed by the fade)
+ULTRA_FIT = {d: math.ceil((d - 1.5) / ULTRA_CLIP_SEC) for d in (15, 30, 45, 60, 90, 120)}
+
 def style(kind):
     lyrical, ultra = kind != "kill", kind == "ultra"
     g = G()
@@ -366,6 +369,11 @@ def style(kind):
     g.edge("plan_text", "value", "kill_fill", "text")
     prev = ("kill_fill", "text")
     if ultra:
+        # the planner is told exactly how many kill clips fill the length (the first N entries), nothing to work out
+        g.util("fit_table", "text", {"value": "".join(f"\n{d};{n}" for d, n in ULTRA_FIT.items()) + "\ndefault;9"})
+        g.util("fit_pattern", "template", {"template": r"^[\s\S]*?\n(?:{{a}}|default);(\d+)[\s\S]*$"}).edge("max_dur", "value", "fit_pattern", "a")
+        g.util("fit", "regex", {"replace": "$1"}).edge("fit_table", "value", "fit", "text").edge("fit_pattern", "value", "fit", "pattern")
+        g.edge("fit", "text", "plan_prompt", "r")
         # every kill clip is speed 1 and plays ULTRA_CLIP_SEC (the render cuts its own 6 s window), so the play time adds up
         for nid, key, value in (("ultra_len", "len", ULTRA_CLIP_SEC), ("ultra_speed", "speed", 1)):
             g.util(nid, "regex", {"flags": "g", "pattern": r'(\{(?![^{}]*"role":"flex")[^{}]*?"' + key + r'":)"?[\d.]+"?', "replace": f"$1 {value}"}).edge(*prev, nid, "text")

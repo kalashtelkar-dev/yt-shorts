@@ -344,3 +344,14 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Checked:** `check.py` (69 checks). Local ffmpeg 7.1 renders show the slides (in from the left, out downward, with the next line rising from below), and a cover from the real Ultra cut at 3.55 s (the first kill, 78 KB).
 
 - **Ultra's lyrics start with the kills:** a new filter, `lines_after_intro` (json-filter `a` >= `intro_len`), keeps only lines that start after the intro. The app's no-text line carries `a: 9999`, so it always passes and the text steps never get an empty list. Ultra was re-imported as `tpl_77AP46lxA4xC`; Kill Montage and Lyrical are unchanged from the drafts above.
+
+## 31. The planner's answer can't run on (2026-09-29)
+
+**Status:** imported as drafts, waiting to be published: style-kill-montage `tpl_P0krMNymIjdb`, style-lyrical-kill-montage `tpl_UbAzXGQjRxHH`, style-ultra-edit `tpl_vHJuWtlDPYYj`. They replace `tpl_LPSgYFAGCRNm`, `tpl_1NpYWtbQLSyl` and `tpl_77AP46lxA4xC`.
+
+- **The failure:** Ultra run `run_0c2cbd13…` failed at `make_montage` with "args is not iterable".
+  - **What happened:** the planner (json mode, maxTokens 16384) wrote 48,741 characters into its free-text `notes` field, debating "one more is fine". It hit the token limit before closing the JSON, so `plan.json` was null.
+  - **What followed:** every clip step was skipped, and Engine X still ran the render (its inputs had arrived) without `args`.
+- **Fix, all styles:** the answer shape drops `notes`, since nothing reads it. It now says "with no other keys and nothing before or after the JSON".
+- **Fix, Ultra:** the planner is told an exact count, "use the first N kill entries", from `ULTRA_FIT` by length (15 s → 3, 30 s → 5, 45 s → 7, 60 s → 9, 90 s → 14, 120 s → 18, otherwise 9). There's no fuzzy "as many as fit", and no rendering 12 clips for a 30 s edit.
+- **Checked:** `check.py` (76 checks). The failed job's inputs, rendered into the new prompt, read "use the first 5 kill entries".

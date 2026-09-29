@@ -187,6 +187,17 @@ check("thumbnail: never past the start of the fade (a 4 s edit: 3.2 s)", cover("
 for name in ("style-kill-montage", "style-lyrical-kill-montage", "style-ultra-edit"):
     gg = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     check(f"{name}: outputs the thumbnail, taken from the cut", {"make_montage.file->thumbnail.input", "thumbnail.file->out.thumbnail"} <= {e["id"] for e in gg["edges"]})
+# the planner's answer has no free-text field (a real Ultra run spent its 16k-token budget in "notes" and never closed the JSON)
+for name in ("style-kill-montage", "style-lyrical-kill-montage", "style-ultra-edit"):
+    tpl = next(n for n in json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]["nodes"] if n["id"] == "plan_prompt")["params"]["template"]
+    check(f"{name}: the planner answers only the fields we read (no notes)", '"notes"' not in tpl and "no other keys" in tpl)
+def fit(max_dur):
+    g = json.load(open(os.path.join(HERE, "style-ultra-edit.json")))["graph"]
+    return run(g, {("max_dur", "value"): max_dur}, ("fit", "text"))
+check("ultra: the planner is told exactly how many kill clips fill the length", [fit(d) for d in ("15", "30", "60", "90", "50")] == ["3", "5", "9", "14", "9"])
+ug = json.load(open(os.path.join(HERE, "style-ultra-edit.json")))["graph"]
+check("ultra: the prompt asks for the first N entries", "use the first {{r}} kill entries" in next(n for n in ug["nodes"] if n["id"] == "plan_prompt")["params"]["template"]
+      and "fit.text->plan_prompt.r" in {e["id"] for e in ug["edges"]})
 # Engine X's limits: a regex pattern or replacement holds at most 2000 characters (validate refuses more)
 for f in sorted(os.listdir(HERE)):
     if f.endswith(".json"):

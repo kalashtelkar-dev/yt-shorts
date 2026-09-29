@@ -275,3 +275,9 @@ Built and tested with `AUTH_MODE=full`; ships with `AUTH_MODE=anonymous`, where 
 - Real Razorpay needs keys (`PAYMENTS_PROVIDER=razorpay`, `RAZORPAY_KEY_ID/SECRET/WEBHOOK_SECRET`) and the webhook URL set in the Razorpay dashboard.
 - SAC code for the credits is blank on invoices until set in admin Billing (ask the accountant).
 - Credit ranges are from few measured runs; tune them in the catalog as more jobs finish.
+
+## Landing page (2026-09-29)
+
+- Design C ("key art poster") from the landing canvas: the key art with "Every kill. One edit.", the styles, and a "what ₹X gets you" slider, all from the catalog and settings.
+- `/` shows the landing page to visitors who aren't signed in (with AUTH_MODE=anonymous: anyone who hasn't used the app yet); signed-in users still land on Create. Create also lives at `/create`, where the landing's button goes.
+- Manual check: signed out, open `/` on a phone and a desktop, move the slider, press Make my montage (lands on /create with "Create a free account"); signed in, `/` is Create.

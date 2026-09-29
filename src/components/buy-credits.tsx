@@ -97,7 +97,7 @@ export function BuyCredits({ amounts, paisePerCredit, gstPercent, styles, profil
           <p className="text-sm text-muted-foreground">Your tax invoice is ready.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/" className={buttonVariants({ size: "lg" })}>
+          <Link href="/create" className={buttonVariants({ size: "lg" })}>
             Make a montage
           </Link>
           <Link href={`/account/billing/invoices/${done.invoiceId}`} className={buttonVariants({ size: "lg", variant: "outline" })}>

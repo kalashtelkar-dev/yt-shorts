@@ -42,7 +42,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">My videos</h1>
         {all.length > 0 && (
-          <Link href="/" className={buttonVariants({ variant: "outline" })}>
+          <Link href="/create" className={buttonVariants({ variant: "outline" })}>
             New montage
           </Link>
         )}
@@ -56,7 +56,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
               Sign in to see your videos
             </Link>
           ) : (
-            <Link href="/" className={buttonVariants({ size: "lg" })}>
+            <Link href="/create" className={buttonVariants({ size: "lg" })}>
               Make your first montage
             </Link>
           )}

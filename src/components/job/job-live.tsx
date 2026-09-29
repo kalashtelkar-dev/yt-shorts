@@ -107,7 +107,7 @@ export function JobLive({ initial, initialVideo }: { initial: PublicJob; initial
 
         {done && <ResultActions jobId={job.id} poster={video?.poster ?? null} onError={setVideoError} />}
         {job.status === "failed" && (
-          <Link href="/" className={buttonVariants({ size: "lg", className: "w-full sm:w-auto sm:self-start" })}>
+          <Link href="/create" className={buttonVariants({ size: "lg", className: "w-full sm:w-auto sm:self-start" })}>
             Try again
           </Link>
         )}
@@ -249,7 +249,7 @@ function ResultActions({ jobId, poster, onError }: { jobId: string; poster: stri
             Save cover
           </button>
         )}
-        <Link href="/" className={outline}>
+        <Link href="/create" className={outline}>
           Make another
         </Link>
       </div>

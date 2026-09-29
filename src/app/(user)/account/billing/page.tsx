@@ -81,7 +81,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           {feed.rows.length === 0 ? (
             <div className="flex flex-col items-start gap-4 rounded-xl border bg-panel p-6">
               <p className="text-muted-foreground">{page > 0 ? "No more entries." : filter === "all" ? "Nothing here yet. Credits you buy and use show up here." : "Nothing here for this filter yet."}</p>
-              <Link href="/" className={buttonVariants({ size: "lg" })}>
+              <Link href="/create" className={buttonVariants({ size: "lg" })}>
                 Make a montage
               </Link>
             </div>

@@ -34,7 +34,7 @@ That's 6.68 s per kill on screen, so a 30 s edit holds the intro plus about four
 
 ## Sound
 
-- **Game sound:** the recording goes through `transcribe/separate` (the `instrumental` stem), which drops voice chat and keeps gunshots, footsteps and abilities. It's mixed loud (×1.4).
+- **Game sound:** gameplay-index separates the recording once per video with `transcribe/separate` (the `instrumental` stem, cached with the kills). That drops voice chat and keeps gunshots, footsteps and abilities. Every style uses it; Ultra mixes it loud (×1.4).
 - **Song:** from its start, at ×0.85.
 - **Limiter:** a limiter (0.95) keeps the sum from clipping.
 

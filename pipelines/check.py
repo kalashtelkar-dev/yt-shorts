@@ -107,8 +107,16 @@ check("kills as bare numbers (and flex as bare numbers) give the same render", b
 def render_inputs(name):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     return [e["from"]["node"] for e in g["edges"] if e["to"] == {"node": "make_montage", "port": "input"}]
-check("render inputs in order: gameplay, song", render_inputs("style-kill-montage") == ["video_in", "audio_in"])
-check("lyrical render inputs in order: gameplay, song, font", render_inputs("style-lyrical-kill-montage") == ["video_in", "audio_in", "caption_font"])
+check("render inputs in order: gameplay, song, game sound", render_inputs("style-kill-montage") == ["video_in", "audio_in", "fx_in"])
+check("lyrical render inputs in order: gameplay, song, game sound, font", render_inputs("style-lyrical-kill-montage") == ["video_in", "audio_in", "fx_in", "caption_font"])
+check("game sound comes from the separated stem ({in2}), never the video's own track (voice chat)",
+      all("amovie='{in0}'" not in fc(x) and "amovie='{in2}'" in fc(x) for x in (a, b)))
+check("lyric font is {in3}", "fontfile='{in3}'" in fc(b) and "fontfile='{in2}'" not in fc(b))
+for gi in ("gameplay-index", "gameplay-index-upload"):
+    gg = json.load(open(os.path.join(HERE, f"{gi}.json")))["graph"]
+    check(f"{gi}: separates the game sound (instrumental stem) and outputs it as gameAudio",
+          next(n for n in gg["nodes"] if n["id"] == "game_audio")["params"]["stems"] == ["instrumental"]
+          and {"video_file.value->game_audio.input", "game_audio.instrumental->out.gameAudio"} <= {e["id"] for e in gg["edges"]})
 # ---- Ultra Edit (docs/edit-styles/ultra-edit.md): every kill a fixed 6 s window from K-2, time-warped, with transitions
 up = {"beatSec": 0.45, "dropAtSec": 6.4, "totalKills": 2, "notes": "fixture", "clips": [
     {"id": 1, "start": 6.0, "len": 1.25, "speed": 1, "role": "flex"},
@@ -116,12 +124,10 @@ up = {"beatSec": 0.45, "dropAtSec": 6.4, "totalKills": 2, "notes": "fixture", "c
     {"id": 3, "start": 26.3, "len": 3, "speed": 1.5, "role": "kill", "kill": 28.3},  # a planned speed-up: the same
     {"id": 4, "start": 99.0, "len": 6, "speed": 1, "role": "kill", "kill": 101}]}   # not a clip start: dropped
 u = build("style-ultra-edit", up)
-check("ultra: render inputs in order: gameplay, song, font, game sound", render_inputs("style-ultra-edit") == ["video_in", "audio_in", "caption_font", "game_fx"])
-check("ultra: game sound is the recording's instrumental stem (no voice chat)",
-      next(n for n in json.load(open(os.path.join(HERE, "style-ultra-edit.json")))["graph"]["nodes"] if n["id"] == "game_fx")["params"]["stems"] == ["instrumental"])
+check("ultra: render inputs in order: gameplay, song, game sound, font", render_inputs("style-ultra-edit") == ["video_in", "audio_in", "fx_in", "caption_font"])
 check("ultra: the flex as planned, each kill a 6 s window from 2 s before it", trims(u) == [(6, 1.25), (16, 6), (26.3, 6)])
 check("ultra: every kill time-warped (0.5x, 1x, 0.5x, 1x, ramp to 3x), the flex not", fc(u).count("setpts='(if(lt(T,0.25),2*T,") == 2)
-check("ultra: the game sound follows in five pieces per kill", fc(u).count("atempo=0.5") == 4 and fc(u).count("atempo=1.3956") == 2 and fc(u).count("amovie='{in3}'") == 3 and "amovie='{in0}'" not in fc(u))
+check("ultra: the game sound follows in five pieces per kill", fc(u).count("atempo=0.5") == 4 and fc(u).count("atempo=1.3956") == 2 and fc(u).count("amovie='{in2}'") == 3 and "amovie='{in0}'" not in fc(u))
 check("ultra: zoom-tilt-slide out and pinch in on every clip", fc(u).count("rotate=a=") == 3 and fc(u).count("zoompan=z='1+0.6*") == 3)
 check("ultra: play time = flex + 6.68 s per kill, faded 0.8 s before", abs(fade(u) - (min(1.25 + 2 * 6.68, 17.9) - 0.8)) < 0.01)
 check("ultra: game sound loud under the song, limited", "[ga]volume=1.4[gad]" in fc(u) and "aresample=48000,volume=0.85[mus]" in fc(u) and "alimiter=limit=0.95" in fc(u))

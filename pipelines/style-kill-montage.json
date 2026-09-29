@@ -119,6 +119,18 @@
         }
       },
       {
+        "id": "fx_in",
+        "kind": "input",
+        "name": "gameAudio",
+        "type": "file:audio",
+        "sample": "",
+        "required": true,
+        "position": {
+          "x": 600,
+          "y": 180
+        }
+      },
+      {
         "id": "llm",
         "kind": "engine",
         "engine": "llm",
@@ -127,7 +139,7 @@
         },
         "operation": "connection",
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 180
         }
       },
@@ -141,7 +153,7 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 180
         }
       },
@@ -155,7 +167,7 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 180
         }
       },
@@ -168,7 +180,7 @@
           "value": 2.5
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 180
         }
       },
@@ -181,8 +193,8 @@
           "value": 1.0
         },
         "position": {
-          "x": 1800,
-          "y": 180
+          "x": 0,
+          "y": 360
         }
       },
       {
@@ -194,7 +206,7 @@
           "value": 0
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 360
         }
       },
@@ -207,7 +219,7 @@
           "op": "subtract"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 360
         }
       },
@@ -220,7 +232,7 @@
           "op": "subtract"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 360
         }
       },
@@ -233,7 +245,7 @@
           "op": "max"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 360
         }
       },
@@ -246,7 +258,7 @@
           "op": "max"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 360
         }
       },
@@ -259,7 +271,7 @@
           "separator": ", "
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 360
         }
       },
@@ -272,8 +284,8 @@
           "separator": ", "
         },
         "position": {
-          "x": 1800,
-          "y": 360
+          "x": 0,
+          "y": 540
         }
       },
       {
@@ -285,7 +297,7 @@
           "separator": "|"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 540
         }
       },
@@ -298,7 +310,7 @@
           "separator": "|"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 540
         }
       },
@@ -314,7 +326,7 @@
           "temperature": 0.2
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 540
         }
       },
@@ -328,7 +340,7 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 540
         }
       },
@@ -343,7 +355,7 @@
           "invert": true
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 540
         }
       },
@@ -358,7 +370,7 @@
           "compareTo": "20"
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 540
         }
       },
@@ -373,8 +385,8 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 1800,
-          "y": 540
+          "x": 0,
+          "y": 720
         }
       },
       {
@@ -387,7 +399,7 @@
           "op": "matches"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 720
         }
       },
@@ -400,7 +412,7 @@
         },
         "operation": "json-pick",
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 720
         }
       },
@@ -413,7 +425,7 @@
         },
         "operation": "json-stringify",
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 720
         }
       },
@@ -426,7 +438,7 @@
           "separator": ""
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 720
         }
       },
@@ -438,10 +450,10 @@
         "params": {
           "flags": "g",
           "pattern": "\\{(?=[^}]*\"id\":\"?(\\d+)\"?)(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"len\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"speed\":\"?0?\\.50*\"?[,}])[^}]*\\}",
-          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=2*(PTS-STARTPTS),framerate=fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.15*max(0,1-in/20)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.25:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,volume=0,apad=pad_dur=$3[a$1];"
+          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=2*(PTS-STARTPTS),framerate=fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.15*max(0,1-in/20)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.25:color=white[v$1];amovie='{in2}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,volume=0,apad=pad_dur=$3[a$1];"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 720
         }
       },
@@ -453,10 +465,10 @@
         "params": {
           "flags": "g",
           "pattern": "\\{(?=[^}]*\"id\":\"?(\\d+)\"?)(?=[^}]*\"start\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"len\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"speed\":\"?1(?:\\.0+)?\"?[,}])[^}]*\\}",
-          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
+          "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in2}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 720
         }
       },
@@ -471,8 +483,8 @@
         },
         "operation": "regex",
         "position": {
-          "x": 1800,
-          "y": 720
+          "x": 0,
+          "y": 900
         }
       },
       {
@@ -485,7 +497,7 @@
           "path": "len"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 900
         }
       },
@@ -500,7 +512,7 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 900
         }
       },
@@ -514,7 +526,7 @@
           "path": "len"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 900
         }
       },
@@ -527,7 +539,7 @@
           "op": "add"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 900
         }
       },
@@ -540,7 +552,7 @@
           "op": "min"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 900
         }
       },
@@ -553,7 +565,7 @@
           "value": 0.8
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 900
         }
       },
@@ -566,8 +578,8 @@
           "op": "subtract"
         },
         "position": {
-          "x": 1800,
-          "y": 900
+          "x": 0,
+          "y": 1080
         }
       },
       {
@@ -579,7 +591,7 @@
           "template": "[\"-y\", \"-filter_complex\", \"{{a}}{{b}}concat=n={{c}}:v=1:a=1[vc][ga];[vc]fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];amovie='{in1}',asetpts=PTS-STARTPTS,aresample=48000[mus];[ga]volume=0.3[gad];[mus][gad]amix=inputs=2:duration=shortest:normalize=0,afade=t=in:st=0:d=0.3,afade=t=out:st={{f}}:d=0.8[a]\", \"-map\", \"[v]\", \"-map\", \"[a]\", \"-c:v\", \"{enc:h264}\", \"-preset\", \"p5\", \"-tune\", \"hq\", \"-rc\", \"vbr\", \"-cq\", \"20\", \"-b:v\", \"0\", \"-maxrate\", \"20M\", \"-bufsize\", \"40M\", \"-profile:v\", \"high\", \"-pix_fmt\", \"yuv420p\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{d}}\", \"montage.mp4\"]"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1080
         }
       },
@@ -592,7 +604,7 @@
         },
         "operation": "json-parse",
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1080
         }
       },
@@ -603,7 +615,7 @@
         "params": {},
         "operation": "merge",
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1080
         }
       },
@@ -616,7 +628,7 @@
         },
         "operation": "text",
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1080
         }
       },
@@ -629,7 +641,7 @@
         },
         "operation": "compare",
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1080
         }
       },
@@ -640,7 +652,7 @@
         "params": {},
         "operation": "gate",
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1080
         }
       },
@@ -654,8 +666,8 @@
         },
         "operation": "custom",
         "position": {
-          "x": 1800,
-          "y": 1080
+          "x": 0,
+          "y": 1260
         }
       },
       {
@@ -669,7 +681,7 @@
           "replace": "{\"t\":$1}"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1260
         }
       },
@@ -682,7 +694,7 @@
           "fenced": false
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1260
         }
       },
@@ -697,7 +709,7 @@
           "replace": "{\"start\":$1}"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1260
         }
       },
@@ -710,7 +722,7 @@
           "fenced": false
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1260
         }
       },
@@ -724,7 +736,7 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1260
         }
       },
@@ -738,7 +750,7 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1260
         }
       },
@@ -751,8 +763,8 @@
           "separator": "|"
         },
         "position": {
-          "x": 1800,
-          "y": 1260
+          "x": 0,
+          "y": 1440
         }
       },
       {
@@ -764,7 +776,7 @@
           "template": "^({{a}}|{{b}}|{{c}})0*$"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1440
         }
       },
@@ -777,7 +789,7 @@
           "template": "You are planning a 9:16 Valorant/CS2 kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion, cut to a song.\n\nTHE PLAYER'S KILLS, listed in THIS RUN'S MONTAGE ORDER (shuffled on purpose, so every montage of this match is different). Each entry is one kill, or a multi-kill whose \"more\" lists its next kills in seconds after t. Times are recording seconds; t is when the kill-feed row appears, and the real kill is up to 2 s before it:\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill entry, same order as the entries, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill entry, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: exactly ONE clip per kill entry (normal OR slow motion, never both), in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   Every kill must stay on screen at least {{p}} s after it happens before the next clip starts, so:\n   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).\n   For an entry with \"more\" you may lengthen its clip to show those next kills too (add the last one's offset to len); it must keep playing {{p}} s after the last kill it shows.\n   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role, kill. kill is the t of the entry the clip shows, copied exactly (0 for the flex clip). Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string, \"kill\": number}], \"totalKills\": integer, \"notes\": string}. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0, \"notes\": \"no kills\"}."
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1440
         }
       },
@@ -790,7 +802,7 @@
           "indent": 0
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1440
         }
       },
@@ -803,7 +815,7 @@
           "indent": 0
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1440
         }
       },
@@ -816,7 +828,7 @@
           "op": "min"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1440
         }
       },
@@ -831,7 +843,7 @@
           "compareTo": "^(1(\\.0+)?|0?\\.50*)$"
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1440
         }
       },
@@ -845,8 +857,8 @@
           "keep": "first"
         },
         "position": {
-          "x": 1800,
-          "y": 1440
+          "x": 0,
+          "y": 1620
         }
       },
       {
@@ -858,7 +870,7 @@
           "op": "count"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1620
         }
       },
@@ -871,7 +883,7 @@
           "value": "\n15;1;3.5;1.5;[0-2](?:\\.\\d+)?|3(?:\\.(?:[0-4]\\d*)?)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-4]\\d*)?)?\n30;1.5;4;1.75;[0-3](?:\\.\\d+)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-6]\\d*|7[0-4]\\d*|7)?)?\n60;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?\n90;4;6.5;3;[0-5](?:\\.\\d+)?|6(?:\\.(?:[0-4]\\d*)?)?;[0-2](?:\\.\\d+)?\ndefault;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1620
         }
       },
@@ -884,7 +896,7 @@
           "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1620
         }
       },
@@ -897,7 +909,7 @@
           "replace": "$1"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1620
         }
       },
@@ -910,7 +922,7 @@
           "replace": "$2"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1620
         }
       },
@@ -923,7 +935,7 @@
           "replace": "$3"
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1620
         }
       },
@@ -936,8 +948,8 @@
           "replace": "$4"
         },
         "position": {
-          "x": 1800,
-          "y": 1620
+          "x": 0,
+          "y": 1800
         }
       },
       {
@@ -949,7 +961,7 @@
           "replace": "$5"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1800
         }
       },
@@ -962,7 +974,7 @@
           "indent": 0
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1800
         }
       },
@@ -977,7 +989,7 @@
           "replace": "{\"kill\":\"s$1\","
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1800
         }
       },
@@ -990,7 +1002,7 @@
           "template": "(\\{(?=[^{}]*\"speed\":\"?1(?:\\.0+)?\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
         },
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1800
         }
       },
@@ -1003,7 +1015,7 @@
           "template": "$1{{a}}"
         },
         "position": {
-          "x": 1200,
+          "x": 1500,
           "y": 1800
         }
       },
@@ -1016,7 +1028,7 @@
           "flags": "g"
         },
         "position": {
-          "x": 1500,
+          "x": 1800,
           "y": 1800
         }
       },
@@ -1029,8 +1041,8 @@
           "template": "(\\{(?=[^{}]*\"speed\":\"?0?\\.50*\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
         },
         "position": {
-          "x": 1800,
-          "y": 1800
+          "x": 0,
+          "y": 1980
         }
       },
       {
@@ -1042,7 +1054,7 @@
           "template": "$1{{a}}"
         },
         "position": {
-          "x": 0,
+          "x": 300,
           "y": 1980
         }
       },
@@ -1055,7 +1067,7 @@
           "flags": "g"
         },
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 1980
         }
       },
@@ -1068,7 +1080,7 @@
           "fenced": false
         },
         "position": {
-          "x": 600,
+          "x": 900,
           "y": 1980
         }
       },
@@ -1080,7 +1092,7 @@
           "plan"
         ],
         "position": {
-          "x": 900,
+          "x": 1200,
           "y": 1980
         }
       }
@@ -2212,6 +2224,17 @@
         "id": "audio_in.value->make_montage.input",
         "from": {
           "node": "audio_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "make_montage",
+          "port": "input"
+        }
+      },
+      {
+        "id": "fx_in.value->make_montage.input",
+        "from": {
+          "node": "fx_in",
           "port": "value"
         },
         "to": {

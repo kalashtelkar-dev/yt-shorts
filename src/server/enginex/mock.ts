@@ -41,7 +41,7 @@ const ALL_STEPS = Object.values(STEPS).flat();
 
 function outputFor(kind: MockKind, runId: string): Record<string, unknown> {
   if (kind === "gameplay") {
-    return { video: `mock/${runId}/video.mp4`, durationSec: 1800, title: "Mock match",
+    return { video: `mock/${runId}/video.mp4`, gameAudio: `mock/${runId}/game.flac`, durationSec: 1800, title: "Mock match",
       kills: { kills: [{ t: 51 }, { t: 157 }, { t: 249 }, { t: 293 }, { t: 591 }], totalKills: 5 }, flex: { flex: [{ start: 20, what: "knife out" }] } };
   }
   if (kind === "song") {
@@ -102,10 +102,10 @@ export function mockRunAt(runId: string, now: number): Run {
 
 // The staged pipelines (pipelines/README.md), so the mock answers getPipeline like Engine X would.
 const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "style" | "style-lyrical"> = {
-  tpl_yYsSXHkQXJBP: "gameplay", tpl_K6Lo3rwFya4A: "gameplay-upload", tpl_8nvlocGpQ3nT: "song",
-  "tpl_72xfG9gy9eH8": "style", "tpl_mb7jFHN5iJx0": "style-lyrical", tpl_9thVZeh4zYVB: "style-lyrical",
+  tpl_vvEdXwOrpPfz: "gameplay", tpl_MI3CqxMQSTNZ: "gameplay-upload", tpl_8nvlocGpQ3nT: "song",
+  "tpl_45uAd431uWGz": "style", "tpl_z9M3FJDr0WN9": "style-lyrical", tpl_LGd0J8RkTxXG: "style-lyrical",
 };
-const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"];
+const STYLE_INPUTS = ["video", "gameAudio", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"];
 function mockInputs(templateId: string): string[] {
   switch (STAGED[templateId]) {
     case "gameplay": return ["youtubeUrl", "playerName"];

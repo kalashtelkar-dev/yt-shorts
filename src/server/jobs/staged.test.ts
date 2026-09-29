@@ -7,7 +7,7 @@ import { startJob, sweep } from "./lifecycle";
 import { REUSE_MS, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
-const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_8nvlocGpQ3nT" };
+const INDEX = { gameplay: "tpl_vvEdXwOrpPfz", gameplayUpload: "tpl_MI3CqxMQSTNZ", song: "tpl_8nvlocGpQ3nT" };
 const T0 = Date.UTC(2026, 8, 28, 10, 0, 0);
 const stageMap = [
   { match: "download", label: "Downloading your video" },
@@ -28,7 +28,7 @@ async function newJob(opts: { playerName?: string; musicUrl?: string; style?: st
         userId,
         catalogItemId,
         catalogSlug: "kill-montage",
-        templateId: opts.style ?? "tpl_72xfG9gy9eH8",
+        templateId: opts.style ?? "tpl_45uAd431uWGz",
         indexTemplates: INDEX,
         input: { youtubeUrl: `https://youtu.be/${tag}`, playerName: opts.playerName ?? "Aqua", musicUrl: opts.musicUrl ?? `https://youtu.be/song-${tag}`, maxDurationSec: "30", variation: "slow first" },
         source: "url",
@@ -55,7 +55,7 @@ beforeEach(async () => {
   await db.insert(users).values({ id: userId, name: "t", email: `${userId}@test.local`, isAnonymous: true });
   const [item] = await db
     .insert(catalogItems)
-    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_72xfG9gy9eH8", indexTemplates: INDEX, stageMap })
+    .values({ slug: `s-${tag}`, title: "t", templateId: "tpl_45uAd431uWGz", indexTemplates: INDEX, stageMap })
     .returning({ id: catalogItems.id });
   catalogItemId = item.id;
   await grant(userId, 2000, "test");
@@ -167,6 +167,8 @@ describe("staged styles (mock Engine X)", () => {
     const kill = styleInput(job, g, s, ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"]);
     expect(kill).not.toHaveProperty("words");
     expect(kill).not.toHaveProperty("lyricLook");
+    expect(styleInput(job, { ...g, gameAudio: "fx.flac" }, s, ["gameAudio"])).toEqual({ gameAudio: "fx.flac" }); // the separated game sound
+    expect(styleInput(job, g, s, ["gameAudio"])).toEqual({ gameAudio: "v.mp4" }); // an older index without it: the video's own
     expect(kill).toMatchObject({ maxDurationSec: "60", variation: "slow last", gameDurationSec: "1800", kills: JSON.stringify(g.kills) });
     expect(styleInput(job, g, s, null)).toMatchObject({ lyricLook: "7", lines: expect.stringContaining('{"s":1,"e":1.3,"t":"so","r":0,"n":2,"p":') });
     const seg = { ...s, segments: [{ start: 1, end: 2, words: [{ word: "so", start: 1, end: 1.3 }, { word: "cool", start: 1.4, end: 2 }] }] };

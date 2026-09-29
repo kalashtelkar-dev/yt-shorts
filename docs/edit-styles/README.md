@@ -43,7 +43,7 @@ Built 2026-09-28 (`pipelines/`, ids in `pipelines/README.md`). Before that, one 
 
 | Pipeline | Input | Output | Heavy steps | Reuse |
 |---|---|---|---|---|
-| `gameplay-index` | gameplay link or upload, player name | video key, kill times, flex candidates (contact sheets + times) | download (≈ 50 s), kill-feed strips (≈ 45 s), OCR (≈ 60 s), kill finder | cached per (video, player). Any style or song re-renders without redoing this |
+| `gameplay-index` | gameplay link or upload, player name | video key, the game sound without voice chat (instrumental stem), kill times, flex candidates (contact sheets + times) | download (≈ 50 s), kill-feed strips (≈ 45 s), OCR (≈ 60 s), kill finder | cached per (video, player). Any style or song re-renders without redoing this |
 | `song-index` | song link | audio key, duration, loudness/beats, word timestamps | audio download, vocal separation, word timing (≈ 5–35 s) | cached per song |
 | `style-<name>` (one per style) | the two indexes above + a random seed | montage + plan | planner model call, render (≈ 45–60 s) | cheap; one run per edit |
 

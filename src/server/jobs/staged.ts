@@ -151,7 +151,7 @@ export async function pollIndexes(settings: Settings, now = Date.now()) {
 }
 
 /** Everything the app can send a style pipeline (styleInput); a style may declare fewer. */
-export const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "words", "maxDurationSec", "variation", "lyricLook", "lines"];
+export const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "words", "maxDurationSec", "variation", "lyricLook", "lines", "gameAudio"];
 
 // Kills closer than this share one entry, so two clips never show the same moment. A clip reaches at most hold (4 s at
 // 90 s) + 2 s past its kill and the next starts 2.5 s before its own (pipelines/build.py), so 8 s apart can't overlap.
@@ -192,6 +192,8 @@ export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<st
   const i = job.input as Record<string, string>;
   const all: Record<string, string> = {
     video: String(g.video ?? ""),
+    // the game sound without voice chat (gameplay-index's separated stem); an older cached index has none: the video's own
+    gameAudio: String(g.gameAudio ?? g.video ?? ""),
     kills: JSON.stringify(shuffleKills(g.kills ?? { kills: [], totalKills: 0 }, i.killSeed)),
     flex: JSON.stringify(g.flex ?? { flex: [] }),
     gameDurationSec: String(g.durationSec ?? ""),

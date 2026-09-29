@@ -287,3 +287,13 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Lyrics:** as in the Lyrical style.
 - **The planner prompt now has slots** (`{starts}`, `{variation}`, `{kill_rules}`). The two existing styles keep their exact text.
 - **Checked:** `check.py` (43 checks, 9 for Ultra), and a local ffmpeg 7.1 render on test media (exit 0, 14.65 s for the intro plus two kills, frames checked).
+
+## 27. Game sound without voice chat for every style (2026-09-29)
+
+**Status:** imported as drafts, waiting to be published. gameplay-index `tpl_vvEdXwOrpPfz` (replaces `tpl_yYsSXHkQXJBP`), gameplay-index-upload `tpl_MI3CqxMQSTNZ` (replaces `tpl_K6Lo3rwFya4A`), style-kill-montage `tpl_45uAd431uWGz` (replaces `tpl_72xfG9gy9eH8`), style-lyrical-kill-montage `tpl_z9M3FJDr0WN9` (replaces `tpl_mb7jFHN5iJx0`), style-ultra-edit `tpl_LGd0J8RkTxXG` (replaces `tpl_9thVZeh4zYVB`). song-index is unchanged.
+
+- **The user's workflow:** the uploaded or linked video has its voice chat separated out first, keeping only the game sound. Then the planner. Then the song goes on the edited montage.
+- **gameplay-index (both):** a new `game_audio` step (`transcribe/separate`, `instrumental` stem, flac) on the video, and a new output, `gameAudio`. It runs once per video and is cached with the kills, so no style separates per job.
+- **Styles:** a new input `gameAudio`, which is `{in2}`. Every clip's game sound comes from it (`amovie='{in2}'`), never from the video's own track. The lyric font moves to `{in3}`. Ultra's per-job `game_fx` step is gone.
+- **App:** `styleInput` sends `gameAudio`, falling back to the video for an older cached index.
+- **Checked:** `check.py` (46 checks). Local ffmpeg 7.1 renders of all three styles with the new inputs all exit 0 (16, 14.25 and 14.65 s).

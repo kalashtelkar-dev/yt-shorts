@@ -445,16 +445,34 @@
         }
       },
       {
+        "id": "game_audio",
+        "kind": "engine",
+        "engine": "transcribe",
+        "operation": "separate",
+        "params": {
+          "model": "vocals",
+          "stems": [
+            "instrumental"
+          ],
+          "format": "flac"
+        },
+        "position": {
+          "x": 300,
+          "y": 720
+        }
+      },
+      {
         "id": "out",
         "kind": "output",
         "fields": [
           "video",
+          "gameAudio",
           "durationSec",
           "kills",
           "flex"
         ],
         "position": {
-          "x": 300,
+          "x": 600,
           "y": 720
         }
       }
@@ -832,6 +850,28 @@
         "to": {
           "node": "flex_pick",
           "port": "images"
+        }
+      },
+      {
+        "id": "video_file.value->game_audio.input",
+        "from": {
+          "node": "video_file",
+          "port": "value"
+        },
+        "to": {
+          "node": "game_audio",
+          "port": "input"
+        }
+      },
+      {
+        "id": "game_audio.instrumental->out.gameAudio",
+        "from": {
+          "node": "game_audio",
+          "port": "instrumental"
+        },
+        "to": {
+          "node": "out",
+          "port": "gameAudio"
         }
       },
       {

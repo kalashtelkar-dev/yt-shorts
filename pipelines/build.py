@@ -118,6 +118,23 @@ def clip_pat(speed):
     return (r'\{(?=[^}]*"id":"?(\d+)"?)(?=[^}]*"start":' + NUM + r')(?=[^}]*"len":' + NUM +
             r')(?=[^}]*"speed":"?' + speed + r'"?[,}])[^}]*\}')
 
+# Planner text per style (plain strings: {{x}} are the template's ports, filled in the pipeline)
+MIXED_STARTS = """CLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill entry, same order as the entries, separated by |): {{k}}
+SLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill entry, same order): {{l}}"""
+MIXED_VARIATION = """VARIATION for this run (follow it, so every run looks different): {{n}}"""
+MIXED_RULES = """3. Then the kill section: exactly ONE clip per kill entry (normal OR slow motion, never both), in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.
+   Every kill must stay on screen at least {{p}} s after it happens before the next clip starts, so:
+   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.
+   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).
+   For an entry with "more" you may lengthen its clip to show those next kills too (add the last one's offset to len); it must keep playing {{p}} s after the last kill it shows.
+   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.
+   Make play times whole beats where you can, so the cuts land on beats.
+4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade."""
+ULTRA_STARTS = "CLIP STARTS, in RECORDING seconds (each 2 s before one kill entry, same order as the entries, separated by |): {{k}}"
+ULTRA_RULES = """3. Then the kill section: exactly ONE clip per kill entry, in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from CLIP STARTS.
+   Every kill clip is speed 1, role "kill", len 6. The edit gives each one its own slow motion, speed ramp and transition, so each kill clip plays for 6.7 s. Ignore "more". Don't use a kill twice.
+4. The play time of all clips (the flex len plus 6.7 s per kill clip) should reach the LENGTH when there are enough kills; the end is trimmed with a fade."""
+
 PLAN_HEAD = """You are planning a 9:16 Valorant/CS2 {style}, cut to a song.
 
 THE PLAYER'S KILLS, listed in THIS RUN'S MONTAGE ORDER (shuffled on purpose, so every montage of this match is different). Each entry is one kill, or a multi-kill whose "more" lists its next kills in seconds after t. Times are recording seconds; t is when the kill-feed row appears, and the real kill is up to 2 s before it:
@@ -125,26 +142,18 @@ THE PLAYER'S KILLS, listed in THIS RUN'S MONTAGE ORDER (shuffled on purpose, so 
 The recording is {{{{f}}}} s long.
 
 INTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{{{m}}}}
-CLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill entry, same order as the entries, separated by |): {{{{k}}}}
-SLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill entry, same order): {{{{l}}}}
+{starts}
 
 THE SONG: {{{{g}}}} s long. Loudness every 0.25 s as "time,RMS dB" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):
 {{{{h}}}}
 {extra}
 LENGTH: the montage is at most {{{{i}}}} seconds. The song plays from its start, so montage time = song time.
-VARIATION for this run (follow it, so every run looks different): {{{{n}}}}
+{variation}
 
 Plan it:
 1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).
 2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role "flex", len {flex_len}. If there are no flex moments, the first kill clip opens the montage instead.
-3. Then the kill section: exactly ONE clip per kill entry (normal OR slow motion, never both), in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.
-   Every kill must stay on screen at least {{{{p}}}} s after it happens before the next clip starts, so:
-   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{{{o}}}} s, up to 2 s longer to land the cut on a beat.
-   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{{{q}}}} s, up to 1 s longer (it plays for 2 x len).
-   For an entry with "more" you may lengthen its clip to show those next kills too (add the last one's offset to len); it must keep playing {{{{p}}}} s after the last kill it shows.
-   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.
-   Make play times whole beats where you can, so the cuts land on beats.
-4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.
+{kill_rules}
 5. totalKills is the number of kills inside the kept clips.
 {step6}Write each clip's keys in exactly this order: id, start, len, speed, role, kill. kill is the t of the entry the clip shows, copied exactly (0 for the flex clip). Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.
 Answer exactly in this shape: {{"beatSec": number, "dropAtSec": number, {hook_key}"clips": [{{"id": integer, "start": number, "len": number, "speed": number, "role": string, "kill": number}}], "totalKills": integer, "notes": string}}. If there are no kills, answer {{"beatSec": 0.5, "dropAtSec": 0, {hook_zero}"clips": [], "totalKills": 0, "notes": "no kills"}}."""
@@ -202,7 +211,40 @@ def look_table():
     rows = [(str(i), f"{{in{i}}}", f"fontsize={size}:{st}", f"{size * w / 100 * 1.05:.1f}") for i, (_, size, st, w) in enumerate(LOOKS)]
     return "".join(f"\n{';'.join(r)}" for r in rows + [("default",) + rows[0][1:]])
 
-def style(lyrical):
+# Ultra Edit, one kill (docs/edit-styles/ultra-edit.md). A fixed 6 s window of the recording from K-2, time-warped:
+#   K-2..K-1.75 at 0.5x, ..K at 1x, ..K+1 at 0.5x, ..K+2 at 1x, then K+2..K+4 ramping smoothly from 0.5x to 3x
+#   (out time 0.8*ln(1+2.5u) over u in 0..2 s). On screen: 0.5 + 1.75 + 2 + 1 + 1.43 = 6.68 s.
+ULTRA_CLIP_SEC = 6.68
+WARP = "if(lt(T,0.25),2*T,if(lt(T,2),T+0.25,if(lt(T,3),2*T-1.75,if(lt(T,4),T+1.25,5.25+0.8*log(1+2.5*(T-4))))))"
+# The transition: over the ramp (clip time 5.25..6.68) the frame zooms in, tilts and slides out; the next clip starts
+# zoomed and tilted the other way and pinches back out over its first 0.35 s. Zoom always outgrows the tilt, so the
+# rotated frame's corners never show.
+OUT = "pow(max(0,(TT-5.25)/1.43),2)"
+IN = "pow(max(0,1-TT/0.35),2)"
+def motion(tt, out=OUT, into=IN):
+    o, i = out.replace("TT", tt), into.replace("TT", tt)
+    return {"a": f"0.12*{o}-0.08*{i}", "z": f"1+0.6*{o}+0.4*{i}", "x": f"iw*(0.12*{o}-0.08*{i})"}
+def ultra_video(first, dur, out=OUT, into=IN):
+    normal = SRC["segment_filters"]["params"]["replace"]
+    layout = normal[normal.index("split=2[f$1][b$1];"):normal.index("[v$1pre]") + len("[v$1pre]")]  # blurred bands + near-square band
+    t, f = motion("t", out, into), motion("in/60", out, into)
+    return (first + layout + ";[v$1pre]rotate=a='" + t["a"] + "':c=black,zoompan=z='" + f["z"] + "':d=1:x='iw/2-iw/zoom/2+" + f["x"]
+            + "':y='ih/2-ih/zoom/2':s=1080x1920:fps=60[v$1];")
+# game sound ({in3}, the recording's instrumental stem: no voice chat) in the same five pieces, each at its speed
+PIECES = (("0:0.25", "atempo=0.5"), ("0.25:2", ""), ("2:3", "atempo=0.5"), ("3:4", ""), ("4:6", "atempo=1.3956"))  # 2 s / 1.433 s
+ULTRA_KILL = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=6,setpts=PTS-STARTPTS,setpts='(" + WARP + ")/TB',framerate=fps=60,", 6) + (
+    "amovie='{in3}':seek_point=$2,atrim=start=$2:duration=6,asetpts=PTS-STARTPTS,aresample=48000,asplit=5" + "".join(f"[g$1{c}]" for c in "abcde") + ";"
+    + "".join(f"[g$1{c}]atrim={r},asetpts=PTS-STARTPTS{',' + fx if fx else ''}[h$1{c}];" for c, (r, fx) in zip("abcde", PIECES))
+    + "".join(f"[h$1{c}]" for c in "abcde") + "concat=n=5:v=0:a=1[a$1];")
+# the intro flex: normal speed, the same zoom-tilt out over its last 0.5 s, no pinch in (the edit fades in from black)
+ULTRA_FLEX = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,", "$3",
+                         out="pow(max(0,(TT-($3-0.5))/0.5),2)", into="0") + "amovie='{in3}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
+def role_pat(flex):
+    return (r'\{(?=[^}]*"id":"?(\d+)"?)(?=[^}]*"start":' + NUM + r')(?=[^}]*"len":' + NUM + r')'
+            + ('(?=' if flex else '(?!') + r'[^}]*"role":"flex")[^}]*\}')
+
+def style(kind):
+    lyrical, ultra = kind != "kill", kind == "ultra"
     g = G()
     for nid, name, typ, sample in (("video_in", "video", "file:video", ""), ("kills_in", "kills", "text", '{"kills":[{"t":51}],"totalKills":1}'),
                                    ("flex_in", "flex", "text", '{"flex":[{"start":20,"what":"knife out"}]}'), ("game_dur", "gameDurationSec", "text", "2400"),
@@ -237,10 +279,12 @@ def style(lyrical):
     # clip checks: clips -> has_speed -> len_max -> len_min -> start_allowed (v8 order)
     for a, b in (("clips", "has_speed"),): pass
     # planner
-    prompt = PLAN_HEAD.format(style="lyrical kill montage: a very short intro flex, then back-to-back kills at normal speed and in slow motion, with the song's words on screen" if lyrical
-                              else "kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion",
+    prompt = PLAN_HEAD.format(style={"kill": "kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion",
+                                     "lyrical": "lyrical kill montage: a very short intro flex, then back-to-back kills at normal speed and in slow motion, with the song's words on screen",
+                                     "ultra": "ultra edit: a very short intro flex, then back-to-back kills, each with its own slow motion, speed ramp and zoom-tilt transition, with the song's words on screen"}[kind],
                               extra="", flex_len="1 to 1.5 s, ending on a beat" if lyrical else "2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s",
-                              step6="", hook_key="", hook_zero="")
+                              step6="", hook_key="", hook_zero="", starts=ULTRA_STARTS if ultra else MIXED_STARTS,
+                              variation="" if ultra else MIXED_VARIATION, kill_rules=ULTRA_RULES if ultra else MIXED_RULES)
     g.util("plan_prompt", "template", {"template": prompt})
     g.util("kills_text", "json-stringify", {"indent": 0}).edge("kills_json", "value", "kills_text", "value")
     g.util("flex_text", "json-stringify", {"indent": 0}).edge("flex_list", "value", "flex_text", "value")
@@ -251,7 +295,13 @@ def style(lyrical):
         g.edge(n, p, "plan_prompt", port)
     g.edge("llm", "connection", "plan", "connection").edge("plan_prompt", "value", "plan", "prompt")
     # two speeds only (normal, 0.5x); a planned speed-up matches neither render pattern and is dropped by speed_ok
-    g.N["slow_filters"]["params"]["pattern"] = clip_pat(r'0?\.50*'); g.N["segment_filters"]["params"]["pattern"] = clip_pat(r'1(?:\.0+)?')
+    if ultra:  # kill clips get the fixed warp and transitions, keyed on role; clip starts sit 2 s before the kill
+        g.N["lead_normal"]["params"]["value"] = 2.0
+        g.N["clip_id_range"]["params"]["keys"] = "id, start, len, speed, role"
+        g.N["slow_filters"]["params"] = {"flags": "g", "pattern": role_pat(False), "replace": ULTRA_KILL}
+        g.N["segment_filters"]["params"] = {"flags": "g", "pattern": role_pat(True), "replace": ULTRA_FLEX}
+    else:
+        g.N["slow_filters"]["params"]["pattern"] = clip_pat(r'0?\.50*'); g.N["segment_filters"]["params"]["pattern"] = clip_pat(r'1(?:\.0+)?')
     g.E = [e for e in g.E if not (e['to']['node'] in ("slow_filters", "segment_filters") and e['to']['port'] == "text")]
     g.edge("clip_items_joined", "value", "slow_filters", "text").edge("slow_filters", "text", "segment_filters", "text")
     g.util("speed_ok", "json-filter", {"path": "speed", "op": "matches", "compareTo": r"^(1(\.0+)?|0?\.50*)$"})
@@ -270,25 +320,32 @@ def style(lyrical):
     # end = min(sum(len) + sum(len of slow), cap)
     g.E = [e for e in g.E if e['to']['node'] != "end_time"]
     g.edge("play_time", "value", "end_time", "a").edge("cap", "value", "end_time", "b")
-    # hold after each kill, by the length the user picked (HOLD); kill clips shorter than that are lengthened, never dropped
-    g.util("hold_table", "text", {"value": hold_table()})
-    g.util("hold_pattern", "template", {"template": r"^[\s\S]*?\n(?:{{a}}|default);([^;\n]*);([^;\n]*);([^;\n]*);([^;\n]*);([^\n]*)[\s\S]*$"})
-    g.edge("max_dur", "value", "hold_pattern", "a")
-    for i, nid in enumerate(("hold_sec", "len_normal", "len_slow", "short_normal", "short_slow"), 1):
-        g.util(nid, "regex", {"replace": f"${i}"}).edge("hold_table", "value", nid, "text").edge("hold_pattern", "value", nid, "pattern")
-    for port, nid in (("o", "len_normal"), ("p", "hold_sec"), ("q", "len_slow")): g.edge(nid, "text", "plan_prompt", port)
-    # on the plan as text: a clip object (no nested braces), not the flex clip, with this speed, whose len is below the minimum
-    clamp = r'(\{(?=[^{}]*"speed":"?SPEED"?[,}])(?![^{}]*"role":"flex")[^{}]*?"len":)"?(?:{{a}})"?(?=[,}])'
+    if not ultra:
+        # hold after each kill, by the length the user picked (HOLD); kill clips shorter than that are lengthened, never dropped
+        g.util("hold_table", "text", {"value": hold_table()})
+        g.util("hold_pattern", "template", {"template": r"^[\s\S]*?\n(?:{{a}}|default);([^;\n]*);([^;\n]*);([^;\n]*);([^;\n]*);([^\n]*)[\s\S]*$"})
+        g.edge("max_dur", "value", "hold_pattern", "a")
+        for i, nid in enumerate(("hold_sec", "len_normal", "len_slow", "short_normal", "short_slow"), 1):
+            g.util(nid, "regex", {"replace": f"${i}"}).edge("hold_table", "value", nid, "text").edge("hold_pattern", "value", nid, "pattern")
+        for port, nid in (("o", "len_normal"), ("p", "hold_sec"), ("q", "len_slow")): g.edge(nid, "text", "plan_prompt", port)
     g.util("plan_text", "json-stringify", {"indent": 0}).edge("plan", "json", "plan_text", "value")
     g.util("kill_fill", "regex", {"flags": "g", "pattern": r'\{(?![^{}]*"kill":)(?=[^{}]*"start":' + NUM + ')', "replace": '{"kill":"s$1",'})
     g.edge("plan_text", "value", "kill_fill", "text")
     prev = ("kill_fill", "text")
-    for nid, speed, short, length in (("hold_normal", r"1(?:\.0+)?", "short_normal", "len_normal"), ("hold_slow", r"0?\.50*", "short_slow", "len_slow")):
-        g.util(nid + "_pattern", "template", {"template": clamp.replace("SPEED", speed)}).edge(short, "text", nid + "_pattern", "a")
-        g.util(nid + "_len", "template", {"template": "$1{{a}}"}).edge(length, "text", nid + "_len", "a")
-        g.util(nid, "regex", {"flags": "g"}).edge(*prev, nid, "text")
-        g.edge(nid + "_pattern", "value", nid, "pattern").edge(nid + "_len", "value", nid, "replace")
-        prev = (nid, "text")
+    if ultra:
+        # every kill clip is speed 1 and plays ULTRA_CLIP_SEC (the render cuts its own 6 s window), so the play time adds up
+        for nid, key, value in (("ultra_len", "len", ULTRA_CLIP_SEC), ("ultra_speed", "speed", 1)):
+            g.util(nid, "regex", {"flags": "g", "pattern": r'(\{(?![^{}]*"role":"flex")[^{}]*?"' + key + r'":)"?[\d.]+"?', "replace": f"$1 {value}"}).edge(*prev, nid, "text")
+            prev = (nid, "text")
+    else:
+        # on the plan as text: a clip object (no nested braces), not the flex clip, with this speed, whose len is below the minimum
+        clamp = r'(\{(?=[^{}]*"speed":"?SPEED"?[,}])(?![^{}]*"role":"flex")[^{}]*?"len":)"?(?:{{a}})"?(?=[,}])'
+        for nid, speed, short, length in (("hold_normal", r"1(?:\.0+)?", "short_normal", "len_normal"), ("hold_slow", r"0?\.50*", "short_slow", "len_slow")):
+            g.util(nid + "_pattern", "template", {"template": clamp.replace("SPEED", speed)}).edge(short, "text", nid + "_pattern", "a")
+            g.util(nid + "_len", "template", {"template": "$1{{a}}"}).edge(length, "text", nid + "_len", "a")
+            g.util(nid, "regex", {"flags": "g"}).edge(*prev, nid, "text")
+            g.edge(nid + "_pattern", "value", nid, "pattern").edge(nid + "_len", "value", nid, "replace")
+            prev = (nid, "text")
     g.util("plan_held", "json-parse", {"fenced": False}).edge(*prev, "plan_held", "text")
     g.E = [e for e in g.E if e['to']['node'] != "clips"]; g.edge("plan_held", "value", "clips", "value")
     # render inputs: {in0} gameplay, {in1} song (, {in2} caption font)
@@ -347,14 +404,28 @@ def style(lyrical):
         g.edge("draw_items", "text", "caption_keep", "text")
         g.util("cw_fill", "regex", {"flags": "g", "pattern": "@cw"}).edge("caption_keep", "text", "cw_fill", "text").edge("look_cw", "text", "cw_fill", "replace")
         g.edge("cw_fill", "text", "ffmpeg_args", "g")
+    if ultra:
+        # the recording's instrumental stem (gunshots, footsteps, abilities; no voice chat) is {in3}, mixed louder
+        g.node("game_fx", engine="transcribe", operation="separate", params={"model": "vocals", "stems": ["instrumental"], "format": "wav"})
+        g.edge("video_in", "value", "game_fx", "input").edge("game_fx", "instrumental", "make_montage", "input")
+        tpl = g.N["ffmpeg_args"]["params"]["template"]
+        for old, new in (("aresample=48000[mus];", "aresample=48000,volume=0.85[mus];"), ("[ga]volume=0.3[gad]", "[ga]volume=1.4[gad]"),
+                         ("normalize=0,afade", "normalize=0,alimiter=limit=0.95,afade")):
+            assert tpl.count(old) == 1, old
+            tpl = tpl.replace(old, new)
+        g.N["ffmpeg_args"]["params"]["template"] = tpl
     g.node("out", kind="output", fields=["montage", "plan"])
     g.edge("make_montage", "file", "out", "montage").edge("plan", "json", "out", "plan")
+    if ultra:
+        return g.doc("style-ultra-edit", "Ultra edit (docs/edit-styles/ultra-edit.md) from a gameplay-index and a song-index: intro flex, then every kill as a fixed 6 s window "
+                     "time-warped (0.5x from K-2, 1x, 0.5x on the kill, 1x, then a 0.5x-to-3x ramp) with a zoom-tilt-slide transition out and a pinch in, "
+                     "the game sound without voice chat mixed loud under the song, and the lyrics karaoke-style in a random spot per line and one of ten looks per job.")
     name = "style-lyrical-kill-montage" if lyrical else "style-kill-montage"
     return g.doc(name, ("Lyrical kill montage (docs/edit-styles/lyrical-kill-montage.md)" if lyrical else "Kill montage (docs/edit-styles/kill-montage.md)")
                  + " from a gameplay-index and a song-index: intro flex, normal and 0.5x kill clips placed by a per-run variation, each kill held a minimum time that grows with the length, beat-synced, 9:16 blurred layout, flash + zoom, song from its start"
                  + (", the lyrics karaoke-style (force-aligned lines of 3-5 words building word by word) in a random spot per line and one of ten looks per job." if lyrical else ", no text."))
 
 if __name__ == "__main__":
-    for fname, d in (("style-kill-montage", style(False)), ("style-lyrical-kill-montage", style(True))):
+    for fname, d in (("style-kill-montage", style("kill")), ("style-lyrical-kill-montage", style("lyrical")), ("style-ultra-edit", style("ultra"))):
         json.dump(d, open(os.path.join(HERE, f'{fname}.json'), 'w'), indent=2)
         print(fname, "nodes", len(d['graph']['nodes']), "edges", len(d['graph']['edges']))

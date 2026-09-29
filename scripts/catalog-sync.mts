@@ -1,6 +1,7 @@
 // pnpm catalog:sync — points existing catalog items at the pipeline ids in src/db/catalog-seed.ts (the ids in
-// pipelines/README.md). Goes through the admin save, so each change is validated against Engine X, keeps a revision
-// and writes the audit log. Only template ids change; prices, fields and the rest stay as admins set them.
+// pipelines/README.md), and creates seed items that aren't in the catalog yet (a new style). Goes through the admin save,
+// so each change is validated against Engine X, keeps a revision and writes the audit log. For existing items only the
+// template ids change; prices, fields and the rest stay as admins set them.
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { catalogSeed } from "@/db/catalog-seed";
@@ -20,7 +21,9 @@ const keys = Object.keys(catalogInput.innerType?.().shape ?? catalogInput.shape)
 for (const seed of catalogSeed) {
   const [row] = await db.select().from(catalogItems).where(eq(catalogItems.slug, seed.slug));
   if (!row) {
-    console.log(`${seed.slug}: not in the catalog (pnpm db:seed adds it)`);
+    const input = Object.fromEntries(keys.filter((k) => k in seed).map((k) => [k, (seed as Record<string, unknown>)[k]]));
+    const r = await saveCatalogItem(admin, null, input);
+    console.log(r.ok ? `${seed.slug}: created (errors ${r.data.report?.errors.length ?? 0}, warnings ${r.data.report?.warnings.length ?? 0})` : `${seed.slug}: REFUSED, ${r.error.message}`);
     continue;
   }
   const ids = { templateId: seed.templateId, uploadTemplateId: seed.uploadTemplateId ?? null, indexTemplates: seed.indexTemplates ?? null };

@@ -275,3 +275,15 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Why:** the aligner put the first word of a phrase at the phrase start, over the music ("Baby" 1.07–2.71 s in Industry Baby), so its text appeared before the singing.
 - **Published and run on the test song** (`run_e90bd56c…`). The output is `[{start, end, duration}]`. The tag "D-D-Daytrip took it to ten" is voiced at 0.38–1.76 s, then the voice comes back at 2.37 s.
 - **App (`lyricItems`):** a word starts at the last point inside it where the voice comes in (a voiced start after its aligner start and more than 0.1 s before its end). Otherwise, or with no voice data, the aligner's time stands. On this song, 3 of 236 words moved: "Baby" 1.07 → 2.37, "to" 21.00 → 21.60, "over" 115.30 → 115.55.
+
+## 26. style-ultra-edit (2026-09-29): the third style
+
+**Status:** imported as `tpl_9thVZeh4zYVB`, waiting to be published. It's a new pipeline and a new catalog item, "Ultra Edit"; `pnpm catalog:sync` creates it. The other pipelines are unchanged: Kill Montage and Lyrical rebuild byte-for-byte.
+
+- **Per kill:** a fixed 6 s window from K-2, time-warped with one `setpts` expression. K-2..K-1.75 at 0.5×, then 1×, K..K+1 at 0.5×, then 1×, then K+2..K+4 ramping from 0.5× to 3×. That's 6.68 s on screen.
+- **Transitions:** a zoom-tilt-slide out over the ramp and a pinch in over the next clip's first 0.35 s, with `rotate` and `zoompan` on clip time.
+- **Game sound:** a new step, `game_fx` (`transcribe/separate`, the recording's `instrumental` stem, so no voice chat), is `{in3}`. Per kill it's cut into the same five pieces with `atempo`, mixed ×1.4 under the song (×0.85), with `alimiter` at 0.95.
+- **Planner:** it only orders the kills (one per entry; starts 2 s before each kill). `ultra_len` and `ultra_speed` force speed 1 and len 6.68 on kill clips, so the play time adds up.
+- **Lyrics:** as in the Lyrical style.
+- **The planner prompt now has slots** (`{starts}`, `{variation}`, `{kill_rules}`). The two existing styles keep their exact text.
+- **Checked:** `check.py` (43 checks, 9 for Ultra), and a local ffmpeg 7.1 render on test media (exit 0, 14.65 s for the intro plus two kills, frames checked).

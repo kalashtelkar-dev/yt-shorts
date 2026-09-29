@@ -9,6 +9,7 @@ Each edit style is a written spec, and later its own pipeline.
 |---|---|---|
 | Kill Montage | [kill-montage.md](kill-montage.md) | Beggin' (Valorant Montage), `vQqU0F8vTOE` |
 | Lyrical Kill Montage | [lyrical-kill-montage.md](lyrical-kill-montage.md) | Untouchable - Valorant Edit, `H2N0eHGOi_w` |
+| Ultra Edit | [ultra-edit.md](ultra-edit.md) | the user's spec (fixed speed ramp and transition per kill) |
 
 **To add a style:**
 1. Run edit-analyzer-v3 on a reference.

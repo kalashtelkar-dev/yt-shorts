@@ -3,7 +3,7 @@ import type { catalogItems } from "./schema";
 // Initial catalog (PLAN.md §0). After seeding, the admin Catalog page owns these rows.
 // stageMap matches the pipelines' engine step ids (smoke, 2026-09-26). Order = order in the pipeline;
 // while several steps run in parallel, the earliest stage listed wins.
-// Both styles are staged (docs/edit-styles/, pipelines/README.md): gameplay-index and song-index run in
+// All styles are staged (docs/edit-styles/, pipelines/README.md): gameplay-index and song-index run in
 // parallel and are cached, then the style pipeline plans and renders.
 const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_8nvlocGpQ3nT" };
 const FIELDS = [
@@ -22,7 +22,10 @@ const STAGE_MAP = [
   { match: "flex", label: "Picking your intro" },
   { match: "music", label: "Getting your song" },
   { match: "vocals", label: "Listening to the lyrics" },
-  { match: "lyrics", label: "Listening to the lyrics" },
+  { match: "transcript", label: "Listening to the lyrics" },
+  { match: "aligned", label: "Timing the lyrics" },
+  { match: "voice", label: "Timing the lyrics" },
+  { match: "game_fx", label: "Separating the game sound" },
   { match: "plan", label: "Planning your edit" },
   { match: "make_montage", label: "Rendering your montage" },
 ];
@@ -60,5 +63,21 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     stageMap: STAGE_MAP,
     outputKey: "montage",
     prices: { "30": 350, "60": 500, "90": 650 },
+  },
+  {
+    slug: "ultra-edit",
+    title: "Ultra Edit",
+    description: "Every kill slowed down, sped up and spun into the next, with loud gunshots and your song's words.",
+    templateId: "tpl_9thVZeh4zYVB", // style-ultra-edit
+    indexTemplates: INDEX,
+    enabled: true,
+    beta: true,
+    sortOrder: 3,
+    durations: [30, 60, 90],
+    fields: FIELDS,
+    inputMap: INPUT_MAP,
+    stageMap: STAGE_MAP,
+    outputKey: "montage",
+    prices: { "30": 400, "60": 550, "90": 700 },
   },
 ];

@@ -1,7 +1,8 @@
 // pnpm catalog:sync — points existing catalog items at the pipeline ids in src/db/catalog-seed.ts (the ids in
 // pipelines/README.md), and creates seed items that aren't in the catalog yet (a new style). Goes through the admin save,
 // so each change is validated against Engine X, keeps a revision and writes the audit log. For existing items only the
-// template ids change; prices, fields and the rest stay as admins set them.
+// template ids and the stage labels (they name the pipelines' steps) change; prices, fields and the rest stay as admins
+// set them.
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { catalogSeed } from "@/db/catalog-seed";
@@ -26,9 +27,10 @@ for (const seed of catalogSeed) {
     console.log(r.ok ? `${seed.slug}: created (errors ${r.data.report?.errors.length ?? 0}, warnings ${r.data.report?.warnings.length ?? 0})` : `${seed.slug}: REFUSED, ${r.error.message}`);
     continue;
   }
-  const ids = { templateId: seed.templateId, uploadTemplateId: seed.uploadTemplateId ?? null, indexTemplates: seed.indexTemplates ?? null };
+  const ids = { templateId: seed.templateId, uploadTemplateId: seed.uploadTemplateId ?? null, indexTemplates: seed.indexTemplates ?? null, stageMap: seed.stageMap };
   const index = (t: typeof ids.indexTemplates) => (t ? [t.gameplay, t.gameplayUpload ?? null, t.song].join() : ""); // jsonb reorders keys
-  if (ids.templateId === row.templateId && ids.uploadTemplateId === row.uploadTemplateId && index(ids.indexTemplates) === index(row.indexTemplates)) {
+  const stages = (m: unknown) => JSON.stringify((Array.isArray(m) ? m : []).map((e) => [e.match, e.label, e.itemSeconds ?? null, e.only ?? null]));
+  if (ids.templateId === row.templateId && ids.uploadTemplateId === row.uploadTemplateId && index(ids.indexTemplates) === index(row.indexTemplates) && stages(ids.stageMap) === stages(row.stageMap)) {
     console.log(`${seed.slug}: up to date`);
     continue;
   }

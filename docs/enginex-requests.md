@@ -297,3 +297,17 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **Styles:** a new input `gameAudio`, which is `{in2}`. Every clip's game sound comes from it (`amovie='{in2}'`), never from the video's own track. The lyric font moves to `{in3}`. Ultra's per-job `game_fx` step is gone.
 - **App:** `styleInput` sends `gameAudio`, falling back to the video for an older cached index.
 - **Checked:** `check.py` (46 checks). Local ffmpeg 7.1 renders of all three styles with the new inputs all exit 0 (16, 14.25 and 14.65 s).
+
+## 28. Voice chat removed from the final cut, not the whole recording (2026-09-29)
+
+**Status:** imported as drafts, waiting to be published: style-kill-montage `tpl_9zr6-gKhYQ-c`, style-lyrical-kill-montage `tpl_j3wvbIFebE78`, style-ultra-edit `tpl_-uf4FXHOlBW7`. The gameplay pipelines go back to `tpl_yYsSXHkQXJBP` and `tpl_K6Lo3rwFya4A`: rebuilt byte-for-byte, still published. §27's pipelines are retired.
+
+- **Why:** with §27 the user heard game sound that didn't match the picture.
+  - **What checked out:** the separated stem of the 23-minute recording had the right length (1406.55 s against 1407 s). The render received it in the right slot, with the same seek points as the picture.
+  - **Where that leaves it:** the mismatch is inside the separation output, and it can't be fixed from our side. Separating the whole recording also took 223 s per match.
+- **Now (the user's fallback):**
+  - **The cut (`make_montage`):** renders the picture with the game's own sound (`amovie='{in0}'`, in sync by construction) and no song, as `cut.mp4`.
+  - **`clean_audio`:** `transcribe/separate`, the instrumental stem of the cut (30–90 s, so seconds).
+  - **`final_cut`:** a CPU `video/custom` step with inputs {in0} the cut, {in1} the song, {in2} the clean game sound. It copies the picture and mixes the game sound (×0.3, or ×1.4 with a limiter for Ultra) under the song (×1, or ×0.85 for Ultra), with the fades and the length cap.
+- **Catalog:** new stage labels, "Removing voice chat" and "Adding your song". `catalog:sync` now also copies stage labels from the seed, since they name the pipelines' steps.
+- **Checked:** `check.py` (53 checks). Locally, the cut → separation stand-in → final cut runs end to end with exit 0 for Kill Montage (16 s) and Ultra (14.65 s).

@@ -107,16 +107,32 @@ check("kills as bare numbers (and flex as bare numbers) give the same render", b
 def render_inputs(name):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     return [e["from"]["node"] for e in g["edges"] if e["to"] == {"node": "make_montage", "port": "input"}]
-check("render inputs in order: gameplay, song, game sound", render_inputs("style-kill-montage") == ["video_in", "audio_in", "fx_in"])
-check("lyrical render inputs in order: gameplay, song, game sound, font", render_inputs("style-lyrical-kill-montage") == ["video_in", "audio_in", "fx_in", "caption_font"])
-check("game sound comes from the separated stem ({in2}), never the video's own track (voice chat)",
-      all("amovie='{in0}'" not in fc(x) and "amovie='{in2}'" in fc(x) for x in (a, b)))
-check("lyric font is {in3}", "fontfile='{in3}'" in fc(b) and "fontfile='{in2}'" not in fc(b))
+check("render inputs in order: gameplay, song", render_inputs("style-kill-montage") == ["video_in", "audio_in"])
+check("lyrical render inputs in order: gameplay, song, font", render_inputs("style-lyrical-kill-montage") == ["video_in", "audio_in", "caption_font"])
+# the cut: the game's own sound (in sync, from the video) and no song; voice chat is removed from it, then the song goes on
+check("the cut carries the video's own game sound and no song", all("amovie='{in0}'" in fc(x) and "amovie='{in1}'" not in fc(x) and fc(x).endswith("[ga]anull[a]") for x in (a, b)))
+def final(name, p, song=17.9, cap=60):
+    g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    seeds = {("kills_in", "value"): json.dumps(kills), ("flex_in", "value"): json.dumps(flex), ("game_dur", "value"): "95",
+             ("song_dur", "value"): song, ("max_dur", "value"): cap, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
+             ("lines_in", "value"): "[]", ("plan", "json"): p, ("look_in", "value"): "0"}
+    return run(g, seeds, ("final_args_list", "value"))
+def final_inputs(name):
+    g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    return [e["from"]["node"] + "." + e["from"]["port"] for e in g["edges"] if e["to"] == {"node": "final_cut", "port": "input"}]
+for name in ("style-kill-montage", "style-lyrical-kill-montage", "style-ultra-edit"):
+    gg = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    check(f"{name}: voice chat removed from the cut (instrumental stem of the cut)",
+          next(n for n in gg["nodes"] if n["id"] == "clean_audio")["params"]["stems"] == ["instrumental"] and "make_montage.file->clean_audio.input" in {e["id"] for e in gg["edges"]})
+    check(f"{name}: final cut inputs in order: the cut, the song, the clean game sound", final_inputs(name) == ["make_montage.file", "audio_in.value", "clean_audio.instrumental"])
+fa = final("style-kill-montage", plan(3))
+check("final cut: picture copied, clean game sound at 30% under the song, fades at the edit's end, capped length",
+      fa[fa.index("-c:v") + 1] == "copy" and "[2:a]aresample=48000,volume=0.3[g];[1:a]aresample=48000,volume=1[m]" in fa[fa.index("-filter_complex") + 1]
+      and "afade=t=out:st=15.2:d=0.8" in fa[fa.index("-filter_complex") + 1] and fa[fa.index("-t") + 1] == "17.9")
+check("lyric font is {in2}", "fontfile='{in2}'" in fc(b))
 for gi in ("gameplay-index", "gameplay-index-upload"):
-    gg = json.load(open(os.path.join(HERE, f"{gi}.json")))["graph"]
-    check(f"{gi}: separates the game sound (instrumental stem) and outputs it as gameAudio",
-          next(n for n in gg["nodes"] if n["id"] == "game_audio")["params"]["stems"] == ["instrumental"]
-          and {"video_file.value->game_audio.input", "game_audio.instrumental->out.gameAudio"} <= {e["id"] for e in gg["edges"]})
+    check(f"{gi}: no separation of the whole recording (voice chat is removed from the cut)",
+          all(n.get("operation") != "separate" for n in json.load(open(os.path.join(HERE, f"{gi}.json")))["graph"]["nodes"]))
 # ---- Ultra Edit (docs/edit-styles/ultra-edit.md): every kill a fixed 6 s window from K-2, time-warped, with transitions
 up = {"beatSec": 0.45, "dropAtSec": 6.4, "totalKills": 2, "notes": "fixture", "clips": [
     {"id": 1, "start": 6.0, "len": 1.25, "speed": 1, "role": "flex"},
@@ -124,12 +140,13 @@ up = {"beatSec": 0.45, "dropAtSec": 6.4, "totalKills": 2, "notes": "fixture", "c
     {"id": 3, "start": 26.3, "len": 3, "speed": 1.5, "role": "kill", "kill": 28.3},  # a planned speed-up: the same
     {"id": 4, "start": 99.0, "len": 6, "speed": 1, "role": "kill", "kill": 101}]}   # not a clip start: dropped
 u = build("style-ultra-edit", up)
-check("ultra: render inputs in order: gameplay, song, game sound, font", render_inputs("style-ultra-edit") == ["video_in", "audio_in", "fx_in", "caption_font"])
+check("ultra: render inputs in order: gameplay, song, font", render_inputs("style-ultra-edit") == ["video_in", "audio_in", "caption_font"])
 check("ultra: the flex as planned, each kill a 6 s window from 2 s before it", trims(u) == [(6, 1.25), (16, 6), (26.3, 6)])
 check("ultra: every kill time-warped (0.5x, 1x, 0.5x, 1x, ramp to 3x), the flex not", fc(u).count("setpts='(if(lt(T,0.25),2*T,") == 2)
-check("ultra: the game sound follows in five pieces per kill", fc(u).count("atempo=0.5") == 4 and fc(u).count("atempo=1.3956") == 2 and fc(u).count("amovie='{in2}'") == 3 and "amovie='{in0}'" not in fc(u))
+check("ultra: the game sound follows in five pieces per kill", fc(u).count("atempo=0.5") == 4 and fc(u).count("atempo=1.3956") == 2 and fc(u).count("amovie='{in0}'") == 3 and "amovie='{in1}'" not in fc(u))
 check("ultra: zoom-tilt-slide out and pinch in on every clip", fc(u).count("rotate=a=") == 3 and fc(u).count("zoompan=z='1+0.6*") == 3)
 check("ultra: play time = flex + 6.68 s per kill, faded 0.8 s before", abs(fade(u) - (min(1.25 + 2 * 6.68, 17.9) - 0.8)) < 0.01)
-check("ultra: game sound loud under the song, limited", "[ga]volume=1.4[gad]" in fc(u) and "aresample=48000,volume=0.85[mus]" in fc(u) and "alimiter=limit=0.95" in fc(u))
+fu = final("style-ultra-edit", up)[final("style-ultra-edit", up).index("-filter_complex") + 1]
+check("ultra: clean game sound loud under the song, limited", "volume=1.4[g]" in fu and "volume=0.85[m]" in fu and "alimiter=limit=0.95" in fu)
 check("ultra: karaoke lyrics", fc(u).count("drawtext") == len(draws))
 sys.exit(1 if failures else 0)

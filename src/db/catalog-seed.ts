@@ -5,7 +5,7 @@ import type { catalogItems } from "./schema";
 // while several steps run in parallel, the earliest stage listed wins.
 // All styles are staged (docs/edit-styles/, pipelines/README.md): gameplay-index and song-index run in
 // parallel and are cached, then the style pipeline plans and renders.
-const INDEX = { gameplay: "tpl_vvEdXwOrpPfz", gameplayUpload: "tpl_MI3CqxMQSTNZ", song: "tpl_8nvlocGpQ3nT" };
+const INDEX = { gameplay: "tpl_yYsSXHkQXJBP", gameplayUpload: "tpl_K6Lo3rwFya4A", song: "tpl_8nvlocGpQ3nT" };
 const FIELDS = [
   { name: "playerName", label: "Your in-game name", type: "text" as const, required: true, max: 32, help: "Exactly as it shows in the kill feed" },
   { name: "songUrl", label: "Song (YouTube link)", type: "url" as const, required: true, help: "The montage runs as long as the song, up to the length you pick" },
@@ -20,15 +20,15 @@ const STAGE_MAP = [
   { match: "read_feed", label: "Reading the kill feed", itemSeconds: 10 },
   { match: "find_kills", label: "Finding your kills" },
   { match: "flex", label: "Picking your intro" },
-  { match: "game_audio", label: "Cleaning up the game sound" },
   { match: "music", label: "Getting your song" },
   { match: "vocals", label: "Listening to the lyrics" },
   { match: "transcript", label: "Listening to the lyrics" },
   { match: "aligned", label: "Timing the lyrics" },
   { match: "voice", label: "Timing the lyrics" },
-  { match: "game_fx", label: "Separating the game sound" },
   { match: "plan", label: "Planning your edit" },
   { match: "make_montage", label: "Rendering your montage" },
+  { match: "clean_audio", label: "Removing voice chat" },
+  { match: "final_cut", label: "Adding your song" },
 ];
 
 export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
@@ -36,7 +36,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "kill-montage",
     title: "Kill Montage",
     description: "A quick intro, then your kills back to back, cut to your song.",
-    templateId: "tpl_45uAd431uWGz", // style-kill-montage
+    templateId: "tpl_9zr6-gKhYQ-c", // style-kill-montage
     indexTemplates: INDEX,
     enabled: true,
     beta: false,
@@ -53,7 +53,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "lyrical-kill-montage",
     title: "Lyrical Kill Montage",
     description: "Your kills cut to your song, with its words on screen.",
-    templateId: "tpl_z9M3FJDr0WN9", // style-lyrical-kill-montage
+    templateId: "tpl_j3wvbIFebE78", // style-lyrical-kill-montage
     indexTemplates: INDEX,
     enabled: true,
     beta: true,
@@ -69,7 +69,7 @@ export const catalogSeed: (typeof catalogItems.$inferInsert)[] = [
     slug: "ultra-edit",
     title: "Ultra Edit",
     description: "Every kill slowed down, sped up and spun into the next, with loud gunshots and your song's words.",
-    templateId: "tpl_LGd0J8RkTxXG", // style-ultra-edit
+    templateId: "tpl_-uf4FXHOlBW7", // style-ultra-edit
     indexTemplates: INDEX,
     enabled: true,
     beta: true,

@@ -81,12 +81,8 @@ def gameplay_index(upload=False):
     g.edge("kills_text", "value", "flex_prompt", "a").edge(*dur, "flex_prompt", "b")
     g.node("flex_pick", engine="llm", operation="chat", params={"system": "You are a gaming video editor choosing intro shots. You answer only with valid JSON.", "json": True, "maxTokens": 2048, "temperature": 0.2})
     g.edge("llm", "connection", "flex_pick", "connection").edge("flex_prompt", "value", "flex_pick", "prompt").edge("flex_sheets", "frames", "flex_pick", "images")
-    # the game sound without voice chat: the recording's instrumental stem (gunshots, footsteps, abilities). Every style cuts
-    # its game audio from this instead of the video's own track, so voice chat never reaches a montage.
-    g.node("game_audio", engine="transcribe", operation="separate", params={"model": "vocals", "stems": ["instrumental"], "format": "flac"})
-    g.edge("video_file", "value", "game_audio", "input")
-    g.node("out", kind="output", fields=["video", "gameAudio", "durationSec", "kills", "flex"] + ([] if upload else ["title"]))
-    g.edge("game_audio", "instrumental", "out", "gameAudio").edge("video_file", "value", "out", "video").edge(*dur, "out", "durationSec").edge("find_kills", "json", "out", "kills").edge("flex_pick", "json", "out", "flex")
+    g.node("out", kind="output", fields=["video", "durationSec", "kills", "flex"] + ([] if upload else ["title"]))
+    g.edge("video_file", "value", "out", "video").edge(*dur, "out", "durationSec").edge("find_kills", "json", "out", "kills").edge("flex_pick", "json", "out", "flex")
     if not upload: g.edge("download", "title", "out", "title")
     return g.doc("gameplay-index" + ("-upload" if upload else ""),
         "Gameplay " + ("upload" if upload else "link") + " + player name -> the video, its length, the player's kill times (1 fps kill-feed OCR, name-tolerant) and up to 5 intro-flex moments "
@@ -234,15 +230,15 @@ def ultra_video(first, dur, out=OUT, into=IN):
     t, f = motion("t", out, into), motion("in/60", out, into)
     return (first + layout + ";[v$1pre]rotate=a='" + t["a"] + "':c=black,zoompan=z='" + f["z"] + "':d=1:x='iw/2-iw/zoom/2+" + f["x"]
             + "':y='ih/2-ih/zoom/2':s=1080x1920:fps=60[v$1];")
-# game sound ({in2}, the recording's instrumental stem from gameplay-index: no voice chat) in the same five pieces, each at its speed
+# the game sound in the same five pieces, each at its speed
 PIECES = (("0:0.25", "atempo=0.5"), ("0.25:2", ""), ("2:3", "atempo=0.5"), ("3:4", ""), ("4:6", "atempo=1.3956"))  # 2 s / 1.433 s
 ULTRA_KILL = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=6,setpts=PTS-STARTPTS,setpts='(" + WARP + ")/TB',framerate=fps=60,", 6) + (
-    "amovie='{in2}':seek_point=$2,atrim=start=$2:duration=6,asetpts=PTS-STARTPTS,aresample=48000,asplit=5" + "".join(f"[g$1{c}]" for c in "abcde") + ";"
+    "amovie='{in0}':seek_point=$2,atrim=start=$2:duration=6,asetpts=PTS-STARTPTS,aresample=48000,asplit=5" + "".join(f"[g$1{c}]" for c in "abcde") + ";"
     + "".join(f"[g$1{c}]atrim={r},asetpts=PTS-STARTPTS{',' + fx if fx else ''}[h$1{c}];" for c, (r, fx) in zip("abcde", PIECES))
     + "".join(f"[h$1{c}]" for c in "abcde") + "concat=n=5:v=0:a=1[a$1];")
 # the intro flex: normal speed, the same zoom-tilt out over its last 0.5 s, no pinch in (the edit fades in from black)
 ULTRA_FLEX = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,", "$3",
-                         out="pow(max(0,(TT-($3-0.5))/0.5),2)", into="0") + "amovie='{in2}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
+                         out="pow(max(0,(TT-($3-0.5))/0.5),2)", into="0") + "amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
 def role_pat(flex):
     return (r'\{(?=[^}]*"id":"?(\d+)"?)(?=[^}]*"start":' + NUM + r')(?=[^}]*"len":' + NUM + r')'
             + ('(?=' if flex else '(?!') + r'[^}]*"role":"flex")[^}]*\}')
@@ -254,7 +250,7 @@ def style(kind):
                                    ("flex_in", "flex", "text", '{"flex":[{"start":20,"what":"knife out"}]}'), ("game_dur", "gameDurationSec", "text", "2400"),
                                    ("audio_in", "audio", "file:audio", ""), ("song_dur", "songDurationSec", "text", "22"),
                                    ("loudness_in", "loudness", "text", "0.000000,-30.0"), ("max_dur", "maxDurationSec", "text", "60"),
-                                   ("variation_in", "variation", "text", "Put the slow-motion clip third."), ("fx_in", "gameAudio", "file:audio", "")):
+                                   ("variation_in", "variation", "text", "Put the slow-motion clip third.")):
         inp(g, nid, name, typ, sample)
     if lyrical: inp(g, "lines_in", "lines", "text", "[]"); inp(g, "look_in", "lyricLook", "text", "0")
     g.take("llm", "kill_list", "kill_times", "lead_normal", "lead_slow", "zero_num", "starts_normal_raw", "starts_slow_raw", "starts_normal", "starts_slow",
@@ -352,10 +348,8 @@ def style(kind):
             prev = (nid, "text")
     g.util("plan_held", "json-parse", {"fenced": False}).edge(*prev, "plan_held", "text")
     g.E = [e for e in g.E if e['to']['node'] != "clips"]; g.edge("plan_held", "value", "clips", "value")
-    # render inputs: {in0} gameplay picture, {in1} song, {in2} game sound without voice chat (gameplay-index), ({in3} lyric font)
-    g.edge("video_in", "value", "make_montage", "input").edge("audio_in", "value", "make_montage", "input").edge("fx_in", "value", "make_montage", "input")
-    for nid in ("slow_filters", "segment_filters"):
-        g.N[nid]["params"]["replace"] = g.N[nid]["params"]["replace"].replace("amovie='{in0}'", "amovie='{in2}'")
+    # render inputs: {in0} gameplay, {in1} song (, {in2} caption font)
+    g.edge("video_in", "value", "make_montage", "input").edge("audio_in", "value", "make_montage", "input")
     tpl = g.N["ffmpeg_args"]["params"]["template"]
     layer = ("color=c=black@0:s=1080x1920:r=60,format=rgba,{{g}}split=2[t1][t2];[t1]gblur=sigma=14,colorchannelmixer=aa=1.6[glow];"
              "[vc][glow]overlay=0:0:shortest=1:format=auto[vg];[vg][t2]overlay=0:0:shortest=1:format=auto,fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];")
@@ -366,7 +360,7 @@ def style(kind):
     g.E = [e for e in g.E if not (e['to']['node'] == "ffmpeg_args" and e['to']['port'] in ("d", "g"))]
     g.edge("cap", "value", "ffmpeg_args", "d")
     if lyrical:
-        # the font is {in3}: drop v8's copy of this edge (it came first) so the order is gameplay, song, game sound, font
+        # the font is {in2}: drop v8's copy of this edge (it came first) so the order is gameplay, song, font
         g.E = [e for e in g.E if not (e['to']['node'] == "make_montage" and e['from']['node'] == "caption_font")]
         g.edge("caption_font", "file", "make_montage", "input")
         # this job's look: its font is copied out of the ten downloaded ones, its style goes into the drawtext templates
@@ -405,20 +399,36 @@ def style(kind):
         pattern = ('\\{(?=[^}]*"s":' + NUM + ')(?=[^}]*"e":' + NUM + ')' + cap.replace("KEY", "t") + cap.replace("KEY", "x0") + cap.replace("KEY", "k")
                    + '(?=[^}]*"n":' + NUM + ')' + cap.replace("KEY", "y") + cap.replace("KEY", "dy") + '[^}]*\\}')  # $1 s $2 e $3 t $4 x0 $5 k $6 n $7 y $8 dy
         g.util("draw_items", "regex", {"flags": "g", "pattern": pattern}).edge(*prev, "draw_items", "text")
-        g.util("draw_item", "template", {"template": "§drawtext=fontfile='{in3}':text='$3':{{a}}:x=$4-$5*$6*@cw:y=$7$8:enable='gte(t,$1)*lt(t,$2)',§"})
+        g.util("draw_item", "template", {"template": "§drawtext=fontfile='{in2}':text='$3':{{a}}:x=$4-$5*$6*@cw:y=$7$8:enable='gte(t,$1)*lt(t,$2)',§"})
         g.edge("look_style", "text", "draw_item", "a").edge("draw_item", "value", "draw_items", "replace")
         g.edge("draw_items", "text", "caption_keep", "text")
         g.util("cw_fill", "regex", {"flags": "g", "pattern": "@cw"}).edge("caption_keep", "text", "cw_fill", "text").edge("look_cw", "text", "cw_fill", "replace")
         g.edge("cw_fill", "text", "ffmpeg_args", "g")
-    if ultra:  # the game sound mixed louder, with a limiter
-        tpl = g.N["ffmpeg_args"]["params"]["template"]
-        for old, new in (("aresample=48000[mus];", "aresample=48000,volume=0.85[mus];"), ("[ga]volume=0.3[gad]", "[ga]volume=1.4[gad]"),
-                         ("normalize=0,afade", "normalize=0,alimiter=limit=0.95,afade")):
-            assert tpl.count(old) == 1, old
-            tpl = tpl.replace(old, new)
-        g.N["ffmpeg_args"]["params"]["template"] = tpl
+    # The cut carries the game's own sound (in sync by construction, from the video itself) and no song yet. Voice chat is
+    # removed from that short track (seconds, not minutes on the whole recording), then the song goes on: the picture is
+    # copied, the clean game sound mixed under the song with the fades.
+    tpl = g.N["ffmpeg_args"]["params"]["template"]
+    mix = tpl[tpl.index("amovie='{in1}'"):tpl.index('", "-map", "[v]"')]
+    assert mix.endswith("[a]") and "[ga]" in mix, mix
+    g.N["ffmpeg_args"]["params"]["template"] = tpl.replace(mix, "[ga]anull[a]").replace('"montage.mp4"', '"cut.mp4"')
+    g.N["make_montage"]["params"]["output"] = "cut.mp4"
+    g.node("clean_audio", engine="transcribe", operation="separate", params={"model": "vocals", "stems": ["instrumental"], "format": "wav"})
+    g.edge("make_montage", "file", "clean_audio", "input")
+    game, song, limit = ("1.4", "0.85", ",alimiter=limit=0.95") if ultra else ("0.3", "1", "")
+    g.util("final_args", "template", {"template": json.dumps([
+        "-y", "-i", "{in0}", "-i", "{in1}", "-i", "{in2}", "-filter_complex",
+        f"[2:a]aresample=48000,volume={game}[g];[1:a]aresample=48000,volume={song}[m];[m][g]amix=inputs=2:duration=shortest:normalize=0{limit},"
+        "afade=t=in:st=0:d=0.3,afade=t=out:st={{a}}:d=0.8[a]",
+        "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-t", "{{b}}", "{out}"])})
+    g.edge("fade_start", "value", "final_args", "a").edge("cap", "value", "final_args", "b")
+    g.util("final_args_json", "json-parse", {"fenced": False}).util("final_args_list", "merge", {})
+    g.edge("final_args", "value", "final_args_json", "text").edge("final_args_json", "value", "final_args_list", "a")
+    g.node("final_cut", engine="video", operation="custom", params={"tier": "cpu", "output": "montage.mp4"})
+    # inputs in order: {in0} the cut, {in1} the song, {in2} the cut's game sound without voice chat
+    g.edge("make_montage", "file", "final_cut", "input").edge("audio_in", "value", "final_cut", "input").edge("clean_audio", "instrumental", "final_cut", "input")
+    g.edge("final_args_list", "value", "final_cut", "args")
     g.node("out", kind="output", fields=["montage", "plan"])
-    g.edge("make_montage", "file", "out", "montage").edge("plan", "json", "out", "plan")
+    g.edge("final_cut", "file", "out", "montage").edge("plan", "json", "out", "plan")
     if ultra:
         return g.doc("style-ultra-edit", "Ultra edit (docs/edit-styles/ultra-edit.md) from a gameplay-index and a song-index: intro flex, then every kill as a fixed 6 s window "
                      "time-warped (0.5x from K-2, 1x, 0.5x on the kill, 1x, then a 0.5x-to-3x ramp) with a zoom-tilt-slide transition out and a pinch in, "

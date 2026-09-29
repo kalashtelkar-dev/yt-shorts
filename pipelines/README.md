@@ -4,12 +4,12 @@ The stage pipelines behind the edit styles (see `docs/edit-styles/`), built from
 
 | File | Pipeline | Engine X id |
 |---|---|---|
-| `gameplay-index.json` | gameplay link + player → video, game sound without voice chat, kill times, intro-flex moments | `tpl_vvEdXwOrpPfz` |
-| `gameplay-index-upload.json` | same, from an uploaded file | `tpl_MI3CqxMQSTNZ` |
+| `gameplay-index.json` | gameplay link + player → video, kill times, intro-flex moments | `tpl_yYsSXHkQXJBP` |
+| `gameplay-index-upload.json` | same, from an uploaded file | `tpl_K6Lo3rwFya4A` |
 | `song-index.json` | song link → audio, duration, loudness, lyrics as force-aligned segments | `tpl_8nvlocGpQ3nT` |
-| `style-kill-montage.json` | indexes → Kill Montage | `tpl_45uAd431uWGz` |
-| `style-ultra-edit.json` | indexes → Ultra Edit | `tpl_LGd0J8RkTxXG` |
-| `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_z9M3FJDr0WN9` |
+| `style-kill-montage.json` | indexes → Kill Montage | `tpl_9zr6-gKhYQ-c` |
+| `style-ultra-edit.json` | indexes → Ultra Edit | `tpl_-uf4FXHOlBW7` |
+| `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_j3wvbIFebE78` |
 
 **Changing a pipeline:**
 1. Edit `build.py`, then run `python3 pipelines/build.py`.

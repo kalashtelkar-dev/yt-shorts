@@ -133,7 +133,7 @@ MIXED_RULES = """3. Then the kill section: exactly ONE clip per kill entry (norm
 ULTRA_STARTS = "CLIP STARTS, in RECORDING seconds (each 2 s before one kill entry, same order as the entries, separated by |): {{k}}"
 ULTRA_RULES = """3. Then the kill section: exactly ONE clip per kill entry, in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from CLIP STARTS.
    Every kill clip is speed 1, role "kill", len 6. The edit gives each one its own slow motion, speed ramp and transition, so each kill clip plays for 6.7 s. Ignore "more". Don't use a kill twice.
-4. The play time of all clips (the flex len plus 6.7 s per kill clip) should reach the LENGTH when there are enough kills; the end is trimmed with a fade."""
+4. Only as many kill clips as fit: the flex len plus 6.7 s per kill clip should reach the LENGTH (one more is fine; the end is trimmed with a fade)."""
 
 PLAN_HEAD = """You are planning a 9:16 Valorant/CS2 {style}, cut to a song.
 
@@ -211,15 +211,31 @@ def look_table():
     rows = [(str(i), f"{{in{i}}}", f"fontsize={size}:{st}", f"{size * w / 100 * 1.05:.1f}") for i, (_, size, st, w) in enumerate(LOOKS)]
     return "".join(f"\n{';'.join(r)}" for r in rows + [("default",) + rows[0][1:]])
 
-# Ultra Edit, one kill (docs/edit-styles/ultra-edit.md). A fixed 6 s window of the recording from K-2, time-warped:
-#   K-2..K-1.75 at 0.5x, ..K at 1x, ..K+1 at 0.5x, ..K+2 at 1x, then K+2..K+4 ramping smoothly from 0.5x to 3x
-#   (out time 0.8*ln(1+2.5u) over u in 0..2 s). On screen: 0.5 + 1.75 + 2 + 1 + 1.43 = 6.68 s.
-ULTRA_CLIP_SEC = 6.68
-WARP = "if(lt(T,0.25),2*T,if(lt(T,2),T+0.25,if(lt(T,3),2*T-1.75,if(lt(T,4),T+1.25,5.25+0.8*log(1+2.5*(T-4))))))"
-# The transition: over the ramp (clip time 5.25..6.68) the frame zooms in, tilts and slides out; the next clip starts
-# zoomed and tilted the other way and pinches back out over its first 0.35 s. Zoom always outgrows the tilt, so the
-# rotated frame's corners never show.
-OUT = "pow(max(0,(TT-5.25)/1.43),2)"
+# Ultra Edit, one kill (docs/edit-styles/ultra-edit.md): a fixed 6 s window of the recording from K-2, as (recording
+# seconds, speed) steps. K-2..K-1.75 at 0.5x, ..K at 1x, ..K+1 at 0.5x (the kill), ..K+2 at 1x, then K+2..K+4 ramping
+# from 0.5x to 3x in 0.25 s steps (each step at the ramp's speed at its middle). The picture's time map and the game
+# sound's pieces are both generated from this one list, so they can't drift apart. (The first version warped the picture
+# with a smooth curve but sped the sound up at one average rate: up to 0.5 s apart in every ramp, 2026-09-29.)
+RAMP = [0.66, 0.97, 1.28, 1.59, 1.91, 2.22, 2.53, 2.84]
+ULTRA_STEPS = [(0.25, 0.5), (1.75, 1), (1.0, 0.5), (1.0, 1)] + [(0.25, v) for v in RAMP]
+assert abs(sum(l for l, _ in ULTRA_STEPS) - 6) < 1e-9
+def warp(steps):
+    """setpts expression mapping recording time T (from the window start) to clip time, and the clip's length."""
+    u = o = 0.0; parts = []
+    for length, v in steps:
+        parts.append((round(u + length, 4), f"{round(o, 4):g}+(T-{round(u, 4):g})/{v:g}"))
+        u += length; o += length / v
+    expr = parts[-1][1]
+    for until, e in reversed(parts[:-1]):
+        expr = f"if(lt(T,{until:g}),{e},{expr})"
+    return expr, o
+WARP, ULTRA_LEN = warp(ULTRA_STEPS)
+ULTRA_CLIP_SEC = round(ULTRA_LEN, 3)
+RAMP_START = sum(l / v for l, v in ULTRA_STEPS[:4])  # 5.25 s into the clip
+# The transition: over the ramp the frame zooms in, tilts and slides out; the next clip starts zoomed and tilted the
+# other way and pinches back out over its first 0.35 s. Zoom always outgrows the tilt, so the rotated frame's corners
+# never show.
+OUT = f"pow(max(0,(TT-{RAMP_START:g})/{ULTRA_LEN - RAMP_START:.3f}),2)"
 IN = "pow(max(0,1-TT/0.35),2)"
 def motion(tt, out=OUT, into=IN):
     o, i = out.replace("TT", tt), into.replace("TT", tt)
@@ -230,12 +246,21 @@ def ultra_video(first, dur, out=OUT, into=IN):
     t, f = motion("t", out, into), motion("in/60", out, into)
     return (first + layout + ";[v$1pre]rotate=a='" + t["a"] + "':c=black,zoompan=z='" + f["z"] + "':d=1:x='iw/2-iw/zoom/2+" + f["x"]
             + "':y='ih/2-ih/zoom/2':s=1080x1920:fps=60[v$1];")
-# the game sound in the same five pieces, each at its speed
-PIECES = (("0:0.25", "atempo=0.5"), ("0.25:2", ""), ("2:3", "atempo=0.5"), ("3:4", ""), ("4:6", "atempo=1.3956"))  # 2 s / 1.433 s
-ULTRA_KILL = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=6,setpts=PTS-STARTPTS,setpts='(" + WARP + ")/TB',framerate=fps=60,", 6) + (
-    "amovie='{in0}':seek_point=$2,atrim=start=$2:duration=6,asetpts=PTS-STARTPTS,aresample=48000,asplit=5" + "".join(f"[g$1{c}]" for c in "abcde") + ";"
-    + "".join(f"[g$1{c}]atrim={r},asetpts=PTS-STARTPTS{',' + fx if fx else ''}[h$1{c}];" for c, (r, fx) in zip("abcde", PIECES))
-    + "".join(f"[h$1{c}]" for c in "abcde") + "concat=n=5:v=0:a=1[a$1];")
+# The game sound in the same steps, each played tape-style at its step's speed (asetrate: slower is lower, so a gunshot
+# stays one sound exactly under its picture; atempo's time-stretch repeated slices, doubling shots in slow motion).
+def ultra_sound():
+    labels = "abcdefghijklmnop"[:len(ULTRA_STEPS)]
+    u, pieces = 0.0, []
+    for c, (length, v) in zip(labels, ULTRA_STEPS):
+        speed = "" if v == 1 else f",asetrate={round(48000 * v)},aresample=48000"
+        pieces.append(f"[g$1{c}]atrim={round(u, 4):g}:{round(u + length, 4):g},asetpts=PTS-STARTPTS{speed}[h$1{c}];")
+        u += length
+    return ("amovie='{in0}':seek_point=$2,atrim=start=$2:duration=6,asetpts=PTS-STARTPTS,aresample=48000,asplit=" + str(len(labels))
+            + "".join(f"[g$1{c}]" for c in labels) + ";" + "".join(pieces) + "".join(f"[h$1{c}]" for c in labels) + f"concat=n={len(labels)}:v=0:a=1[a$1];")
+# Two passes per kill clip (a regex replacement holds at most 2000 characters): the picture, keeping the clip ($&) for the
+# second pass, which swaps it for the sound.
+ULTRA_KILL_PICTURE = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=6,setpts=PTS-STARTPTS,setpts='(" + WARP + ")/TB',framerate=fps=60,", 6) + "$&"
+ULTRA_KILL_SOUND = ultra_sound()
 # the intro flex: normal speed, the same zoom-tilt out over its last 0.5 s, no pinch in (the edit fades in from black)
 ULTRA_FLEX = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,", "$3",
                          out="pow(max(0,(TT-($3-0.5))/0.5),2)", into="0") + "amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
@@ -298,12 +323,17 @@ def style(kind):
     if ultra:  # kill clips get the fixed warp and transitions, keyed on role; clip starts sit 2 s before the kill
         g.N["lead_normal"]["params"]["value"] = 2.0
         g.N["clip_id_range"]["params"]["keys"] = "id, start, len, speed, role"
-        g.N["slow_filters"]["params"] = {"flags": "g", "pattern": role_pat(False), "replace": ULTRA_KILL}
+        g.util("kill_picture", "regex", {"flags": "g", "pattern": role_pat(False), "replace": ULTRA_KILL_PICTURE})
+        g.N["slow_filters"]["params"] = {"flags": "g", "pattern": role_pat(False), "replace": ULTRA_KILL_SOUND}
         g.N["segment_filters"]["params"] = {"flags": "g", "pattern": role_pat(True), "replace": ULTRA_FLEX}
     else:
         g.N["slow_filters"]["params"]["pattern"] = clip_pat(r'0?\.50*'); g.N["segment_filters"]["params"]["pattern"] = clip_pat(r'1(?:\.0+)?')
     g.E = [e for e in g.E if not (e['to']['node'] in ("slow_filters", "segment_filters") and e['to']['port'] == "text")]
-    g.edge("clip_items_joined", "value", "slow_filters", "text").edge("slow_filters", "text", "segment_filters", "text")
+    if ultra:
+        g.edge("clip_items_joined", "value", "kill_picture", "text").edge("kill_picture", "text", "slow_filters", "text")
+    else:
+        g.edge("clip_items_joined", "value", "slow_filters", "text")
+    g.edge("slow_filters", "text", "segment_filters", "text")
     g.util("speed_ok", "json-filter", {"path": "speed", "op": "matches", "compareTo": r"^(1(\.0+)?|0?\.50*)$"})
     g.E = [e for e in g.E if e['to']['node'] != "len_max"]
     g.edge("has_speed", "items", "speed_ok", "value").edge("speed_ok", "items", "len_max", "value")

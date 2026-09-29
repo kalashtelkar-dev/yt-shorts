@@ -311,3 +311,22 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
   - **`final_cut`:** a CPU `video/custom` step with inputs {in0} the cut, {in1} the song, {in2} the clean game sound. It copies the picture and mixes the game sound (×0.3, or ×1.4 with a limiter for Ultra) under the song (×1, or ×0.85 for Ultra), with the fades and the length cap.
 - **Catalog:** new stage labels, "Removing voice chat" and "Adding your song". `catalog:sync` now also copies stage labels from the seed, since they name the pipelines' steps.
 - **Checked:** `check.py` (53 checks). Locally, the cut → separation stand-in → final cut runs end to end with exit 0 for Kill Montage (16 s) and Ultra (14.65 s).
+
+## 29. style-ultra-edit (2026-09-29): game sound in sync with the picture
+
+**Status:** imported as `tpl_bmpCX99umXNl`, waiting to be published. It replaces `tpl_-uf4FXHOlBW7`. Don't publish `tpl_5YclO7oAJygD`: it fails validation (a replacement over 2000 characters). The other pipelines are unchanged.
+
+- **The user heard the game sound out of step with the picture.** Measured on their job `run_949d973b…` against the source recording:
+  - **Voice removal:** not the cause. The separated track lines up with the cut's audio to 0 ms (correlation 0.97). The final mix is +5 ms.
+  - **Normal-speed and slow stretches:** in sync (8–55 ms).
+  - **The speed ramp:** the sound was 0.3–0.5 s ahead. The picture followed a smooth 0.5×→3× curve, while the sound was sped up at one average rate (`atempo=1.3956`).
+- **Fix:** the kill clip is one list of (recording seconds, speed) steps (`ULTRA_STEPS`), with the ramp as eight 0.25 s steps.
+  - **Generated from one list:** the picture's piecewise `setpts` and the game sound's 12 pieces both come from it.
+  - **Tape-style sound:** each piece plays at its speed with `asetrate`, so there's no time-stretch and no doubled gunshots.
+  - **Two passes per kill clip:** the picture keeps `$&` for the sound pass, because a regex replacement holds at most 2000 characters.
+  - **Planner:** plans only as many kills as fit.
+- **Verified with a flash-and-click test recording** (a white flash and a click together every 0.5 s), rendered with ffmpeg 7.1:
+  - **Before:** 58–120 ms off through the clip, 305 ms in the ramp.
+  - **After:** 0 ms at every flash (worst 19 ms, one frame).
+  - **Kill Montage and Lyrical:** already exact (0 ms).
+- **New checks in `check.py` (60):** the picture and sound speed steps match, and every regex pattern and replacement is within 2000 characters.

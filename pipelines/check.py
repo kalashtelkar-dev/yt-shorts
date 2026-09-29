@@ -142,11 +142,22 @@ up = {"beatSec": 0.45, "dropAtSec": 6.4, "totalKills": 2, "notes": "fixture", "c
 u = build("style-ultra-edit", up)
 check("ultra: render inputs in order: gameplay, song, font", render_inputs("style-ultra-edit") == ["video_in", "audio_in", "caption_font"])
 check("ultra: the flex as planned, each kill a 6 s window from 2 s before it", trims(u) == [(6, 1.25), (16, 6), (26.3, 6)])
-check("ultra: every kill time-warped (0.5x, 1x, 0.5x, 1x, ramp to 3x), the flex not", fc(u).count("setpts='(if(lt(T,0.25),2*T,") == 2)
-check("ultra: the game sound follows in five pieces per kill", fc(u).count("atempo=0.5") == 4 and fc(u).count("atempo=1.3956") == 2 and fc(u).count("amovie='{in0}'") == 3 and "amovie='{in1}'" not in fc(u))
+check("ultra: every kill time-warped (0.5x, 1x, 0.5x, 1x, ramp to 3x), the flex not", fc(u).count("setpts='(if(lt(T,0.25),0+(T-0)/0.5,") == 2)
+# picture and sound must share one time map (the first version didn't: up to 0.3 s apart in every ramp, measured 2026-09-29)
+kill1 = fc(u)[fc(u).index("[v1];") + 5:fc(u).index("[a2];")]
+pic = [(float(a), float(v)) for a, v in re.findall(r"\(T-([\d.]+)\)/([\d.]+)", kill1)]
+snd = [(float(a), round(int(r) / 48000, 4) if r else 1.0) for a, r in re.findall(r"atrim=([\d.]+):[\d.]+,asetpts=PTS-STARTPTS(?:,asetrate=(\d+))?", kill1)]
+check("ultra: picture and game sound change speed at the same moments by the same amounts", len(pic) == 12 and pic == snd)
+check("ultra: game sound slowed tape-style (one sound per shot), never time-stretched", "atempo" not in fc(u) and fc(u).count("asetrate=24000") == 4 and fc(u).count("amovie='{in0}'") == 3 and "amovie='{in1}'" not in fc(u))
 check("ultra: zoom-tilt-slide out and pinch in on every clip", fc(u).count("rotate=a=") == 3 and fc(u).count("zoompan=z='1+0.6*") == 3)
-check("ultra: play time = flex + 6.68 s per kill, faded 0.8 s before", abs(fade(u) - (min(1.25 + 2 * 6.68, 17.9) - 0.8)) < 0.01)
+check("ultra: play time = flex + 6.669 s per kill, faded 0.8 s before", abs(fade(u) - (min(1.25 + 2 * 6.669, 17.9) - 0.8)) < 0.01)
 fu = final("style-ultra-edit", up)[final("style-ultra-edit", up).index("-filter_complex") + 1]
 check("ultra: clean game sound loud under the song, limited", "volume=1.4[g]" in fu and "volume=0.85[m]" in fu and "alimiter=limit=0.95" in fu)
 check("ultra: karaoke lyrics", fc(u).count("drawtext") == len(draws))
+# Engine X's limits: a regex pattern or replacement holds at most 2000 characters (validate refuses more)
+for f in sorted(os.listdir(HERE)):
+    if f.endswith(".json"):
+        long = [(n["id"], k, len(v)) for n in json.load(open(os.path.join(HERE, f)))["graph"]["nodes"] if n.get("operation") == "regex"
+                for k, v in (n.get("params") or {}).items() if k in ("pattern", "replace") and isinstance(v, str) and len(v) > 2000]
+        check(f"{f}: every regex pattern and replacement within 2000 characters", not long)
 sys.exit(1 if failures else 0)

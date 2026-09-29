@@ -11,7 +11,7 @@ The third style (the user's spec, 2026-09-29): every kill gets the same cinemati
 | intro flex (1-1.5 s, zoom-tilt out) | kill | kill | kill | ... | fade 0.8 s |
 ```
 
-**One kill (K = the kill-feed time), a fixed 6 s window of the recording from K-2:**
+**One kill (K = the kill-feed time), a fixed 6 s window of the recording from K-2, as steps (`ULTRA_STEPS`):**
 
 | Recording | Speed | On screen |
 |---|---|---|
@@ -19,11 +19,15 @@ The third style (the user's spec, 2026-09-29): every kill gets the same cinemati
 | K-1.75 → K | 1× | 1.75 s |
 | K → K+1 | 0.5× (the kill) | 2 s |
 | K+1 → K+2 | 1× | 1 s |
-| K+2 → K+4 | a smooth ramp from 0.5× to 3× | 1.43 s |
+| K+2 → K+4 | eight 0.25 s steps easing from 0.5× up to 3× (0.66, 0.97, 1.28, 1.59, 1.91, 2.22, 2.53, 2.84) | 1.42 s |
 
-That's 6.68 s per kill on screen, so a 30 s edit holds the intro plus about four kills.
-- **Picture:** one `setpts` time map over the whole window (`WARP`); the ramp is out-time = 0.8·ln(1 + 2.5u). Then `framerate` smooths the result to 60 fps.
-- **Game sound:** the same five pieces, each at its own `atempo` (0.5, 1, 0.5, 1, 1.3956), so picture and sound stay together.
+That's 6.67 s per kill on screen, so a 30 s edit holds the intro plus about four kills (the planner is told to plan only that many).
+- **One list for picture and sound:** the picture's time map (one piecewise `setpts`) and the game sound's pieces are both generated from the same step list, so they can't drift apart.
+- **Tape-style sound:** each piece plays at its step's speed using `asetrate`, so slower sounds lower and a gunshot stays one sound, exactly under its picture.
+- **The first version was out of sync (2026-09-29):**
+  - **The flaw:** it warped the picture along a smooth curve but sped the sound up at one average rate (and time-stretched it with `atempo`, which repeats slices).
+  - **Measured on the user's job:** the sound ran up to about 0.5 s ahead of the picture in every ramp.
+  - **Measured with a flash-and-click test:** 58–120 ms off through the clip and 305 ms in the ramp before the fix; 0 ms after (worst 19 ms, one frame).
 
 **Transitions (in every clip, so a plain concat joins them):**
 - **Out:** over the ramp, the frame zooms in (to 1.6×), tilts (to 0.12 rad) and slides right.

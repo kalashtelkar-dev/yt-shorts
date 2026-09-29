@@ -1,7 +1,9 @@
 "use client";
 
-import { Crosshair, Info, Link2, Loader2, Upload } from "lucide-react";
+import { Info, Link2, Loader2, Upload } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
+import previewArt from "../../public/create-preview.jpg";
 import Link from "next/link";
 import { useActionState, useId, useRef, useState } from "react";
 import { createJobAction } from "@/app/(user)/actions";
@@ -85,11 +87,11 @@ export function CreateForm({
       <div className="relative mx-auto w-full max-w-[min(16rem,calc(52dvh*9/16))] lg:sticky lg:top-8 lg:mx-0 lg:max-w-[340px]">
       <div className="aspect-[9/12] overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:aspect-auto lg:overflow-visible lg:[mask-image:none]">
       <Frame>
+        <Image src={previewArt} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 340px, 16rem" className="object-cover" />
         <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 lg:top-4 lg:right-4">
           <KillRow killer={playerName || "you"} victim="Reyna" you />
           <KillRow killer={playerName || "you"} victim="Jett" you />
         </div>
-        <Crosshair className="absolute top-[37.5%] left-1/2 size-6 -translate-1/2 text-foreground/25 lg:top-1/2" aria-hidden />
         {hint.lyric && (
           <p className="absolute top-[38%] left-4 text-xl leading-none font-black tracking-tight [text-shadow:2px_2px_0_#000] lg:text-3xl" aria-hidden>
             BABY BET
@@ -98,9 +100,9 @@ export function CreateForm({
           </p>
         )}
         {hint.slow && <span className="absolute bottom-[44%] left-3 rounded bg-black/70 px-1.5 py-1 font-mono text-[11px] lg:bottom-14 lg:left-4">0.5× slow-mo</span>}
-        <p className="absolute inset-x-3 bottom-[37%] flex justify-between gap-2 font-mono text-[11px] text-muted-foreground lg:inset-x-4 lg:bottom-4 lg:text-xs">
-          <span className="truncate">{item.title}</span>
-          <span className="tabular">{durationSec}s</span>
+        <p className="absolute inset-x-3 bottom-[37%] flex justify-between gap-2 font-mono text-[11px] lg:inset-x-4 lg:bottom-4 lg:text-xs">
+          <span className="truncate rounded bg-black/70 px-1.5 py-1">{item.title}</span>
+          <span className="rounded bg-black/70 px-1.5 py-1 tabular">{durationSec}s</span>
         </p>
       </Frame>
       </div>

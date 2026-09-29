@@ -158,6 +158,44 @@
   }
 }
 
+/* Progress card while a montage is being made: a scan line passes down the frame and a light runs along the bar,
+   so a long stage (e.g. 99% while voice chat is removed) never looks frozen. Transform only; under reduced motion
+   the global rule below ends both off-screen. */
+.scan-sweep {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 38%;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--accent-red) 10%, transparent) 70%,
+    color-mix(in srgb, var(--accent-red) 35%, transparent) 99%,
+    transparent
+  );
+  transform: translateY(-100%);
+  animation: scan-sweep 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes scan-sweep {
+  to {
+    transform: translateY(270%);
+  }
+}
+.bar-glint {
+  position: absolute;
+  inset-block: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.75), transparent);
+  transform: translateX(-100%);
+  animation: bar-glint 1.6s ease-in-out infinite;
+}
+@keyframes bar-glint {
+  to {
+    transform: translateX(340%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

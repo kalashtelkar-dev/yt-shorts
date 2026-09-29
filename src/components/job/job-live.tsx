@@ -40,6 +40,7 @@ export function JobLive({ initial, initialVideo }: { initial: PublicJob; initial
   const elapsed = (job.finishedAt ? Date.parse(job.finishedAt) : now) - started;
   const pct = Math.round(job.progress * 100);
   const done = job.status === "succeeded";
+  const working = job.status === "queued" || job.status === "running";
 
   return (
     <div className="grid gap-6 md:grid-cols-[minmax(0,340px)_minmax(0,1fr)] md:items-start md:gap-10 lg:gap-14">
@@ -48,6 +49,7 @@ export function JobLive({ initial, initialVideo }: { initial: PublicJob; initial
           <VideoPlayer src={video.url} poster={video.poster} label="Your montage" />
         ) : (
           <>
+            {working && <div className="scan-sweep" aria-hidden />}
             {/* A HUD: the latest stages top right like a kill feed, the percentage bottom right like an ammo counter. One
                 column, so they can't overlap at any frame size. */}
             <div className="absolute inset-0 flex flex-col justify-between gap-4 p-4 pb-6">
@@ -60,11 +62,12 @@ export function JobLive({ initial, initialVideo }: { initial: PublicJob; initial
                 </p>
               )}
             </div>
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-border" aria-hidden>
+            <div className="absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-border" aria-hidden>
               <div
                 className={cn("h-full origin-left bg-danger transition-transform duration-200 ease-out", job.status === "failed" && "bg-muted-foreground")}
                 style={{ transform: `scaleX(${job.progress})` }}
               />
+              {working && <span className="bar-glint" />}
             </div>
           </>
         )}

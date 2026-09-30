@@ -83,6 +83,14 @@ describe("admin mutations", () => {
     expect(await getBalance(userId)).toBe(500); // the failed job cost nothing, and the retry is free
   });
 
+  it("a retry of a staged style gets its index pipelines too", async () => {
+    const indexTemplates = { gameplay: "tpl_g", gameplayUpload: "tpl_gu", song: "tpl_s" };
+    await db.catalogItem.update({ where: { id: catalogItemId }, data: { indexTemplates } });
+    const r = await retryJob(admin, await finishedJob("failed"));
+    const job = await db.job.findUniqueOrThrow({ where: { id: r.ok ? r.data.jobId : "" } });
+    expect(job).toMatchObject({ templateId: "tpl_new", indexTemplates, status: "queued" });
+  });
+
   it("protects admins from locking themselves out", async () => {
     expect(await setSuspended(admin, admin.id, true)).toMatchObject({ ok: false, error: { code: "self" } });
     expect(await setRole(admin, admin.id, "user")).toMatchObject({ ok: false, error: { code: "self" } });

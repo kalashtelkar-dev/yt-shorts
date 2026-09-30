@@ -128,6 +128,8 @@ describe("billing", () => {
       starterCredits: 600,
       maxUploadMb: 2048,
       maxConcurrentJobsPerUser: 2,
+      maxConcurrentJobsPerAdmin: 3,
+      maxConcurrentJobsTotal: 2,
       maxRunMinutes: 60,
     };
     expect(await updateSettings(admin, next)).toMatchObject({ ok: true });

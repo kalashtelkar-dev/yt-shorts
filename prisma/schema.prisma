@@ -197,6 +197,8 @@ model Job {
   stepsDone        Int         @default(0) @map("steps_done")
   currentStage     String?     @map("current_stage")
   stageDetail      String?     @map("stage_detail")
+  /// While the video downloads: DownloadProgress (src/db/types.ts) from the download step's engine job; null otherwise.
+  download         Json?
   retries          Int         @default(0)
   outputKey        String?     @map("output_key")
   outputMeta       Json?       @map("output_meta")
@@ -216,10 +218,27 @@ model Job {
 
   events JobEvent[]
   ledger CreditLedger[]
+  files  JobFile[]
 
   @@index([userId, createdAt(sort: Desc)], map: "jobs_user_id_created_at_index")
   @@index([status], map: "jobs_status_index")
   @@map("jobs")
+}
+
+/// Our own copy of a finished job's video and cover still: Engine X clears its storage, so the files live here.
+model JobFile {
+  jobId       String   @map("job_id") @db.Uuid
+  /// "video" | "thumbnail"
+  kind        String
+  contentType String   @map("content_type")
+  size        Int
+  /// Stored uncompressed (STORAGE EXTERNAL, see the migration) so a byte range reads only its own chunks.
+  data        Bytes
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "job_files_job_id_jobs_id_fk")
+
+  @@id([jobId, kind], map: "job_files_pkey")
+  @@map("job_files")
 }
 
 enum MediaIndexKind {
@@ -253,6 +272,8 @@ model MediaIndex {
   steps      Json             @default("[]")
   stepsDone  Int              @default(0) @map("steps_done")
   stepsTotal Int              @default(0) @map("steps_total")
+  /// Automatic retries of the failed steps after a blip (same run).
+  retries    Int              @default(0)
   error      String?
   runMs      Int?             @map("run_ms")
   startedAt  DateTime         @default(now()) @map("started_at") @db.Timestamptz(6)
@@ -338,9 +359,12 @@ model Settings {
   gstRateBps               Int      @default(1800) @map("gst_rate_bps")
   /// The business on tax invoices (Seller). Snapshotted onto each invoice.
   seller                   Json     @default("{}")
-  starterCredits           Int      @default(600) @map("starter_credits")
+  starterCredits           Int      @default(1000) @map("starter_credits")
   maxUploadMb              Int      @default(2048) @map("max_upload_mb")
-  maxConcurrentJobsPerUser Int      @default(2) @map("max_concurrent_jobs_per_user")
+  maxConcurrentJobsPerUser Int      @default(1) @map("max_concurrent_jobs_per_user")
+  maxConcurrentJobsPerAdmin Int     @default(3) @map("max_concurrent_jobs_per_admin")
+  /// Montages running at once across the whole site; the rest wait in line, oldest first.
+  maxConcurrentJobsTotal   Int      @default(2) @map("max_concurrent_jobs_total")
   maxRunMinutes            Int      @default(60) @map("max_run_minutes")
   updatedAt                DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

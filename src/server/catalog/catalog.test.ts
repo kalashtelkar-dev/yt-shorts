@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RunStep } from "@/server/enginex/types";
 import { MapInputError, mapInput, progressOf, stageFor } from ".";
 
-const step = (name: string, status: string, items?: RunStep["items"]): RunStep => ({ step: name, engine: null, status, error: null, items: items ?? null });
+const step = (name: string, status: string, items?: RunStep["items"]): RunStep => ({ step: name, engine: null, status, error: null, items: items ?? null, job: null });
 
 describe("mapInput", () => {
   const ctx = { sourceUrl: "https://youtu.be/x", durationSec: 60, fields: { playerName: "Aqua", songRange: { start: 12, end: 42 }, lyricsLrc: "" } };

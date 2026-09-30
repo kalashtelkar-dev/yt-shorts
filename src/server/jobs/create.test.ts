@@ -67,6 +67,7 @@ describe("createJob", () => {
   });
 
   it("needs the top of the range free, counting what running jobs hold", async () => {
+    await db.settings.update({ where: { id: 1 }, data: { maxConcurrentJobsPerUser: 2 } }); // two at once, so credits are the limit
     await createJob(user, { catalogSlug: slug, url, durationSec: 60, fields: { playerName: "Aqua" } }); // holds 200 of 250
     const r = await createJob(user, { catalogSlug: slug, url, durationSec: 60, fields: { playerName: "Aqua" } });
     expect(r).toMatchObject({ ok: false, error: { code: "insufficient", message: expect.stringContaining("you need 200 credits free") } });
@@ -76,6 +77,21 @@ describe("createJob", () => {
   it("blocks suspended users", async () => {
     const r = await createJob({ ...user, suspendedAt: new Date() } as SessionUser, { catalogSlug: slug, url, durationSec: 30, fields: { playerName: "Aqua" } });
     expect(r).toMatchObject({ ok: false, error: { code: "suspended" } });
+  });
+
+  it("lets a user run one montage at a time and an admin three, even when the starts land together", async () => {
+    await db.settings.update({ where: { id: 1 }, data: { maxConcurrentJobsPerUser: 1, maxConcurrentJobsPerAdmin: 3 } });
+    await grant(user.id, 10_000, "test");
+    const start = () => createJob(user, { catalogSlug: slug, url, durationSec: 30, fields: { playerName: "Aqua" } });
+
+    const first = await Promise.all([start(), start()]);
+    expect(first.filter((r) => r.ok)).toHaveLength(1);
+    expect(first.find((r) => !r.ok)).toMatchObject({ error: { code: "busy", message: expect.stringContaining("a montage being made") } });
+
+    await db.user.update({ where: { id: user.id }, data: { isAnonymous: false, role: "admin" } });
+    const more = await Promise.all([start(), start(), start()]);
+    expect(more.filter((r) => r.ok)).toHaveLength(2); // three at once, one was already running
+    expect(await db.job.count({ where: { userId: user.id } })).toBe(3);
   });
 });
 
@@ -95,6 +111,30 @@ describe("uploads", () => {
     expect(await issueUpload(user, { name: "huge.mp4", size: 50 * 1024 ** 3, type: "video/mp4" })).toMatchObject({ ok: false, error: { code: "too_big" } });
     const ok = await issueUpload(user, { name: "my match.MKV", size: 1024, type: "" });
     expect(ok.ok).toBe(true);
+  });
+
+  it("takes songs as audio files, and never lets one kind pass as the other", async () => {
+    expect(await issueUpload(user, { name: "track.mp3", size: 1024, type: "audio/mpeg" }, "audio")).toMatchObject({ ok: true });
+    expect(await issueUpload(user, { name: "track.m4a", size: 1024, type: "" }, "audio")).toMatchObject({ ok: true });
+    expect(await issueUpload(user, { name: "clip.mp4", size: 1024, type: "video/mp4" }, "audio")).toMatchObject({ ok: false, error: { code: "type" } });
+    expect(await issueUpload(user, { name: "track.mp3", size: 1024, type: "audio/mpeg" })).toMatchObject({ ok: false, error: { code: "type" } }); // video by default
+    expect(await issueUpload(user, { name: "constructor", size: 1024, type: "" }, "audio")).toMatchObject({ ok: false, error: { code: "type" } });
+  });
+
+  it("a song file instead of the song link, only where the style takes one and only the user's own file", async () => {
+    const songField = { name: "songUrl", label: "Song (YouTube link)", type: "url", required: true };
+    const staged = { gameplay: "tpl_g", gameplayUpload: null, song: "tpl_s" };
+    await db.catalogItem.update({ where: { slug }, data: { fields: [{ name: "playerName", label: "Your in-game name", type: "text", required: true, max: 32 }, songField], inputMap: { youtubeUrl: "$source.url", playerName: "$fields.playerName", musicUrl: "$fields.songUrl" }, indexTemplates: staged } });
+    const issued = await issueUpload(user, { name: "my song.mp3", size: 1024, type: "audio/mpeg" }, "audio");
+    const key = issued.ok ? issued.data.key : "";
+    const start = (songUpload: { key: string; name: string }) => createJob(user, { catalogSlug: slug, url, durationSec: 30, fields: { playerName: "Aqua" }, songUpload });
+    expect(await start({ key, name: "my song.mp3" })).toMatchObject({ ok: false, error: { code: "unavailable", field: "songUrl" } }); // no song-upload pipeline yet
+    await db.catalogItem.update({ where: { slug }, data: { indexTemplates: { ...staged, songUpload: "tpl_su" } } });
+    expect(await start({ key: "input/someone-else.mp3", name: "x.mp3" })).toMatchObject({ ok: false, error: { field: "songUrl" } });
+    expect(await start({ key, name: "my song.mp3" })).toMatchObject({ ok: true }); // no song link needed
+    const job = await db.job.findFirstOrThrow({ where: { userId: user.id } });
+    expect(job.input).toMatchObject({ songUpload: key, songName: "my song", youtubeUrl: url });
+    expect(job.input).not.toHaveProperty("musicUrl");
   });
 
   it("cleans file names", () => {

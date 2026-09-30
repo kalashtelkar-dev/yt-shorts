@@ -31,8 +31,8 @@ def plan(flex_len, clips_extra=()):
 def build(name, p, song=17.9, cap=60, w=lines, look="0"):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     seeds = {("kills_in", "value"): json.dumps(kills), ("flex_in", "value"): json.dumps(flex), ("game_dur", "value"): "95",
-             ("song_dur", "value"): song, ("max_dur", "value"): cap, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
-             ("lines_in", "value"): json.dumps(w, ensure_ascii=False), ("plan", "json"): p, ("look_in", "value"): look}
+             ("song_dur", "value"): song, ("max_dur", "value"): cap, ("beats_in", "value"): "0.2, 0.7, 1.2", ("beat_sec_in", "value"): "0.5", ("drop_in", "value"): "none", ("variation_in", "value"): "x",
+             ("lines_in", "value"): json.dumps(w, ensure_ascii=False), ("plan", "value"): p, ("look_in", "value"): look}
     return run(g, seeds, ("render_gate", "value"))
 def fc(args): return args[args.index("-filter_complex") + 1]
 def t(args): return float(args[args.index("-t") + 1])
@@ -112,8 +112,8 @@ bare = {"kills": K, "totalKills": len(K)}
 def build_with(kills_obj, name="style-kill-montage"):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     seeds = {("kills_in", "value"): json.dumps(kills_obj), ("flex_in", "value"): json.dumps({"flex": [6.0]}), ("game_dur", "value"): "95",
-             ("song_dur", "value"): 17.9, ("max_dur", "value"): 60, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
-             ("lines_in", "value"): "[]", ("plan", "json"): plan(3), ("look_in", "value"): "0"}
+             ("song_dur", "value"): 17.9, ("max_dur", "value"): 60, ("beats_in", "value"): "0.2, 0.7, 1.2", ("beat_sec_in", "value"): "0.5", ("drop_in", "value"): "none", ("variation_in", "value"): "x",
+             ("lines_in", "value"): "[]", ("plan", "value"): plan(3), ("look_in", "value"): "0"}
     return run(g, seeds, ("render_gate", "value"))
 check("kills as bare numbers (and flex as bare numbers) give the same render", build_with(bare) == build_with(kills))
 # {in0}/{in1}/{in2} follow the order of the edges into the render; the filter reads gameplay, song, font
@@ -127,8 +127,8 @@ check("the cut carries the video's own game sound and no song", all("amovie='{in
 def final(name, p, song=17.9, cap=60):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     seeds = {("kills_in", "value"): json.dumps(kills), ("flex_in", "value"): json.dumps(flex), ("game_dur", "value"): "95",
-             ("song_dur", "value"): song, ("max_dur", "value"): cap, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
-             ("lines_in", "value"): "[]", ("plan", "json"): p, ("look_in", "value"): "0"}
+             ("song_dur", "value"): song, ("max_dur", "value"): cap, ("beats_in", "value"): "0.2, 0.7, 1.2", ("beat_sec_in", "value"): "0.5", ("drop_in", "value"): "none", ("variation_in", "value"): "x",
+             ("lines_in", "value"): "[]", ("plan", "value"): p, ("look_in", "value"): "0"}
     return run(g, seeds, ("final_args_list", "value"))
 def final_inputs(name):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
@@ -164,7 +164,9 @@ check("ultra: picture and game sound change speed at the same moments by the sam
 check("ultra: game sound at normal speed and slowed with the slow motion (tape-style, faded), silent in the ramp",
       "atempo" not in fc(u) and fc(u).count(",volume=0[") == 16 and fc(u).count("asetrate=24000,aresample=48000,afade") == 4
       and fc(u).count("afade=t=in:d=0.02") == 8 and fc(u).count("amovie='{in0}'") == 3 and "amovie='{in1}'" not in fc(u))
-check("ultra: zoom-tilt-slide out and pinch in on every clip", fc(u).count("rotate=a=") == 3 and fc(u).count("zoompan=z='1+0.6*") == 3)
+check("ultra: pinch out and in on every clip, no tilt or slide, blur and colour split only at the cuts",
+      "rotate=" not in fc(u) and fc(u).count("zoompan=z='1+0.6*") == 3 and fc(u).count(":x='iw/2-iw/zoom/2':") == 3
+      and fc(u).count("gblur=sigma=6:enable='") == 3 and fc(u).count("gblur=sigma=14:enable='") == 3 and fc(u).count("chromashift=cbh=-16:crh=16:enable='") == 3)
 check("ultra: play time = flex + 6.669 s per kill, faded 0.8 s before", abs(fade(u) - (min(1.25 + 2 * 6.669, 17.9) - 0.8)) < 0.01)
 fu = final("style-ultra-edit", up)[final("style-ultra-edit", up).index("-filter_complex") + 1]
 check("ultra: game sound and song brought to set loudness (game 2 LU above), then limited",
@@ -178,8 +180,8 @@ check("lyrical (not Ultra) still shows the lyrics over its intro", "text='I’m'
 def cover(name, p, song=17.9):
     g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     seeds = {("kills_in", "value"): json.dumps(kills), ("flex_in", "value"): json.dumps(flex), ("game_dur", "value"): "95",
-             ("song_dur", "value"): song, ("max_dur", "value"): 60, ("loudness_in", "value"): "0.0,-30", ("variation_in", "value"): "x",
-             ("lines_in", "value"): json.dumps([NO_TEXT]), ("plan", "json"): p, ("look_in", "value"): "0"}
+             ("song_dur", "value"): song, ("max_dur", "value"): 60, ("beats_in", "value"): "0.2, 0.7, 1.2", ("beat_sec_in", "value"): "0.5", ("drop_in", "value"): "none", ("variation_in", "value"): "x",
+             ("lines_in", "value"): json.dumps([NO_TEXT]), ("plan", "value"): p, ("look_in", "value"): "0"}
     args = run(g, seeds, ("cover_args_list", "value"))
     return float(args[args.index("-ss") + 1]), args
 at, cargs = cover("style-kill-montage", plan(3))
@@ -190,18 +192,31 @@ check("thumbnail: never past the start of the fade (a 4 s edit: 3.2 s)", cover("
 for name in ("style-kill-montage", "style-lyrical-kill-montage", "style-ultra-edit"):
     gg = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
     check(f"{name}: outputs the thumbnail, taken from the cut", {"make_montage.file->thumbnail.input", "thumbnail.file->out.thumbnail"} <= {e["id"] for e in gg["edges"]})
-# the planner's answer has no free-text field (a real Ultra run spent its 16k-token budget in "notes" and never closed the JSON)
+# The clip list comes from the app (src/server/jobs/plan.ts): no planner model, the plan input parsed as-is, and every
+# check after it unchanged (a clip with a start not on the allowed list, a third speed or a bad length is still dropped).
 for name in ("style-kill-montage", "style-lyrical-kill-montage", "style-ultra-edit"):
-    tpl = next(n for n in json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]["nodes"] if n["id"] == "plan_prompt")["params"]["template"]
-    check(f"{name}: the planner answers only the fields we read (no notes)", '"notes"' not in tpl and "no other keys" in tpl)
-def fit(max_dur):
-    g = json.load(open(os.path.join(HERE, "style-ultra-edit.json")))["graph"]
-    return run(g, {("max_dur", "value"): max_dur}, ("fit", "text"))
-check("ultra: the planner is told exactly how many kill clips fill the length", [fit(d) for d in ("15", "30", "60", "90", "50")] == ["3", "5", "9", "14", "9"])
-ug = json.load(open(os.path.join(HERE, "style-ultra-edit.json")))["graph"]
-check("ultra: the prompt asks for the first N entries", "use the first {{r}} kill entries" in next(n for n in ug["nodes"] if n["id"] == "plan_prompt")["params"]["template"]
-      and "fit.text->plan_prompt.r" in {e["id"] for e in ug["edges"]})
-# gameplay-index: the model transcribes the rows with the player in them; only rows where the player is the KILLER count
+    gg = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    nodes = {n["id"]: n for n in gg["nodes"]}
+    check(f"{name}: no planner model; the plan is the app's plan input", "llm" not in nodes and "plan_prompt" not in nodes
+          and nodes["plan"].get("operation") == "json-parse" and "plan_in.value->plan.text" in {e["id"] for e in gg["edges"]})
+    check(f"{name}: the plan still goes through the holds and the clip checks", {"plan.value->plan_text.value", "plan_held.value->clips.value"} <= {e["id"] for e in gg["edges"]})
+def kept(name, clips):
+    g = json.load(open(os.path.join(HERE, f"{name}.json")))["graph"]
+    p = {"beatSec": 0.5, "dropAtSec": 0, "clips": clips, "totalKills": 0}
+    return run(g, {("plan_in", "value"): json.dumps(p), ("kills_in", "value"): json.dumps(kills), ("flex_in", "value"): json.dumps(flex), ("song_dur", "value"): 60,
+                   ("max_dur", "value"): 60}, ("kept_count", "value"))
+good = [{"id": 1, "start": 6.0, "len": 2, "speed": 1, "role": "flex", "kill": 0}, {"id": 2, "start": 8.25, "len": 4.5, "speed": 1, "role": "kill", "kill": 10.75}]
+check("style-kill-montage: a plan from the app passes the clip checks", kept("style-kill-montage", good) == 2)
+check("style-kill-montage: a clip with a start not on the allowed list is still dropped",
+      kept("style-kill-montage", good + [{"id": 3, "start": 99.0, "len": 4.5, "speed": 1, "role": "kill", "kill": 12.5}]) == 2)
+su = json.load(open(os.path.join(HERE, "song-index-upload.json")))["graph"]
+check("song-index-upload: reads the uploaded file (no download), its length from the info step, then the same steps as a link",
+      not any(n.get("engine") == "media-fetch" for n in su["nodes"]) and {"audio_in.value->music_file.a", "info.duration->out.durationSec", "music_file.value->vocals.input"} <= {e["id"] for e in su["edges"]}
+      and {n["id"] for n in su["nodes"]} - {"audio_in", "info"} == {n["id"] for n in json.load(open(os.path.join(HERE, "song-index.json")))["graph"]["nodes"]} - {"music_url", "music"})
+def node_params(f, nid): return next(n for n in json.load(open(os.path.join(HERE, f)))["graph"]["nodes"] if n["id"] == nid)["params"]
+check("YouTube downloads (gameplay video, song) impersonate a browser", node_params("gameplay-index.json", "download").get("impersonate") == "chrome"
+      and node_params("song-index.json", "music").get("impersonate") == "chrome")
+# gameplay-index: the model lists only the player's kills; the pipeline still drops any row where the player is not the KILLER
 def kills_from(rows, name):
     g = json.load(open(os.path.join(HERE, "gameplay-index.json")))["graph"]
     return run(g, {("player_name", "value"): name, ("find_kills", "json"): {"rows": rows}}, ("kills_found", "value"))
@@ -218,6 +233,21 @@ check("gameplay-index: no rows at all -> no kills", kills_from([], "Me") == {"ki
 check("gameplay-index: a kill first, last or alone keeps valid JSON", [len(kills_from(r, "Me")["kills"]) for r in (
     [{"t": 1, "killer": "Me", "victim": "a"}, {"t": 2, "killer": "b", "victim": "Me"}], [{"t": 2, "killer": "b", "victim": "Me"}, {"t": 3, "killer": "Me", "victim": "c"}],
     [{"t": 3, "killer": "Me", "victim": "c"}])] == [1, 1, 1])
+def deaths_from(rows, name):
+    g = json.load(open(os.path.join(HERE, "gameplay-index.json")))["graph"]
+    return run(g, {("player_name", "value"): name, ("find_kills", "json"): {"rows": rows}}, ("deaths_found", "value"))
+mixed = [{"t": 32, "killer": "taffishmegafan", "victim": "Me"}, {"t": 56, "killer": "Sova", "victim": "BABYMETAL"}, {"t": 108, "killer": "Me", "victim": "Fade"},
+         {"t": 111, "killer": "Jett", "victim": "Me."}, {"t": 174, "killer": "Me", "victim": "4ver|Fake"}, {"t": 300, "killer": "Me", "victim": "Meatball"}]
+check("gameplay-index: the player's deaths are listed apart (victim = the player, OCR-tolerant)", [r["t"] for r in deaths_from(mixed, "Me")["deaths"]] == [32, 111])
+check("gameplay-index: deaths never count as kills", [r["t"] for r in kills_from(mixed, "Me")["kills"]] == [108, 174, 300])
+check("gameplay-index: no deaths -> an empty list", deaths_from([{"t": 5, "killer": "Me", "victim": "x"}], "Me") == {"deaths": []})
+check("gameplay-index: the kill finder is asked for kills and deaths", "the player's DEATHS" in next(n for n in json.load(open(os.path.join(HERE, "gameplay-index.json")))["graph"]["nodes"] if n["id"] == "kill_instruction")["params"]["template"])
+# Two jobs (2026-09-30) found real kills, but two rows before the first kill left "[,{" and they failed as "no kills found".
+check("gameplay-index: several rows dropped before, between and after kills keep valid JSON", [r["t"] for r in kills_from([
+    {"t": 32, "killer": "taffishmegafan", "victim": "Me"}, {"t": 56, "killer": "Sova", "victim": "BABYMETAL"}, {"t": 108, "killer": "Me", "victim": "Fade"},
+    {"t": 120, "killer": "Jett", "victim": "Me"}, {"t": 130, "killer": "a", "victim": "b"}, {"t": 174, "killer": "Me", "victim": "4ver|Fake"},
+    {"t": 200, "killer": "x", "victim": "y"}, {"t": 210, "killer": "y", "victim": "Me"}], "Me")["kills"]] == [108, 174])
+check("gameplay-index: only other players' rows -> no kills", kills_from([{"t": 1, "killer": "a", "victim": "b"}, {"t": 2, "killer": "c", "victim": "d"}, {"t": 3, "killer": "e", "victim": "Me"}], "Me") == {"kills": []})
 fl = next(n for n in json.load(open(os.path.join(HERE, "gameplay-index.json")))["graph"]["nodes"] if n["id"] == "flex_prompt")["params"]["template"]
 check("gameplay-index: the intro is live-round gameplay, never agent select, menus or the scoreboard", "Never the agent select screen" in fl and "the scoreboard" in fl)
 # Engine X's limits: a regex pattern or replacement holds at most 2000 characters (validate refuses more)

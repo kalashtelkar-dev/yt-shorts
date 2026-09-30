@@ -52,7 +52,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Prom
               <li key={g.id} className="flex flex-col gap-2">
                 <div className="relative aspect-[9/16] overflow-hidden rounded-xl border bg-panel">
                   {g.video ? (
-                    <VideoPlayer src={g.video} poster={g.poster} preload="none" fit="cover" label={`${g.title} montage`} />
+                    <VideoPlayer src={g.video} fallbackSrc={g.videoFallback} poster={g.poster} preload="none" fit="cover" label={`${g.title} montage`} />
                   ) : (
                     <span className="absolute inset-0 flex items-center justify-center p-3 text-center text-xs text-muted-foreground">Video link unavailable</span>
                   )}

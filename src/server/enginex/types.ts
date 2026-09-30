@@ -9,7 +9,15 @@ export type RunStep = {
   error: string | null;
   /** Fan-out steps report their items instead of one step per item. */
   items: { total: number; done: number; failed: number } | null;
+  /** The engine job doing this step (its progress trail: getJobEvents). */
+  job: string | null;
+  /** ISO times from Engine X; absent on steps stored before they were kept, null while not started or still running. */
+  startedAt?: string | null;
+  finishedAt?: string | null;
 };
+
+/** One entry of an engine job's transition trail. Downloads report `data.fraction`, `bytes`, `totalBytes`, `eta`. */
+export type JobEvent = { at: string; kind: string; data: Record<string, unknown> | null };
 
 export type Run = {
   runId: string;
@@ -58,6 +66,8 @@ export interface EngineXClient {
   /** `idempotencyKey` should be the job id so a repeated start returns the same run. */
   runPipeline(templateId: string, input: Record<string, unknown>, idempotencyKey: string): Promise<{ runId: string }>;
   getRun(runId: string): Promise<Run>;
+  /** A step's engine job events, oldest first (download progress lives here). */
+  getJobEvents(jobId: string): Promise<JobEvent[]>;
   cancelRun(runId: string): Promise<void>;
   /** Re-runs only the failed steps of a run (same run id). */
   retryRun(runId: string): Promise<void>;

@@ -15,3 +15,8 @@ const queue = () => (g.jobsQueue ??= new Queue(QUEUE, { connection: bullConnecti
 export async function enqueueStart(jobId: string) {
   await queue().add("start", { jobId }, { jobId: `start-${jobId}`, removeOnComplete: true, removeOnFail: 100 });
 }
+
+/** Copy a finished job's video and cover into Postgres in the background. If this is lost, the worker's file sweep does it within a minute. */
+export async function enqueueSaveFiles(jobId: string) {
+  await queue().add("save-files", { jobId }, { jobId: `files-${jobId}`, attempts: 3, backoff: { type: "exponential", delay: 30_000 }, removeOnComplete: true, removeOnFail: 100 });
+}

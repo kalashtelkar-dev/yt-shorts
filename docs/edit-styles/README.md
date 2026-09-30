@@ -8,8 +8,8 @@ Each edit style is a written spec, and later its own pipeline.
 | Style | Spec | Reference |
 |---|---|---|
 | Kill Montage | [kill-montage.md](kill-montage.md) | Beggin' (Valorant Montage), `vQqU0F8vTOE` |
-| Lyrical Kill Montage | [lyrical-kill-montage.md](lyrical-kill-montage.md) | Untouchable - Valorant Edit, `H2N0eHGOi_w` |
-| Ultra Edit | [ultra-edit.md](ultra-edit.md) | the user's spec (fixed speed ramp and transition per kill) |
+| Lyrical Kill Montage (retired 2026-09-30, pipeline kept) | [lyrical-kill-montage.md](lyrical-kill-montage.md) | Untouchable - Valorant Edit, `H2N0eHGOi_w` |
+| Smart Edit (was Ultra Edit) | [ultra-edit.md](ultra-edit.md) | the user's spec (fixed speed ramp and transition per kill) |
 
 **To add a style:**
 1. Run edit-analyzer-v3 on a reference.

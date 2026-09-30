@@ -5,9 +5,11 @@ import { chargeForUsage, refundJob } from "@/server/credits";
 import { creditsForRun } from "@/lib/billing";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError, type Run } from "@/server/enginex/types";
+import { enqueueSaveFiles } from "@/server/queue";
 import { redis } from "@/server/redis";
 import { getSettings, type Settings } from "@/server/settings";
-import { isTransientFailure, noKillsMessage, publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
+import { CANCELED_MESSAGE, isTransientFailure, noKillsMessage, publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
+import { downloadProgress, syncDownload } from "./download";
 import { advanceStaged, pollIndexes, startStaged } from "./staged";
 
 // Everything that moves a job through its life. Runs in the worker only (CLAUDE.md §7).
@@ -36,13 +38,35 @@ const startable = (now: number) => ({
   OR: [{ status: "queued" as const }, { status: "starting" as const, runId: null, startedAt: { lt: new Date(now - STALE_START_MS) } }],
 });
 
+// Held while a job takes one of the site's slots, so two workers can't both take the last one (any constant works).
+const SLOT_LOCK = 710_001;
+
+/**
+ * Moves a job to "starting" if the site has room: fewer than settings.maxConcurrentJobsTotal jobs starting or running,
+ * and it's among the oldest queued jobs that fit (first come, first served). A stale "starting" job already holds a slot.
+ */
+async function claimSlot(jobId: string, now: number): Promise<boolean> {
+  const max = (await getSettings()).maxConcurrentJobsTotal;
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`select pg_advisory_xact_lock(${SLOT_LOCK})`;
+    const restart = await tx.job.updateMany({ where: { id: jobId, ...startable(now), status: "starting" }, data: { startedAt: new Date(now) } });
+    if (restart.count) return true;
+    const free = max - (await tx.job.count({ where: { status: { in: ["starting", "running"] } } }));
+    if (free <= 0) return false;
+    const next = await tx.job.findMany({ where: { status: "queued" }, orderBy: { createdAt: "asc" }, take: free, select: { id: true } });
+    if (!next.some((j) => j.id === jobId)) return false;
+    const { count } = await tx.job.updateMany({ where: { id: jobId, status: "queued" }, data: { status: "starting", startedAt: new Date(now) } });
+    return count > 0;
+  });
+}
+
 /**
  * Starts the Engine X run for a queued job. The job id is the Idempotency-Key, so re-sending after a
  * network failure or a crash returns the same run instead of starting a second one.
  */
 export async function startJob(jobId: string, now = Date.now()) {
-  const { count } = await db.job.updateMany({ where: { id: jobId, ...startable(now) }, data: { status: "starting", startedAt: new Date(now) } });
-  if (!count) return;
+  if (!(await claimSlot(jobId, now))) return; // the site is full: it stays queued, and the sweep tries again in 5 s
+
   const job = await db.job.findUniqueOrThrow({ where: { id: jobId } });
 
   if (job.indexTemplates) {
@@ -53,12 +77,16 @@ export async function startJob(jobId: string, now = Date.now()) {
       console.error("[startStaged]", e instanceof Error ? e.message : e);
       await finishFailed(job, { errorRaw: `start: ${e instanceof Error ? e.message : String(e)}`, errorPublic: publicErrorFor(null), runMs: 0 });
     }
+    // Canceled while the index runs were starting: stop them too.
+    if ((await db.job.findUnique({ where: { id: job.id }, select: { status: true } }))?.status === "canceled") await stopRuns(await load(job.id));
     return;
   }
 
   try {
     const { runId } = await enginex().runPipeline(job.templateId, job.input as Record<string, unknown>, job.id);
-    await db.job.updateMany({ where: { id: job.id, status: "starting" }, data: { runId, status: "running" } });
+    const { count } = await db.job.updateMany({ where: { id: job.id, status: "starting" }, data: { runId, status: "running" } });
+    // Canceled while the run was starting: nothing will poll it, so stop it now.
+    if (!count) return void (await enginex().cancelRun(runId).catch(logCancelError));
     await event(job.id, "Started editing");
   } catch (e) {
     const err = e instanceof EngineXError ? e : new EngineXError("unknown", String(e), false);
@@ -116,6 +144,8 @@ export async function pollJob(job: Job, settings: Settings, stageMap: { match: s
       .catch(() => {});
     return finishFailed(job, { errorRaw: `timeout after ${settings.maxRunMinutes} min`, errorPublic: TIMEOUT_MESSAGE, runMs: elapsed(job, now) }, settings);
   }
+
+  await syncDownload(job.id, { id: job.id }, await downloadProgress(run.steps)); // single-run styles download the video themselves
 
   // Staged jobs: the index phase's steps count too, so the bar keeps moving forward.
   const p = progressOf(run.steps);
@@ -177,22 +207,54 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
     if (!count) return false;
     // The owner now (our update holds the row lock): a guest who signed up mid-run moved the job.
     const claimed = await tx.job.findUniqueOrThrow({ where: { id: job.id }, select: { userId: true } });
-    // Pay for the editing time used. Jobs from before usage pricing were charged at start (maxCredits 0): skip.
+    // Pay for the editing time used, never more than the top of the range the user was shown (maxCredits, the user's
+    // call on 2026-09-30). Jobs from before usage pricing were charged at start (maxCredits 0): skip.
     if (job.maxCredits > 0) {
-      const charged = await chargeForUsage(tx, claimed.userId, job.id, creditsForRun(runMs));
+      const charged = await chargeForUsage(tx, claimed.userId, job.id, Math.min(creditsForRun(runMs), job.maxCredits));
       await tx.job.update({ where: { id: job.id }, data: { chargedCredits: charged } });
     }
     await tx.jobEvent.create({ data: { jobId: job.id, message: totalKills ? `Done. Found ${totalKills} kill${totalKills === 1 ? "" : "s"}` : "Done" } });
     return true;
   });
-  if (finished) await notify(job.id);
+  if (finished) {
+    await notify(job.id);
+    // The result plays from Engine X right away; our long-term copy goes into Postgres in the background (Engine X clears its storage).
+    await enqueueSaveFiles(job.id).catch((e: unknown) => console.error(`[files] enqueue ${job.id}: ${e instanceof Error ? e.message : String(e)}`));
+  }
+}
+
+const load = (id: string) => db.job.findUniqueOrThrow({ where: { id } });
+const logCancelError = (e: unknown) => console.error(`[cancelRun] ${e instanceof Error ? e.message : String(e)}`);
+
+/** Cancels every Engine X run a job has (its run, and a staged job's running index runs) so compute stops. */
+async function stopRuns(job: Job, now = Date.now()) {
+  // Index rows are per job (their cache key includes the job id), so no other job is using these runs.
+  const indexes = await db.mediaIndex.findMany({
+    where: { id: { in: [job.gameplayIndexId, job.songIndexId].filter((x): x is string => !!x) }, status: "running" },
+    select: { id: true, runId: true },
+  });
+  const runIds = [job.runId, ...indexes.map((i) => i.runId)].filter((x): x is string => !!x);
+  await Promise.all(runIds.map((id) => enginex().cancelRun(id).catch(logCancelError)));
+  if (indexes.length) {
+    await db.mediaIndex.updateMany({ where: { id: { in: indexes.map((i) => i.id) }, status: "running" }, data: { status: "failed", error: "canceled", finishedAt: new Date(now) } });
+  }
+}
+
+/** Stops an unfinished job: its Engine X runs are canceled and it ends as "canceled", costing the user nothing. False if it had already finished. */
+export async function cancelJob(jobId: string, errorRaw: string, now = Date.now()): Promise<boolean> {
+  const job = await db.job.findUnique({ where: { id: jobId } });
+  if (!job || !["queued", "starting", "running"].includes(job.status)) return false;
+  const canceled = await finishFailed(job, { status: "canceled", errorRaw, errorPublic: CANCELED_MESSAGE, runMs: elapsed(job, now) });
+  // After the status change, so a run that startJob saves meanwhile is caught by its own check or by this re-read.
+  if (canceled) await stopRuns(await load(jobId), now);
+  return canceled;
 }
 
 export async function finishFailed(
   job: Job,
   f: { errorRaw: string; errorPublic: string; runMs: number; status?: "failed" | "canceled" },
   settings?: Settings,
-) {
+): Promise<boolean> {
   const s = settings ?? (await getSettings());
   const finished = await db.$transaction(async (tx) => {
     const { count } = await tx.job.updateMany({
@@ -213,6 +275,7 @@ export async function finishFailed(
     return true;
   });
   if (finished) await notify(job.id);
+  return finished;
 }
 
 const lastPolled = new Map<string, number>();
@@ -222,7 +285,7 @@ export async function sweep(now = Date.now()) {
   const settings = await getSettings();
   await pollIndexes(settings, now); // staged styles: each gameplay/song index is polled once, however many jobs share it
 
-  const toStart = await db.job.findMany({ where: startable(now), select: { id: true } });
+  const toStart = await db.job.findMany({ where: startable(now), orderBy: { createdAt: "asc" }, select: { id: true } });
   for (const { id } of toStart) await startJob(id, now);
 
   const running = (

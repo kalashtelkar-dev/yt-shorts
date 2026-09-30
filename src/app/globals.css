@@ -25,6 +25,13 @@
   --warning: #f5a524;
   --brand-logo: #4f6bfe; /* Deepsoch mark */
 
+  /* Admin job timeline: one hue per engine kind (validated for colour-blind separation on --panel). */
+  --series-fetch: #3987e5;
+  --series-video: #d95926;
+  --series-ocr: #199e70;
+  --series-llm: #c98500;
+  --series-audio: #d55181;
+
   /* Printed documents (tax invoices): paper and ink, the same in both themes. */
   --paper: #ffffff;
   --ink: #111111;
@@ -73,6 +80,11 @@
   --color-danger: var(--accent-red);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-series-fetch: var(--series-fetch);
+  --color-series-video: var(--series-video);
+  --color-series-ocr: var(--series-ocr);
+  --color-series-llm: var(--series-llm);
+  --color-series-audio: var(--series-audio);
   --color-paper: var(--paper);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);

@@ -7,7 +7,7 @@ import { db } from "@/db/client";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { env } from "@/config/env";
-import { adjustUserCredits, refundJobByAdmin, retryJob, setRole, setSuspended } from "@/server/admin/mutations";
+import { adjustUserCredits, cancelJobByAdmin, refundJobByAdmin, retryJob, setRole, setSuspended } from "@/server/admin/mutations";
 import { currentAdmin, isAdmin } from "@/server/admin/guard";
 import { resolveUserId } from "@/server/admin/queries";
 import { deleteCatalogItem, saveCatalogItem, validateItem, type CatalogInput, type ValidationReport } from "@/server/admin/catalog";
@@ -111,6 +111,17 @@ export async function refundAction(_prev: FormState, form: FormData): Promise<Fo
   if (!r.ok) return { ok: false, message: r.error.message };
   revalidatePath("/admin", "layout");
   return { ok: true, message: "Refunded." };
+}
+
+export async function cancelAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const admin = await currentAdmin();
+  if (!admin) return denied;
+  const jobId = uuid.safeParse(form.get("jobId"));
+  if (!jobId.success) return { ok: false, message: "Unknown job." };
+  const r = await cancelJobByAdmin(admin, jobId.data);
+  if (!r.ok) return { ok: false, message: r.error.message };
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: "Stopped." };
 }
 
 export async function retryAction(_prev: FormState, form: FormData): Promise<FormState> {
@@ -248,6 +259,8 @@ export async function saveSettingsAction(_prev: FormState, form: FormData): Prom
     starterCredits: Number(form.get("starterCredits")),
     maxUploadMb: Number(form.get("maxUploadMb")),
     maxConcurrentJobsPerUser: Number(form.get("maxConcurrentJobsPerUser")),
+    maxConcurrentJobsPerAdmin: Number(form.get("maxConcurrentJobsPerAdmin")),
+    maxConcurrentJobsTotal: Number(form.get("maxConcurrentJobsTotal")),
     maxRunMinutes: Number(form.get("maxRunMinutes")),
   });
   if (!r.ok) return { ok: false, message: r.error.message };

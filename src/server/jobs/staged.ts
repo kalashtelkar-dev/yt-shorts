@@ -7,9 +7,12 @@ import { progressOf, stageDetail, stageFor } from "@/server/catalog";
 import { enginex } from "@/server/enginex/client";
 import { EngineXError } from "@/server/enginex/types";
 import type { Settings } from "@/server/settings";
-import { noKillsMessage, publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
+import { isTransientFailure, noKillsMessage, publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
 import { seeded } from "@/lib/seeded";
+import { downloadProgress, syncDownload } from "./download";
 import { event, finishFailed, notify } from "./lifecycle";
+import { songBeats } from "./beats";
+import { planMontage, type KillEntry, type PlanStyle } from "./plan";
 import { lyricItems } from "./lyrics";
 
 // Staged styles (docs/edit-styles/README.md): the gameplay and the song are indexed by their own pipelines,
@@ -26,10 +29,13 @@ type Kind = IndexRow["kind"];
 export const REUSE_MS = 60 * 60_000;
 const STALE_RUN_MS = 60 * 60_000; // a "running" index older than this is started again
 const RESEND_MS = 2 * 60_000; // an index whose run couldn't be started is re-sent after this
+const MAX_INDEX_RETRIES = 1;
 const RENDER_STEPS_ESTIMATE = 60; // keeps the progress bar honest before the render run reports its steps
 
 export const cacheKey = (kind: Kind, templateId: string, parts: string[]) =>
-  createHash("sha256").update(JSON.stringify([kind, templateId, ...parts])).digest("hex");
+  createHash("sha256")
+    .update(JSON.stringify([kind, templateId, ...parts]))
+    .digest("hex");
 
 /** What each index pipeline needs, from the job's mapped input (youtubeUrl or video, playerName, musicUrl). */
 export function indexInputs(job: Pick<Job, "id" | "input" | "source" | "indexTemplates">) {
@@ -43,7 +49,14 @@ export function indexInputs(job: Pick<Job, "id" | "input" | "source" | "indexTem
       input: gameplay,
       parts: [job.id, upload ? i.video : i.youtubeUrl, (i.playerName ?? "").toLowerCase()],
     },
-    song: { templateId: t.song, input: { musicUrl: i.musicUrl }, parts: [job.id, i.musicUrl] },
+    // an uploaded song file (createJob's songUpload) goes to the song-upload pipeline as its "audio"
+    song: (i.songUpload && t.songUpload
+      ? { templateId: t.songUpload, input: { audio: i.songUpload }, parts: [job.id, i.songUpload] }
+      : { templateId: t.song, input: { musicUrl: i.musicUrl }, parts: [job.id, i.musicUrl] }) as {
+      templateId: string;
+      input: Record<string, string>;
+      parts: string[];
+    },
   };
 }
 
@@ -70,7 +83,7 @@ export async function ensureIndex(kind: Kind, templateId: string, input: Record<
     insert into media_index (kind, cache_key, template_id, input, started_at)
     values (${kind}::media_index_kind, ${key}, ${templateId}, ${JSON.stringify(input)}::jsonb, ${at})
     on conflict (cache_key) do update set
-      status = 'running', run_id = null, output = null, error = null, steps = '[]'::jsonb, steps_done = 0, steps_total = 0,
+      status = 'running', run_id = null, output = null, error = null, steps = '[]'::jsonb, steps_done = 0, steps_total = 0, retries = 0,
       input = excluded.input, started_at = excluded.started_at, finished_at = null, run_ms = null
     where media_index.status = 'failed'
       or (media_index.status = 'succeeded' and media_index.finished_at < ${new Date(now - REUSE_MS)})
@@ -114,13 +127,35 @@ export async function pollIndexes(settings: Settings, now = Date.now()) {
         return;
       }
       const { done, total } = progressOf(run.steps);
+      // The gameplay video's download progress, shown as its own bar on the job's page.
+      if (row.kind === "gameplay") await syncDownload(row.id, { gameplayIndexId: row.id }, run.status === "running" ? await downloadProgress(run.steps) : null);
       if (run.status === "succeeded") {
         await db.mediaIndex.updateMany({
           where: { id: row.id, status: "running" },
-          data: { status: "succeeded", output: (run.output ?? {}) as Prisma.InputJsonValue, steps: run.steps as Prisma.InputJsonValue, stepsDone: total, stepsTotal: total, runMs: run.runMs, finishedAt: new Date(now) },
+          data: {
+            status: "succeeded",
+            output: (run.output ?? {}) as Prisma.InputJsonValue,
+            steps: run.steps as Prisma.InputJsonValue,
+            stepsDone: total,
+            stepsTotal: total,
+            runMs: run.runMs,
+            finishedAt: new Date(now),
+          },
         });
       } else if (run.status === "failed" || run.status === "canceled") {
         const failed = run.steps.find((s) => s.status === "failed");
+        // Like render runs: one automatic retry of the failed steps after a blip (e.g. YouTube refusing a download once).
+        if (run.status === "failed" && row.retries < MAX_INDEX_RETRIES && isTransientFailure(failed?.engine ?? null, failed?.error ?? run.error)) {
+          const { count } = await db.mediaIndex.updateMany({
+            where: { id: row.id, status: "running", retries: row.retries },
+            data: { retries: row.retries + 1 },
+          });
+          if (count)
+            await enginex()
+              .retryRun(row.runId)
+              .catch((e: unknown) => console.error(`[index retry] ${e instanceof Error ? e.message : String(e)}`));
+          return;
+        }
         await db.mediaIndex.updateMany({
           where: { id: row.id, status: "running" },
           data: {
@@ -132,8 +167,13 @@ export async function pollIndexes(settings: Settings, now = Date.now()) {
           },
         });
       } else if (now - row.startedAt.getTime() > settings.maxRunMinutes * 60_000) {
-        await enginex().cancelRun(row.runId).catch(() => {});
-        await db.mediaIndex.updateMany({ where: { id: row.id }, data: { status: "failed", error: `timeout after ${settings.maxRunMinutes} min`, finishedAt: new Date(now) } });
+        await enginex()
+          .cancelRun(row.runId)
+          .catch(() => {});
+        await db.mediaIndex.updateMany({
+          where: { id: row.id },
+          data: { status: "failed", error: `timeout after ${settings.maxRunMinutes} min`, finishedAt: new Date(now) },
+        });
       } else if (done !== row.stepsDone || total !== row.stepsTotal) {
         await db.mediaIndex.updateMany({ where: { id: row.id }, data: { steps: run.steps as Prisma.InputJsonValue, stepsDone: done, stepsTotal: total } });
       }
@@ -142,7 +182,24 @@ export async function pollIndexes(settings: Settings, now = Date.now()) {
 }
 
 /** Everything the app can send a style pipeline (styleInput); a style may declare fewer. */
-export const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "words", "maxDurationSec", "variation", "lyricLook", "lines"];
+export const STYLE_INPUTS = [
+  "video",
+  "kills",
+  "flex",
+  "gameDurationSec",
+  "audio",
+  "songDurationSec",
+  "loudness",
+  "words",
+  "maxDurationSec",
+  "variation",
+  "lyricLook",
+  "lines",
+  "beatSec",
+  "beats",
+  "dropAtSec",
+  "plan",
+];
 
 // Kills closer than this share one entry, so two clips never show the same moment. A clip reaches at most hold (4 s at
 // 90 s) + 2 s past its kill and the next starts 2.5 s before its own (pipelines/build.py), so 8 s apart can't overlap.
@@ -183,7 +240,10 @@ const INTRO_CLEAR = 12; // ...a kill with no other kill in the 12 s before it, s
  */
 export function introMoments(kills: unknown, seed: string | undefined): { flex: { start: number; what: string }[] } {
   const list = (kills as { kills?: unknown })?.kills;
-  const times = (Array.isArray(list) ? list : []).map((k) => Number(typeof k === "object" && k ? (k as { t?: unknown }).t : k)).filter(Number.isFinite).sort((a, b) => a - b);
+  const times = (Array.isArray(list) ? list : [])
+    .map((k) => Number(typeof k === "object" && k ? (k as { t?: unknown }).t : k))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
   const starts = times.filter((t, i) => t - INTRO_LEAD >= 1 && (i === 0 || t - times[i - 1] >= INTRO_CLEAR)).map((t) => t - INTRO_LEAD);
   const next = seeded(seed ?? "1");
   for (let n = starts.length - 1; n > 0; n--) {
@@ -199,12 +259,39 @@ export function introMoments(kills: unknown, seed: string | undefined): { flex: 
 const NO_TEXT = { s: 0, e: 0, t: "", r: 0, n: 0, p: 0, a: 9999 };
 
 /** The style pipeline's inputs, from the two indexes. Only inputs the pipeline declares are sent. */
-export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<string, unknown>, s: Record<string, unknown>, declared: string[] | null) {
+/** The style a catalog item plans as (its slug names it; anything else plans like a kill montage). */
+const planStyle = (slug?: string): PlanStyle => (slug === "smart-edit" || slug?.includes("ultra") ? "ultra" : "kill"); // Smart Edit was "ultra-edit"
+
+export function styleInput(
+  job: Pick<Job, "input" | "durationSec"> & { catalogSlug?: string },
+  g: Record<string, unknown>,
+  s: Record<string, unknown>,
+  declared: string[] | null,
+) {
   const i = job.input as Record<string, string>;
+  // Measured here so the planner is handed them (beats.ts): the beat, the beat times inside the montage, the drop.
+  const cap = Math.min(job.durationSec, Number(s.durationSec) || job.durationSec);
+  const song = songBeats(String(s.loudness ?? ""), cap);
+  const kills = shuffleKills(g.kills ?? { kills: [], totalKills: 0 }, i.killSeed) as { kills?: KillEntry[] };
+  const flex = introMoments(g.kills, i.killSeed);
+  // The clip list, planned here from what was measured (plan.ts); the style pipeline checks it and renders it.
+  const plan = planMontage({
+    style: planStyle(job.catalogSlug),
+    kills: Array.isArray(kills.kills) ? kills.kills : [],
+    flexStarts: flex.flex.map((f) => f.start),
+    // the gameplay reader's rows with the player as the victim (older results have none: no deaths to avoid)
+    deaths: ((g.deaths as { deaths?: { t?: unknown }[] } | undefined)?.deaths ?? []).map((d) => Number(d?.t)).filter(Number.isFinite),
+    beats: song?.beats ?? [],
+    beatSec: song?.beatSec ?? 0.5,
+    dropAtSec: song?.dropAtSec ?? null,
+    lengthSec: job.durationSec,
+    capSec: cap,
+    variation: i.variation ?? "",
+  });
   const all: Record<string, string> = {
     video: String(g.video ?? ""),
-    kills: JSON.stringify(shuffleKills(g.kills ?? { kills: [], totalKills: 0 }, i.killSeed)),
-    flex: JSON.stringify(introMoments(g.kills, i.killSeed)),
+    kills: JSON.stringify(kills),
+    flex: JSON.stringify(flex),
     gameDurationSec: String(g.durationSec ?? ""),
     audio: String(s.audio ?? ""),
     songDurationSec: String(s.durationSec ?? ""),
@@ -215,6 +302,10 @@ export function styleInput(job: Pick<Job, "input" | "durationSec">, g: Record<st
     lyricLook: i.lyricLook ?? "0",
     // aligned segments from song-index; an older cached result has only words, read as one segment
     lines: JSON.stringify([...lyricItems(s.segments ?? (Array.isArray(s.words) ? [{ words: s.words }] : []), i.killSeed ?? "1", s.voice), NO_TEXT]),
+    beatSec: song ? String(song.beatSec) : "0.5",
+    beats: song ? song.beats.join(", ") : "",
+    dropAtSec: song?.dropAtSec != null ? String(song.dropAtSec) : "none",
+    plan: JSON.stringify(plan),
   };
   return declared ? Object.fromEntries(Object.entries(all).filter(([k]) => declared.includes(k))) : all;
 }
@@ -243,13 +334,24 @@ export async function advanceStaged(job: Job, settings: Settings, stageMap: Stag
   const elapsedMs = job.startedAt ? now - job.startedAt.getTime() : 0;
   if (!g || !s) return finishFailed(job, { errorRaw: "index rows missing", errorPublic: publicErrorFor(null), runMs: elapsedMs }, settings);
 
-  for (const [row, songPart] of [[g, false], [s, true]] as const) {
+  for (const [row, songPart] of [
+    [g, false],
+    [s, true],
+  ] as const) {
     if (row.status !== "failed") continue;
     const engine = (row.output?.failedEngine as string | null) ?? null;
-    return finishFailed(job, { errorRaw: `${row.kind} index: ${row.error}`, errorPublic: songPart ? SONG_ERROR : publicErrorFor(engine), runMs: elapsedMs }, settings);
+    return finishFailed(
+      job,
+      { errorRaw: `${row.kind} index: ${row.error}`, errorPublic: songPart ? SONG_ERROR : publicErrorFor(engine), runMs: elapsedMs },
+      settings,
+    );
   }
   if (elapsedMs > settings.maxRunMinutes * 60_000) {
-    return finishFailed(job, { errorRaw: `timeout after ${settings.maxRunMinutes} min in the index phase`, errorPublic: TIMEOUT_MESSAGE, runMs: elapsedMs }, settings);
+    return finishFailed(
+      job,
+      { errorRaw: `timeout after ${settings.maxRunMinutes} min in the index phase`, errorPublic: TIMEOUT_MESSAGE, runMs: elapsedMs },
+      settings,
+    );
   }
 
   if (g.status === "succeeded" && s.status === "succeeded") {
@@ -264,14 +366,24 @@ export async function advanceStaged(job: Job, settings: Settings, stageMap: Stag
       const { runId } = await enginex().runPipeline(job.templateId, input, job.id);
       await db.job.updateMany({
         where: { id: job.id, status: "running", phase: "index" },
-        data: { runId, phase: "render", indexSteps: g.stepsTotal + s.stepsTotal, stepsDone: g.stepsTotal + s.stepsTotal, stepsTotal: g.stepsTotal + s.stepsTotal + RENDER_STEPS_ESTIMATE },
+        data: {
+          runId,
+          phase: "render",
+          indexSteps: g.stepsTotal + s.stepsTotal,
+          stepsDone: g.stepsTotal + s.stepsTotal,
+          stepsTotal: g.stepsTotal + s.stepsTotal + RENDER_STEPS_ESTIMATE,
+        },
       });
       await event(job.id, "Cutting your montage");
       await notify(job.id);
     } catch (e) {
       const err = e instanceof EngineXError ? e : new EngineXError("unknown", String(e), false);
       if (err.retryable) return; // same job id as the key: the next sweep re-sends safely
-      await finishFailed(job, { errorRaw: `render start: ${err.code}: ${err.message}`, errorPublic: publicErrorFor(null, err.code), runMs: elapsedMs }, settings);
+      await finishFailed(
+        job,
+        { errorRaw: `render start: ${err.code}: ${err.message}`, errorPublic: publicErrorFor(null, err.code), runMs: elapsedMs },
+        settings,
+      );
     }
     return;
   }
@@ -282,7 +394,10 @@ export async function advanceStaged(job: Job, settings: Settings, stageMap: Stag
   const stage = stageFor(steps, stageMap, job.currentStage);
   const detail = stageDetail(steps, stageMap, stage);
   if (done === job.stepsDone && total === job.stepsTotal && stage === job.currentStage && detail === job.stageDetail) return;
-  await db.job.updateMany({ where: { id: job.id, status: "running", phase: "index" }, data: { stepsDone: done, stepsTotal: total, currentStage: stage, stageDetail: detail } });
+  await db.job.updateMany({
+    where: { id: job.id, status: "running", phase: "index" },
+    data: { stepsDone: done, stepsTotal: total, currentStage: stage, stageDetail: detail },
+  });
   if (stage && stage !== job.currentStage) await event(job.id, stage);
   await notify(job.id);
 }

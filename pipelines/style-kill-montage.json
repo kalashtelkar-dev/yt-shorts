@@ -19,7 +19,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 0
+          "y": 300
         }
       },
       {
@@ -30,8 +30,8 @@
         "sample": "{\"kills\":[{\"t\":51}],\"totalKills\":1}",
         "required": true,
         "position": {
-          "x": 300,
-          "y": 0
+          "x": 0,
+          "y": 900
         }
       },
       {
@@ -42,20 +42,8 @@
         "sample": "{\"flex\":[{\"start\":20,\"what\":\"knife out\"}]}",
         "required": true,
         "position": {
-          "x": 600,
-          "y": 0
-        }
-      },
-      {
-        "id": "game_dur",
-        "kind": "input",
-        "name": "gameDurationSec",
-        "type": "text",
-        "sample": "2400",
-        "required": true,
-        "position": {
-          "x": 900,
-          "y": 0
+          "x": 0,
+          "y": 150
         }
       },
       {
@@ -66,7 +54,7 @@
         "sample": "",
         "required": true,
         "position": {
-          "x": 1200,
+          "x": 0,
           "y": 0
         }
       },
@@ -78,20 +66,8 @@
         "sample": "22",
         "required": true,
         "position": {
-          "x": 1500,
-          "y": 0
-        }
-      },
-      {
-        "id": "loudness_in",
-        "kind": "input",
-        "name": "loudness",
-        "type": "text",
-        "sample": "0.000000,-30.0",
-        "required": true,
-        "position": {
-          "x": 1800,
-          "y": 0
+          "x": 0,
+          "y": 450
         }
       },
       {
@@ -103,32 +79,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 180
-        }
-      },
-      {
-        "id": "variation_in",
-        "kind": "input",
-        "name": "variation",
-        "type": "text",
-        "sample": "Put the slow-motion clip third.",
-        "required": true,
-        "position": {
-          "x": 300,
-          "y": 180
-        }
-      },
-      {
-        "id": "llm",
-        "kind": "engine",
-        "engine": "llm",
-        "params": {
-          "use": "deepsoch-worker"
-        },
-        "operation": "connection",
-        "position": {
-          "x": 600,
-          "y": 180
+          "y": 600
         }
       },
       {
@@ -141,8 +92,8 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 900,
-          "y": 180
+          "x": 1140,
+          "y": 900
         }
       },
       {
@@ -155,8 +106,8 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 1200,
-          "y": 180
+          "x": 1520,
+          "y": 600
         }
       },
       {
@@ -168,8 +119,8 @@
           "value": 2.5
         },
         "position": {
-          "x": 1500,
-          "y": 180
+          "x": 1520,
+          "y": 300
         }
       },
       {
@@ -181,8 +132,8 @@
           "value": 1.0
         },
         "position": {
-          "x": 1800,
-          "y": 180
+          "x": 1520,
+          "y": 750
         }
       },
       {
@@ -194,8 +145,8 @@
           "value": 0
         },
         "position": {
-          "x": 0,
-          "y": 360
+          "x": 1900,
+          "y": 600
         }
       },
       {
@@ -207,8 +158,8 @@
           "op": "subtract"
         },
         "position": {
-          "x": 300,
-          "y": 360
+          "x": 1900,
+          "y": 300
         }
       },
       {
@@ -220,8 +171,8 @@
           "op": "subtract"
         },
         "position": {
-          "x": 600,
-          "y": 360
+          "x": 1900,
+          "y": 750
         }
       },
       {
@@ -233,8 +184,8 @@
           "op": "max"
         },
         "position": {
-          "x": 900,
-          "y": 360
+          "x": 2280,
+          "y": 375
         }
       },
       {
@@ -246,34 +197,8 @@
           "op": "max"
         },
         "position": {
-          "x": 1200,
-          "y": 360
-        }
-      },
-      {
-        "id": "starts_normal_csv",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "join",
-        "params": {
-          "separator": ", "
-        },
-        "position": {
-          "x": 1500,
-          "y": 360
-        }
-      },
-      {
-        "id": "starts_slow_csv",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "join",
-        "params": {
-          "separator": ", "
-        },
-        "position": {
-          "x": 1800,
-          "y": 360
+          "x": 2280,
+          "y": 525
         }
       },
       {
@@ -285,8 +210,8 @@
           "separator": "|"
         },
         "position": {
-          "x": 0,
-          "y": 540
+          "x": 2660,
+          "y": 300
         }
       },
       {
@@ -298,24 +223,21 @@
           "separator": "|"
         },
         "position": {
-          "x": 300,
-          "y": 540
+          "x": 2660,
+          "y": 450
         }
       },
       {
         "id": "plan",
         "kind": "engine",
-        "engine": "llm",
-        "operation": "chat",
+        "engine": "util",
+        "operation": "json-parse",
         "params": {
-          "system": "You are a senior gaming video editor who cuts beat-synced kill montages. You answer only with valid JSON.",
-          "json": true,
-          "maxTokens": 16384,
-          "temperature": 0.2
+          "fenced": false
         },
         "position": {
-          "x": 600,
-          "y": 540
+          "x": 380,
+          "y": 675
         }
       },
       {
@@ -328,8 +250,8 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 900,
-          "y": 540
+          "x": 2660,
+          "y": 150
         }
       },
       {
@@ -343,8 +265,8 @@
           "invert": true
         },
         "position": {
-          "x": 1200,
-          "y": 540
+          "x": 3040,
+          "y": 300
         }
       },
       {
@@ -358,8 +280,8 @@
           "compareTo": "20"
         },
         "position": {
-          "x": 1500,
-          "y": 540
+          "x": 3800,
+          "y": 450
         }
       },
       {
@@ -373,8 +295,8 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 1800,
-          "y": 540
+          "x": 4180,
+          "y": 450
         }
       },
       {
@@ -387,8 +309,8 @@
           "op": "matches"
         },
         "position": {
-          "x": 0,
-          "y": 720
+          "x": 4560,
+          "y": 450
         }
       },
       {
@@ -400,8 +322,8 @@
         },
         "operation": "json-pick",
         "position": {
-          "x": 300,
-          "y": 720
+          "x": 5320,
+          "y": 150
         }
       },
       {
@@ -413,8 +335,8 @@
         },
         "operation": "json-stringify",
         "position": {
-          "x": 600,
-          "y": 720
+          "x": 5700,
+          "y": 300
         }
       },
       {
@@ -426,8 +348,8 @@
           "separator": ""
         },
         "position": {
-          "x": 900,
-          "y": 720
+          "x": 6080,
+          "y": 375
         }
       },
       {
@@ -441,8 +363,8 @@
           "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=2*(PTS-STARTPTS),framerate=fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.15*max(0,1-in/20)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.25:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,volume=0,apad=pad_dur=$3[a$1];"
         },
         "position": {
-          "x": 1200,
-          "y": 720
+          "x": 6460,
+          "y": 375
         }
       },
       {
@@ -456,8 +378,8 @@
           "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
         },
         "position": {
-          "x": 1500,
-          "y": 720
+          "x": 6840,
+          "y": 375
         }
       },
       {
@@ -471,8 +393,8 @@
         },
         "operation": "regex",
         "position": {
-          "x": 1800,
-          "y": 720
+          "x": 6460,
+          "y": 225
         }
       },
       {
@@ -485,8 +407,8 @@
           "path": "len"
         },
         "position": {
-          "x": 0,
-          "y": 900
+          "x": 5320,
+          "y": 450
         }
       },
       {
@@ -500,8 +422,8 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 300,
-          "y": 900
+          "x": 5320,
+          "y": 750
         }
       },
       {
@@ -514,8 +436,8 @@
           "path": "len"
         },
         "position": {
-          "x": 600,
-          "y": 900
+          "x": 5700,
+          "y": 600
         }
       },
       {
@@ -527,8 +449,8 @@
           "op": "add"
         },
         "position": {
-          "x": 900,
-          "y": 900
+          "x": 6080,
+          "y": 525
         }
       },
       {
@@ -540,8 +462,8 @@
           "op": "min"
         },
         "position": {
-          "x": 1200,
-          "y": 900
+          "x": 6460,
+          "y": 525
         }
       },
       {
@@ -553,8 +475,8 @@
           "value": 0.8
         },
         "position": {
-          "x": 1500,
-          "y": 900
+          "x": 6460,
+          "y": 675
         }
       },
       {
@@ -566,8 +488,8 @@
           "op": "subtract"
         },
         "position": {
-          "x": 1800,
-          "y": 900
+          "x": 6840,
+          "y": 525
         }
       },
       {
@@ -579,8 +501,8 @@
           "template": "[\"-y\", \"-filter_complex\", \"{{a}}{{b}}concat=n={{c}}:v=1:a=1[vc][ga];[vc]fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];[ga]anull[a]\", \"-map\", \"[v]\", \"-map\", \"[a]\", \"-c:v\", \"{enc:h264}\", \"-preset\", \"p5\", \"-tune\", \"hq\", \"-rc\", \"vbr\", \"-cq\", \"20\", \"-b:v\", \"0\", \"-maxrate\", \"20M\", \"-bufsize\", \"40M\", \"-profile:v\", \"high\", \"-pix_fmt\", \"yuv420p\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{d}}\", \"cut.mp4\"]"
         },
         "position": {
-          "x": 0,
-          "y": 1080
+          "x": 7220,
+          "y": 300
         }
       },
       {
@@ -592,8 +514,8 @@
         },
         "operation": "json-parse",
         "position": {
-          "x": 300,
-          "y": 1080
+          "x": 7600,
+          "y": 300
         }
       },
       {
@@ -603,8 +525,8 @@
         "params": {},
         "operation": "merge",
         "position": {
-          "x": 600,
-          "y": 1080
+          "x": 7980,
+          "y": 300
         }
       },
       {
@@ -616,8 +538,8 @@
         },
         "operation": "text",
         "position": {
-          "x": 900,
-          "y": 1080
+          "x": 5320,
+          "y": 600
         }
       },
       {
@@ -629,8 +551,8 @@
         },
         "operation": "compare",
         "position": {
-          "x": 1200,
-          "y": 1080
+          "x": 5700,
+          "y": 450
         }
       },
       {
@@ -640,8 +562,8 @@
         "params": {},
         "operation": "gate",
         "position": {
-          "x": 1500,
-          "y": 1080
+          "x": 8360,
+          "y": 375
         }
       },
       {
@@ -654,8 +576,8 @@
         },
         "operation": "custom",
         "position": {
-          "x": 1800,
-          "y": 1080
+          "x": 8740,
+          "y": 450
         }
       },
       {
@@ -669,8 +591,8 @@
           "replace": "{\"t\":$1}"
         },
         "position": {
-          "x": 0,
-          "y": 1260
+          "x": 380,
+          "y": 825
         }
       },
       {
@@ -682,8 +604,8 @@
           "fenced": false
         },
         "position": {
-          "x": 300,
-          "y": 1260
+          "x": 760,
+          "y": 900
         }
       },
       {
@@ -697,8 +619,8 @@
           "replace": "{\"start\":$1}"
         },
         "position": {
-          "x": 600,
-          "y": 1260
+          "x": 380,
+          "y": 75
         }
       },
       {
@@ -710,8 +632,8 @@
           "fenced": false
         },
         "position": {
-          "x": 900,
-          "y": 1260
+          "x": 760,
+          "y": 0
         }
       },
       {
@@ -724,8 +646,8 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 1200,
-          "y": 1260
+          "x": 1140,
+          "y": 0
         }
       },
       {
@@ -738,8 +660,8 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 1500,
-          "y": 1260
+          "x": 1520,
+          "y": 150
         }
       },
       {
@@ -751,8 +673,8 @@
           "separator": "|"
         },
         "position": {
-          "x": 1800,
-          "y": 1260
+          "x": 1900,
+          "y": 150
         }
       },
       {
@@ -764,47 +686,8 @@
           "template": "^({{a}}|{{b}}|{{c}})0*$"
         },
         "position": {
-          "x": 0,
-          "y": 1440
-        }
-      },
-      {
-        "id": "plan_prompt",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "template",
-        "params": {
-          "template": "You are planning a 9:16 Valorant/CS2 kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion, cut to a song.\n\nTHE PLAYER'S KILLS, listed in THIS RUN'S MONTAGE ORDER (shuffled on purpose, so every montage of this match is different). Each entry is one kill, or a multi-kill whose \"more\" lists its next kills in seconds after t. Times are recording seconds; t is when the kill-feed row appears, and the real kill is up to 2 s before it:\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill entry, same order as the entries, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill entry, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: exactly ONE clip per kill entry (normal OR slow motion, never both), in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   Every kill must stay on screen at least {{p}} s after it happens before the next clip starts, so:\n   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).\n   For an entry with \"more\" you may lengthen its clip to show those next kills too (add the last one's offset to len); it must keep playing {{p}} s after the last kill it shows.\n   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role, kill. kill is the t of the entry the clip shows, copied exactly (0 for the flex clip). Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string, \"kill\": number}], \"totalKills\": integer}, with no other keys and nothing before or after the JSON. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0}."
-        },
-        "position": {
-          "x": 300,
-          "y": 1440
-        }
-      },
-      {
-        "id": "kills_text",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "json-stringify",
-        "params": {
-          "indent": 0
-        },
-        "position": {
-          "x": 600,
-          "y": 1440
-        }
-      },
-      {
-        "id": "flex_text",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "json-stringify",
-        "params": {
-          "indent": 0
-        },
-        "position": {
-          "x": 900,
-          "y": 1440
+          "x": 3040,
+          "y": 450
         }
       },
       {
@@ -816,8 +699,8 @@
           "op": "min"
         },
         "position": {
-          "x": 1200,
-          "y": 1440
+          "x": 380,
+          "y": 225
         }
       },
       {
@@ -831,8 +714,8 @@
           "compareTo": "^(1(\\.0+)?|0?\\.50*)$"
         },
         "position": {
-          "x": 1500,
-          "y": 1440
+          "x": 3420,
+          "y": 450
         }
       },
       {
@@ -845,8 +728,8 @@
           "keep": "first"
         },
         "position": {
-          "x": 1800,
-          "y": 1440
+          "x": 4940,
+          "y": 450
         }
       },
       {
@@ -858,8 +741,8 @@
           "op": "count"
         },
         "position": {
-          "x": 0,
-          "y": 1620
+          "x": 5320,
+          "y": 300
         }
       },
       {
@@ -871,8 +754,8 @@
           "value": "\n15;1;3.5;1.5;[0-2](?:\\.\\d+)?|3(?:\\.(?:[0-4]\\d*)?)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-4]\\d*)?)?\n30;1.5;4;1.75;[0-3](?:\\.\\d+)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-6]\\d*|7[0-4]\\d*|7)?)?\n60;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?\n90;4;6.5;3;[0-5](?:\\.\\d+)?|6(?:\\.(?:[0-4]\\d*)?)?;[0-2](?:\\.\\d+)?\ndefault;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?"
         },
         "position": {
-          "x": 300,
-          "y": 1620
+          "x": 380,
+          "y": 525
         }
       },
       {
@@ -884,21 +767,8 @@
           "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
         },
         "position": {
-          "x": 600,
-          "y": 1620
-        }
-      },
-      {
-        "id": "hold_sec",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "replace": "$1"
-        },
-        "position": {
-          "x": 900,
-          "y": 1620
+          "x": 380,
+          "y": 375
         }
       },
       {
@@ -910,8 +780,8 @@
           "replace": "$2"
         },
         "position": {
-          "x": 1200,
-          "y": 1620
+          "x": 760,
+          "y": 150
         }
       },
       {
@@ -923,8 +793,8 @@
           "replace": "$3"
         },
         "position": {
-          "x": 1500,
-          "y": 1620
+          "x": 760,
+          "y": 450
         }
       },
       {
@@ -936,8 +806,8 @@
           "replace": "$4"
         },
         "position": {
-          "x": 1800,
-          "y": 1620
+          "x": 760,
+          "y": 300
         }
       },
       {
@@ -949,8 +819,8 @@
           "replace": "$5"
         },
         "position": {
-          "x": 0,
-          "y": 1800
+          "x": 760,
+          "y": 600
         }
       },
       {
@@ -962,8 +832,8 @@
           "indent": 0
         },
         "position": {
-          "x": 300,
-          "y": 1800
+          "x": 760,
+          "y": 750
         }
       },
       {
@@ -977,8 +847,8 @@
           "replace": "{\"kill\":\"s$1\","
         },
         "position": {
-          "x": 600,
-          "y": 1800
+          "x": 1140,
+          "y": 750
         }
       },
       {
@@ -990,8 +860,8 @@
           "template": "(\\{(?=[^{}]*\"speed\":\"?1(?:\\.0+)?\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
         },
         "position": {
-          "x": 900,
-          "y": 1800
+          "x": 1140,
+          "y": 300
         }
       },
       {
@@ -1003,8 +873,8 @@
           "template": "$1{{a}}"
         },
         "position": {
-          "x": 1200,
-          "y": 1800
+          "x": 1140,
+          "y": 150
         }
       },
       {
@@ -1016,8 +886,8 @@
           "flags": "g"
         },
         "position": {
-          "x": 1500,
-          "y": 1800
+          "x": 1520,
+          "y": 450
         }
       },
       {
@@ -1029,8 +899,8 @@
           "template": "(\\{(?=[^{}]*\"speed\":\"?0?\\.50*\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
         },
         "position": {
-          "x": 1800,
-          "y": 1800
+          "x": 1140,
+          "y": 600
         }
       },
       {
@@ -1042,8 +912,8 @@
           "template": "$1{{a}}"
         },
         "position": {
-          "x": 0,
-          "y": 1980
+          "x": 1140,
+          "y": 450
         }
       },
       {
@@ -1055,8 +925,8 @@
           "flags": "g"
         },
         "position": {
-          "x": 300,
-          "y": 1980
+          "x": 1900,
+          "y": 450
         }
       },
       {
@@ -1068,8 +938,8 @@
           "fenced": false
         },
         "position": {
-          "x": 600,
-          "y": 1980
+          "x": 2280,
+          "y": 225
         }
       },
       {
@@ -1085,8 +955,8 @@
           "format": "wav"
         },
         "position": {
-          "x": 900,
-          "y": 1980
+          "x": 9120,
+          "y": 375
         }
       },
       {
@@ -1098,8 +968,8 @@
           "template": "[\"-y\", \"-i\", \"{in0}\", \"-i\", \"{in1}\", \"-i\", \"{in2}\", \"-filter_complex\", \"[2:a]aresample=48000,volume=0.3[g];[1:a]aresample=48000,volume=1[m];[m][g]amix=inputs=2:duration=shortest:normalize=0,afade=t=in:st=0:d=0.3,afade=t=out:st={{a}}:d=0.8[a]\", \"-map\", \"0:v\", \"-map\", \"[a]\", \"-c:v\", \"copy\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{b}}\", \"{out}\"]"
         },
         "position": {
-          "x": 1200,
-          "y": 1980
+          "x": 7220,
+          "y": 450
         }
       },
       {
@@ -1111,8 +981,8 @@
           "fenced": false
         },
         "position": {
-          "x": 1500,
-          "y": 1980
+          "x": 7600,
+          "y": 450
         }
       },
       {
@@ -1122,8 +992,8 @@
         "operation": "merge",
         "params": {},
         "position": {
-          "x": 1800,
-          "y": 1980
+          "x": 7980,
+          "y": 450
         }
       },
       {
@@ -1136,8 +1006,8 @@
           "output": "montage.mp4"
         },
         "position": {
-          "x": 0,
-          "y": 2160
+          "x": 9500,
+          "y": 450
         }
       },
       {
@@ -1150,8 +1020,8 @@
           "replace": "$1"
         },
         "position": {
-          "x": 300,
-          "y": 2160
+          "x": 2280,
+          "y": 675
         }
       },
       {
@@ -1164,8 +1034,8 @@
           "replace": "0"
         },
         "position": {
-          "x": 600,
-          "y": 2160
+          "x": 2660,
+          "y": 600
         }
       },
       {
@@ -1177,8 +1047,8 @@
           "value": 2.3
         },
         "position": {
-          "x": 900,
-          "y": 2160
+          "x": 2660,
+          "y": 750
         }
       },
       {
@@ -1190,8 +1060,8 @@
           "op": "add"
         },
         "position": {
-          "x": 1200,
-          "y": 2160
+          "x": 3040,
+          "y": 600
         }
       },
       {
@@ -1203,8 +1073,8 @@
           "op": "min"
         },
         "position": {
-          "x": 1500,
-          "y": 2160
+          "x": 7220,
+          "y": 600
         }
       },
       {
@@ -1216,8 +1086,8 @@
           "template": "[\"-y\", \"-ss\", \"{{a}}\", \"-i\", \"{in0}\", \"-frames:v\", \"1\", \"-vf\", \"scale=720:-2\", \"-q:v\", \"3\", \"{out}\"]"
         },
         "position": {
-          "x": 1800,
-          "y": 2160
+          "x": 7600,
+          "y": 600
         }
       },
       {
@@ -1229,8 +1099,8 @@
           "fenced": false
         },
         "position": {
-          "x": 0,
-          "y": 2340
+          "x": 7980,
+          "y": 600
         }
       },
       {
@@ -1240,8 +1110,8 @@
         "operation": "merge",
         "params": {},
         "position": {
-          "x": 300,
-          "y": 2340
+          "x": 8360,
+          "y": 525
         }
       },
       {
@@ -1259,8 +1129,8 @@
           ]
         },
         "position": {
-          "x": 600,
-          "y": 2340
+          "x": 9120,
+          "y": 525
         }
       },
       {
@@ -1272,23 +1142,24 @@
           "thumbnail"
         ],
         "position": {
-          "x": 900,
-          "y": 2340
+          "x": 10260,
+          "y": 450
+        }
+      },
+      {
+        "id": "plan_in",
+        "kind": "input",
+        "name": "plan",
+        "type": "text",
+        "sample": "{\"beatSec\":0.5,\"dropAtSec\":0,\"clips\":[],\"totalKills\":0}",
+        "required": true,
+        "position": {
+          "x": 0,
+          "y": 750
         }
       }
     ],
     "edges": [
-      {
-        "id": "llm.connection->plan.connection",
-        "from": {
-          "node": "llm",
-          "port": "connection"
-        },
-        "to": {
-          "node": "plan",
-          "port": "connection"
-        }
-      },
       {
         "id": "clip_id_range.value->clip_id_range_text.value",
         "from": {
@@ -1521,17 +1392,6 @@
         }
       },
       {
-        "id": "starts_normal.value->starts_normal_csv.value",
-        "from": {
-          "node": "starts_normal",
-          "port": "value"
-        },
-        "to": {
-          "node": "starts_normal_csv",
-          "port": "value"
-        }
-      },
-      {
         "id": "starts_normal.value->starts_normal_alt.value",
         "from": {
           "node": "starts_normal",
@@ -1584,17 +1444,6 @@
         "to": {
           "node": "starts_slow",
           "port": "b"
-        }
-      },
-      {
-        "id": "starts_slow.value->starts_slow_csv.value",
-        "from": {
-          "node": "starts_slow",
-          "port": "value"
-        },
-        "to": {
-          "node": "starts_slow_csv",
-          "port": "value"
         }
       },
       {
@@ -1785,28 +1634,6 @@
         }
       },
       {
-        "id": "kills_json.value->kills_text.value",
-        "from": {
-          "node": "kills_json",
-          "port": "value"
-        },
-        "to": {
-          "node": "kills_text",
-          "port": "value"
-        }
-      },
-      {
-        "id": "flex_list.value->flex_text.value",
-        "from": {
-          "node": "flex_list",
-          "port": "value"
-        },
-        "to": {
-          "node": "flex_text",
-          "port": "value"
-        }
-      },
-      {
         "id": "song_dur.value->cap.a",
         "from": {
           "node": "song_dur",
@@ -1826,116 +1653,6 @@
         "to": {
           "node": "cap",
           "port": "b"
-        }
-      },
-      {
-        "id": "kills_text.value->plan_prompt.a",
-        "from": {
-          "node": "kills_text",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "a"
-        }
-      },
-      {
-        "id": "game_dur.value->plan_prompt.f",
-        "from": {
-          "node": "game_dur",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "f"
-        }
-      },
-      {
-        "id": "flex_text.value->plan_prompt.m",
-        "from": {
-          "node": "flex_text",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "m"
-        }
-      },
-      {
-        "id": "starts_normal_alt.value->plan_prompt.k",
-        "from": {
-          "node": "starts_normal_alt",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "k"
-        }
-      },
-      {
-        "id": "starts_slow_alt.value->plan_prompt.l",
-        "from": {
-          "node": "starts_slow_alt",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "l"
-        }
-      },
-      {
-        "id": "song_dur.value->plan_prompt.g",
-        "from": {
-          "node": "song_dur",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "g"
-        }
-      },
-      {
-        "id": "loudness_in.value->plan_prompt.h",
-        "from": {
-          "node": "loudness_in",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "h"
-        }
-      },
-      {
-        "id": "cap.value->plan_prompt.i",
-        "from": {
-          "node": "cap",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "i"
-        }
-      },
-      {
-        "id": "variation_in.value->plan_prompt.n",
-        "from": {
-          "node": "variation_in",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "n"
-        }
-      },
-      {
-        "id": "plan_prompt.value->plan.prompt",
-        "from": {
-          "node": "plan_prompt",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan",
-          "port": "prompt"
         }
       },
       {
@@ -2093,28 +1810,6 @@
         }
       },
       {
-        "id": "hold_table.value->hold_sec.text",
-        "from": {
-          "node": "hold_table",
-          "port": "value"
-        },
-        "to": {
-          "node": "hold_sec",
-          "port": "text"
-        }
-      },
-      {
-        "id": "hold_pattern.value->hold_sec.pattern",
-        "from": {
-          "node": "hold_pattern",
-          "port": "value"
-        },
-        "to": {
-          "node": "hold_sec",
-          "port": "pattern"
-        }
-      },
-      {
         "id": "hold_table.value->len_normal.text",
         "from": {
           "node": "hold_table",
@@ -2203,43 +1898,10 @@
         }
       },
       {
-        "id": "len_normal.text->plan_prompt.o",
-        "from": {
-          "node": "len_normal",
-          "port": "text"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "o"
-        }
-      },
-      {
-        "id": "hold_sec.text->plan_prompt.p",
-        "from": {
-          "node": "hold_sec",
-          "port": "text"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "p"
-        }
-      },
-      {
-        "id": "len_slow.text->plan_prompt.q",
-        "from": {
-          "node": "len_slow",
-          "port": "text"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "q"
-        }
-      },
-      {
-        "id": "plan.json->plan_text.value",
+        "id": "plan.value->plan_text.value",
         "from": {
           "node": "plan",
-          "port": "json"
+          "port": "value"
         },
         "to": {
           "node": "plan_text",
@@ -2654,10 +2316,10 @@
         }
       },
       {
-        "id": "plan.json->out.plan",
+        "id": "plan.value->out.plan",
         "from": {
           "node": "plan",
-          "port": "json"
+          "port": "value"
         },
         "to": {
           "node": "out",
@@ -2673,6 +2335,17 @@
         "to": {
           "node": "out",
           "port": "thumbnail"
+        }
+      },
+      {
+        "id": "plan_in.value->plan.text",
+        "from": {
+          "node": "plan_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan",
+          "port": "text"
         }
       }
     ]

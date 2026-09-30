@@ -11,20 +11,18 @@ import { postgresProbe } from "./probes/postgres";
 import { queueProbe } from "./probes/queue";
 import { razorpayProbe } from "./probes/razorpay";
 import { redisProbe } from "./probes/redis";
-import { smtpProbe } from "./probes/smtp";
 import { storageProbe } from "./probes/storage";
 import { webProbe } from "./probes/web";
 import { workerProbe } from "./probes/worker";
 import type { Probe, ProbeResult, SweepContext } from "./types";
 
-// Only what the app actually uses: email only sends codes with AUTH_MODE=full; Razorpay only when checkout is on.
+// Only what the app actually uses: Razorpay only when checkout is on. (Email isn't probed: the user's call, 2026-09-30.)
 const STATIC_PROBES: Probe[] = [
   webProbe,
   workerProbe,
   postgresProbe,
   redisProbe,
   queueProbe,
-  ...(env.AUTH_MODE === "full" ? [smtpProbe] : []),
   ...(env.PAYMENTS_ENABLED ? [razorpayProbe] : []),
   enginexProbe,
   storageProbe,

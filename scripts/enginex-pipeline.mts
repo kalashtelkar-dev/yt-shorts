@@ -11,6 +11,7 @@
 //   pnpm enginex:pipeline runs [templateId]            → .pipelines/runs.json (recent runs, read-only)
 //   pnpm enginex:pipeline run <runId>                  → .pipelines/run-<runId>.json (steps and outputs, read-only)
 //   pnpm enginex:pipeline job <jobId>                  → .pipelines/job-<jobId>.json (one step's engine job, read-only)
+//   pnpm enginex:pipeline job-events <jobId>           → .pipelines/job-events-<jobId>.json (its transition trail, read-only)
 //   pnpm enginex:pipeline start <templateId> '<json>'  → starts a run of a published pipeline (dev analysis only; uses compute)
 //   pnpm enginex:pipeline fetch <storageKey> <file>    → downloads a run's output file (via a 10-minute signed link)
 //   pnpm enginex:pipeline cancel <runId>               → cancels a run (stops its compute)
@@ -100,6 +101,11 @@ if (cmd === "get" && a) {
   mkdirSync(".pipelines", { recursive: true });
   writeFileSync(`.pipelines/job-${a}.json`, JSON.stringify(r.data, null, 2));
   console.log(`HTTP ${r.status}, saved .pipelines/job-${a}.json`);
+} else if (cmd === "job-events" && a) {
+  const r = await call("GET", `/v1/jobs/${encodeURIComponent(a)}/events`);
+  mkdirSync(".pipelines", { recursive: true });
+  writeFileSync(`.pipelines/job-events-${a}.json`, JSON.stringify(r.data, null, 2));
+  console.log(`HTTP ${r.status}, saved .pipelines/job-events-${a}.json`);
 } else if (cmd === "start" && a && b) {
   const r = await call("POST", `/v1/run/${encodeURIComponent(a)}`, JSON.parse(b));
   show(r);

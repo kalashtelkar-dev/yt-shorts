@@ -21,7 +21,7 @@ export async function CreatePage() {
   const needsAccount = env.AUTH_MODE === "full" && (!viewer || !!viewer.isAnonymous);
   // Only lengths that have a price can be picked.
   const items: CatalogOption[] = rows
-    .map(({ uploadTemplateId, indexTemplates, ...r }) => ({ ...r, uploads: !!(uploadTemplateId || indexTemplates?.gameplayUpload), durations: r.durations.filter((d) => (r.creditRanges[String(d)]?.max ?? 0) > 0) }))
+    .map(({ uploadTemplateId, indexTemplates, ...r }) => ({ ...r, uploads: !!(uploadTemplateId || indexTemplates?.gameplayUpload), songUploads: !!indexTemplates?.songUpload, durations: r.durations.filter((d) => (r.creditRanges[String(d)]?.max ?? 0) > 0) }))
     .filter((r) => r.durations.length > 0);
 
   const intro = (

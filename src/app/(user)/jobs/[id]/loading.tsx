@@ -7,6 +7,8 @@ export default function Loading() {
         <div className="flex flex-col gap-4">
           <div className="h-8 w-3/4 rounded-lg bg-panel sm:h-9" />
           <div className="h-5 w-full max-w-md rounded bg-panel" />
+          {/* "Made from": the edit line and two 96 × 54 stills with their padding */}
+          <div className="h-[212px] rounded-xl bg-panel" />
           <div className="h-11 rounded-xl bg-panel" />
         </div>
       </div>

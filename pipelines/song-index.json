@@ -6,7 +6,7 @@
     "version": 1
   },
   "name": "song-index",
-  "description": "Song link -> audio file, duration, loudness every 0.25 s (beats/drop), the lyrics as segments with every word force-aligned on the separated vocals, and where the voice is (voice activity). Cache per song; feeds every style-* pipeline.",
+  "description": "Song link -> audio file, duration, loudness every 0.05 s (the app measures the beat and drop from it), the lyrics as segments with every word force-aligned on the separated vocals, and where the voice is (voice activity). Cache per song; feeds every style-* pipeline.",
   "graph": {
     "version": 1,
     "nodes": [
@@ -19,7 +19,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 0
+          "y": 75
         }
       },
       {
@@ -32,11 +32,12 @@
           "codec": "m4a",
           "retries": 5,
           "fragmentRetries": 10,
-          "concurrentFragments": 8
+          "concurrentFragments": 8,
+          "impersonate": "chrome"
         },
         "position": {
-          "x": 300,
-          "y": 0
+          "x": 380,
+          "y": 75
         }
       },
       {
@@ -48,8 +49,8 @@
           "index": 0
         },
         "position": {
-          "x": 600,
-          "y": 0
+          "x": 760,
+          "y": 75
         }
       },
       {
@@ -66,7 +67,7 @@
             "-f",
             "lavfi",
             "-i",
-            "amovie='{in0}',aresample=8000,asetnsamples=n=2000:p=0,astats=metadata=1:reset=1",
+            "amovie='{in0}',aresample=8000,asetnsamples=n=400:p=0,astats=metadata=1:reset=1",
             "-show_entries",
             "frame=pts_time:frame_tags=lavfi.astats.Overall.RMS_level",
             "-of",
@@ -74,7 +75,7 @@
           ]
         },
         "position": {
-          "x": 900,
+          "x": 1140,
           "y": 0
         }
       },
@@ -91,8 +92,8 @@
           "format": "wav"
         },
         "position": {
-          "x": 1200,
-          "y": 0
+          "x": 1140,
+          "y": 150
         }
       },
       {
@@ -109,7 +110,7 @@
           ]
         },
         "position": {
-          "x": 1500,
+          "x": 1520,
           "y": 0
         }
       },
@@ -120,8 +121,8 @@
         "operation": "align",
         "params": {},
         "position": {
-          "x": 1800,
-          "y": 0
+          "x": 1900,
+          "y": 75
         }
       },
       {
@@ -136,8 +137,8 @@
           "paddingMs": 0
         },
         "position": {
-          "x": 0,
-          "y": 180
+          "x": 1520,
+          "y": 150
         }
       },
       {
@@ -152,8 +153,8 @@
           "title"
         ],
         "position": {
-          "x": 300,
-          "y": 180
+          "x": 2660,
+          "y": 75
         }
       }
     ],

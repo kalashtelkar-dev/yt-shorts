@@ -22,7 +22,7 @@ for (const seed of catalogSeed) {
     continue;
   }
   const ids = { templateId: seed.templateId, uploadTemplateId: seed.uploadTemplateId ?? null, indexTemplates: seed.indexTemplates ?? null, stageMap: seed.stageMap };
-  const index = (t: typeof ids.indexTemplates) => (t ? [t.gameplay, t.gameplayUpload ?? null, t.song].join() : ""); // jsonb reorders keys
+  const index = (t: typeof ids.indexTemplates) => (t ? [t.gameplay, t.gameplayUpload ?? null, t.song, t.songUpload ?? null].join() : ""); // jsonb reorders keys
   const stages = (m: unknown) => JSON.stringify((Array.isArray(m) ? m : []).map((e) => [e.match, e.label, e.itemSeconds ?? null, e.only ?? null]));
   if (ids.templateId === row.templateId && ids.uploadTemplateId === row.uploadTemplateId && index(ids.indexTemplates) === index(row.indexTemplates) && stages(ids.stageMap) === stages(row.stageMap)) {
     console.log(`${seed.slug}: up to date`);

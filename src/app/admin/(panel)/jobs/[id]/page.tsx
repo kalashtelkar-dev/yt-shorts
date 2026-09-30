@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { refundAction, retryAction } from "@/app/admin/actions";
+import { cancelAction, refundAction, retryAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/action-form";
 import { Empty, Field, JobStatus, PageHeader, Pager, pageOf, pageParam, Panel, Table, UserLabel } from "@/components/admin/bits";
+import { RunTimeline } from "@/components/admin/run-timeline";
 import { Input } from "@/components/ui/input";
 import { formatClock, formatCredits, formatRupees, formatTime, formatWhen } from "@/lib/format";
 import { requireAdmin } from "@/server/admin/guard";
@@ -56,7 +57,10 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
 
         <Panel title="Actions">
           {active ? (
-            <p className="text-sm text-muted-foreground">Refund and retry are available once the job finishes.</p>
+            <ActionForm action={cancelAction} submitLabel="Stop this job" variant="destructive">
+              <input type="hidden" name="jobId" value={job.id} />
+              <p className="text-sm text-muted-foreground">Cancels its run on Engine X. The user isn&apos;t charged. Refund and retry open once it has stopped.</p>
+            </ActionForm>
           ) : (
             <div className="flex flex-col gap-6">
               <ActionForm action={refundAction} submitLabel={refunded ? "Already refunded" : job.chargedCredits === 0 ? "Nothing to refund" : "Refund credits"} disabled={refunded || job.chargedCredits === 0}>
@@ -67,7 +71,6 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
               </ActionForm>
               <ActionForm action={retryAction} submitLabel="Retry as a new job" variant="outline">
                 <input type="hidden" name="jobId" value={job.id} />
-                <p className="text-sm text-muted-foreground">Same input, current template, no charge to the user.</p>
               </ActionForm>
             </div>
           )}
@@ -87,6 +90,10 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
           </div>
         </Panel>
       )}
+
+      <Panel title="Timeline">
+        <RunTimeline lanes={d.timeline} now={d.timelineAt} />
+      </Panel>
 
       <Panel title="Engine X steps (live)">
         {d.stepsError ? (

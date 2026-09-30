@@ -88,6 +88,10 @@ export function mockRunAt(runId: string, now: number): Run {
       status,
       error: fails ? `${s.engine}: worker exited with code 137 (out of memory)` : null,
       items: s.items ? { total: s.items, done: stuck ? Math.min(done, s.items - 1) : done, failed: 0 } : null,
+      // Downloads get an engine job whose trail reports progress: its id carries when the step starts and how long it takes.
+      job: s.engine === "media-fetch" ? `mockjob|${started + t}|${s.ms}` : null,
+      startedAt: status === "queued" ? null : new Date(started + t).toISOString(),
+      finishedAt: status === "succeeded" || status === "failed" ? new Date(started + t + (status === "failed" ? into : s.ms)).toISOString() : null,
     });
     t += s.ms;
   }
@@ -102,18 +106,26 @@ export function mockRunAt(runId: string, now: number): Run {
 }
 
 // The staged pipelines (pipelines/README.md), so the mock answers getPipeline like Engine X would.
-const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "style" | "style-lyrical"> = {
-  tpl_Yn4z8LVxNvFw: "gameplay", "tpl_MR-vL8OuXjf7": "gameplay-upload", tpl_8nvlocGpQ3nT: "song",
-  tpl_P0krMNymIjdb: "style", tpl_UbAzXGQjRxHH: "style-lyrical", tpl_9nMrXrS54mk3: "style-lyrical",
+const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "song-upload" | "style" | "style-lyrics"> = {
+  tpl_HHdgqEu5oz46: "gameplay", "tpl_MR-vL8OuXjf7": "gameplay-upload", tpl_2e8cr5IiomI_: "song",
+  tpl_hlx1_T84Rgxm: "gameplay", tpl_ZsNBv4Nq8gr9: "gameplay-upload", // 2026-09-30: the kill-list comma fix
+  tpl_52DGRdilA1Np: "song", "tpl_K5ShdxKZ-6TA": "style", tpl_PD9UFW46g82_: "style-lyrics", // 2026-09-30: measured beats
+  tpl_zlrNl0IuZBOA: "style", tpl_XsKCVIVoPX_A: "style-lyrics", // 2026-09-30: the app plans the clips (Smart Edit has the lyrics)
+  tpl_O0HL8QeDezDF: "gameplay", tpl_PL4pQSmiOqiJ: "gameplay-upload", // 2026-09-30: the player's deaths too
+  tpl_1UTbGuvdDoh1: "song-upload", // 2026-09-30: a song from an uploaded file
+  tpl_v6kGXcY1_I82: "gameplay", tpl_6V6yanSolGTE: "gameplay-upload", tpl_gLc9bMedBz16: "song", tpl_sVzbs9FDpeFW: "song-upload", // 2026-09-30: clean editor layout
+  tpl_A_MNb8DRHume: "style", tpl_dxRIHs2Bd4VP: "style-lyrics",
+  tpl_P0krMNymIjdb: "style", tpl_9nMrXrS54mk3: "style-lyrics",
 };
-const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation"];
+const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation", "plan"];
 function mockInputs(templateId: string): string[] {
   switch (STAGED[templateId]) {
     case "gameplay": return ["youtubeUrl", "playerName"];
     case "gameplay-upload": return ["video", "playerName"];
     case "song": return ["musicUrl"];
+    case "song-upload": return ["audio"];
     case "style": return STYLE_INPUTS;
-    case "style-lyrical": return [...STYLE_INPUTS, "lines", "lyricLook"];
+    case "style-lyrics": return [...STYLE_INPUTS, "lines", "lyricLook"];
   }
   if (templateId === "tpl_fgi2j31DHK_M" || templateId.includes("lyric")) return ["youtubeUrl", "playerName", "songUrl", "songStart", "songEnd", "lyricsLrc"];
   if (templateId === "tpl_24XhRunrxRjQ" || templateId.includes("upload")) return ["video", "videoTitle", "playerName", "durationSec"];
@@ -123,7 +135,7 @@ function mockInputs(templateId: string): string[] {
 /** Which pipeline ran, from its template id (the staged ones are listed above); anything else is the one-run style. */
 function kindOf(templateId: string): MockKind {
   const k = STAGED[templateId];
-  return k === "gameplay" || k === "gameplay-upload" ? "gameplay" : k === "song" ? "song" : k ? "style" : "single";
+  return k === "gameplay" || k === "gameplay-upload" ? "gameplay" : k === "song" || k === "song-upload" ? "song" : k ? "style" : "single";
 }
 
 export const mockClient: EngineXClient = {
@@ -134,6 +146,19 @@ export const mockClient: EngineXClient = {
   },
   async getRun(runId) {
     return mockRunAt(runId, Date.now());
+  },
+  async getJobEvents(jobId) {
+    const [, start, ms] = jobId.split("|").map(Number);
+    const f = Math.min(1, Math.max(0, (Date.now() - start) / ms));
+    const at = new Date().toISOString();
+    const eta = Math.max(0, Math.round(((0.7 - f) * ms) / 1000));
+    // Like a real YouTube download (2026-09-30 trails): the picture, then the sound, then joining them and saving the file.
+    const file = (totalBytes: number, part: number) => ({ at, kind: part < 1 ? "downloading" : "finished", data: { fraction: part, bytes: Math.round(part * totalBytes), totalBytes, eta } });
+    const trail = [file(720_000_000, Math.min(1, f / 0.65))];
+    if (f > 0.65) trail.push(file(30_000_000, Math.min(1, (f - 0.65) / 0.05)));
+    if (f > 0.7) trail.push({ at, kind: "postprocessing", data: { step: "Merger", phase: "postprocessing" } } as never);
+    if (f > 0.85) trail.push({ at, kind: "postprocessing", data: { step: "MoveFiles", phase: "postprocessing" } } as never);
+    return trail;
   },
   async cancelRun() {},
   async retryRun() {}, // the mock's failure is permanent, so a retried run fails again

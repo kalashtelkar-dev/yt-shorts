@@ -182,9 +182,15 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           </div>
 
           <h3 className="mt-4 text-sm font-medium">Limits</h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Montages running at once per user">
               <Input name="maxConcurrentJobsPerUser" type="number" step={1} min={1} max={50} required defaultValue={s.maxConcurrentJobsPerUser} className="font-mono" />
+            </Field>
+            <Field label="Montages running at once per admin">
+              <Input name="maxConcurrentJobsPerAdmin" type="number" step={1} min={1} max={50} required defaultValue={s.maxConcurrentJobsPerAdmin} className="font-mono" />
+            </Field>
+            <Field label="Montages running at once, whole site (the rest wait in line)">
+              <Input name="maxConcurrentJobsTotal" type="number" step={1} min={1} max={500} required defaultValue={s.maxConcurrentJobsTotal} className="font-mono" />
             </Field>
             <Field label="Stop a run after (minutes)">
               <Input name="maxRunMinutes" type="number" step={1} min={5} required defaultValue={s.maxRunMinutes} className="font-mono" />

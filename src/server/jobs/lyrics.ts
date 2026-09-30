@@ -1,7 +1,7 @@
 import "server-only";
 import { seeded } from "@/lib/seeded";
 
-// Lyrics for the lyrical style, karaoke-style: the song-index's aligned segments are cut into lines of 3–5 words (never
+// Lyrics for the styles that show the song's words (Smart Edit), karaoke-style: the song-index's aligned segments are cut into lines of 3–5 words (never
 // mixing two segments, two rows when wider than 16 characters). A line builds up word by word as each word is sung,
 // stays until its last word ends, then vanishes and the next line starts. Every line gets a random spot p (0-5,
 // pipelines/build.py SPOTS: upper or lower third, left, middle or right), never the same as the line before; the seed

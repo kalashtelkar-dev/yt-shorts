@@ -27,6 +27,7 @@ export async function createJobAction(_prev: CreateState, form: FormData): Promi
     source,
     url: source === "url" ? String(form.get("url") ?? "") : undefined,
     upload: source === "upload" && form.get("uploadKey") ? { key: String(form.get("uploadKey")), name: String(form.get("uploadName") ?? "") } : undefined,
+    songUpload: form.get("songSource") === "upload" && form.get("songUploadKey") ? { key: String(form.get("songUploadKey")), name: String(form.get("songUploadName") ?? "") } : undefined,
     durationSec: Number(form.get("duration")),
     fields,
   };
@@ -47,11 +48,11 @@ export async function createJobAction(_prev: CreateState, form: FormData): Promi
 }
 
 /** Presigned upload URL for a file the browser will PUT straight to storage. */
-export async function startUploadAction(file: { name: string; size: number; type: string }): Promise<ActionResult<{ url: string; key: string }>> {
+export async function startUploadAction(file: { name: string; size: number; type: string }, kind: unknown = "video"): Promise<ActionResult<{ url: string; key: string }>> {
   try {
     const user = await ensureUser();
-    if (user.suspendedAt) return { ok: false, error: { code: "suspended", message: "Your account is paused, so you can't upload videos." } };
-    return await issueUpload(user, file);
+    if (user.suspendedAt) return { ok: false, error: { code: "suspended", message: "Your account is paused, so you can't upload files." } };
+    return await issueUpload(user, file, kind === "audio" ? "audio" : "video");
   } catch (e) {
     if (e instanceof RateLimitedError || e instanceof SignInRequiredError) return { ok: false, error: { code: e instanceof RateLimitedError ? "rate_limited" : "sign_in", message: e.message } };
     console.error("[startUpload]", e instanceof Error ? e.message : e);
@@ -59,8 +60,8 @@ export async function startUploadAction(file: { name: string; size: number; type
   }
 }
 
-/** A fresh signed link each time it's asked for (CLAUDE.md §4.7). */
-export async function videoUrlAction(jobId: string): Promise<ActionResult<{ url: string; poster: string | null }>> {
+/** Links to the saved video and cover (or, until saved, fresh signed links: CLAUDE.md §4.7). */
+export async function videoUrlAction(jobId: string): Promise<ActionResult<{ url: string; poster: string | null; fallback: string | null }>> {
   try {
     const viewer = await getViewer();
     const video = viewer && (await signedVideo(jobId, viewer.id));

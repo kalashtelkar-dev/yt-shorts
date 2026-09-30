@@ -163,7 +163,7 @@ user_balances                -- cached balance, updated in the SAME transaction 
 settings                     -- single row or key/value
   costPaisePerSecond int  default 30      -- your Engine X cost (₹0.30/s)
   sellPaisePerCredit int  default null     -- for later checkout
-  starterCredits int     default e.g. 600
+  starterCredits int     default 1000 (one 30 s montage of any style)
   maxUploadMb int, maxConcurrentJobsPerUser int
 
 payments (later)             -- id, userId, provider 'razorpay', providerOrderId, amountPaise, credits, status, raw jsonb

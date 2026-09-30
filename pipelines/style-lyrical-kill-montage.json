@@ -19,7 +19,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 0
+          "y": 375
         }
       },
       {
@@ -30,8 +30,8 @@
         "sample": "{\"kills\":[{\"t\":51}],\"totalKills\":1}",
         "required": true,
         "position": {
-          "x": 300,
-          "y": 0
+          "x": 0,
+          "y": 1275
         }
       },
       {
@@ -42,20 +42,8 @@
         "sample": "{\"flex\":[{\"start\":20,\"what\":\"knife out\"}]}",
         "required": true,
         "position": {
-          "x": 600,
-          "y": 0
-        }
-      },
-      {
-        "id": "game_dur",
-        "kind": "input",
-        "name": "gameDurationSec",
-        "type": "text",
-        "sample": "2400",
-        "required": true,
-        "position": {
-          "x": 900,
-          "y": 0
+          "x": 0,
+          "y": 975
         }
       },
       {
@@ -66,8 +54,8 @@
         "sample": "",
         "required": true,
         "position": {
-          "x": 1200,
-          "y": 0
+          "x": 0,
+          "y": 75
         }
       },
       {
@@ -78,20 +66,8 @@
         "sample": "22",
         "required": true,
         "position": {
-          "x": 1500,
-          "y": 0
-        }
-      },
-      {
-        "id": "loudness_in",
-        "kind": "input",
-        "name": "loudness",
-        "type": "text",
-        "sample": "0.000000,-30.0",
-        "required": true,
-        "position": {
-          "x": 1800,
-          "y": 0
+          "x": 0,
+          "y": 225
         }
       },
       {
@@ -103,19 +79,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 180
-        }
-      },
-      {
-        "id": "variation_in",
-        "kind": "input",
-        "name": "variation",
-        "type": "text",
-        "sample": "Put the slow-motion clip third.",
-        "required": true,
-        "position": {
-          "x": 300,
-          "y": 180
+          "y": 825
         }
       },
       {
@@ -126,8 +90,8 @@
         "sample": "[]",
         "required": true,
         "position": {
-          "x": 600,
-          "y": 180
+          "x": 0,
+          "y": 525
         }
       },
       {
@@ -138,21 +102,8 @@
         "sample": "0",
         "required": true,
         "position": {
-          "x": 900,
-          "y": 180
-        }
-      },
-      {
-        "id": "llm",
-        "kind": "engine",
-        "engine": "llm",
-        "params": {
-          "use": "deepsoch-worker"
-        },
-        "operation": "connection",
-        "position": {
-          "x": 1200,
-          "y": 180
+          "x": 0,
+          "y": 675
         }
       },
       {
@@ -165,8 +116,8 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 1500,
-          "y": 180
+          "x": 1140,
+          "y": 1275
         }
       },
       {
@@ -179,8 +130,8 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 1800,
-          "y": 180
+          "x": 1520,
+          "y": 900
         }
       },
       {
@@ -192,8 +143,8 @@
           "value": 2.5
         },
         "position": {
-          "x": 0,
-          "y": 360
+          "x": 1520,
+          "y": 600
         }
       },
       {
@@ -205,8 +156,8 @@
           "value": 1.0
         },
         "position": {
-          "x": 300,
-          "y": 360
+          "x": 1520,
+          "y": 1050
         }
       },
       {
@@ -218,8 +169,8 @@
           "value": 0
         },
         "position": {
-          "x": 600,
-          "y": 360
+          "x": 1900,
+          "y": 900
         }
       },
       {
@@ -231,8 +182,8 @@
           "op": "subtract"
         },
         "position": {
-          "x": 900,
-          "y": 360
+          "x": 1900,
+          "y": 600
         }
       },
       {
@@ -244,8 +195,8 @@
           "op": "subtract"
         },
         "position": {
-          "x": 1200,
-          "y": 360
+          "x": 1900,
+          "y": 1050
         }
       },
       {
@@ -257,8 +208,8 @@
           "op": "max"
         },
         "position": {
-          "x": 1500,
-          "y": 360
+          "x": 2280,
+          "y": 675
         }
       },
       {
@@ -270,34 +221,8 @@
           "op": "max"
         },
         "position": {
-          "x": 1800,
-          "y": 360
-        }
-      },
-      {
-        "id": "starts_normal_csv",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "join",
-        "params": {
-          "separator": ", "
-        },
-        "position": {
-          "x": 0,
-          "y": 540
-        }
-      },
-      {
-        "id": "starts_slow_csv",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "join",
-        "params": {
-          "separator": ", "
-        },
-        "position": {
-          "x": 300,
-          "y": 540
+          "x": 2280,
+          "y": 825
         }
       },
       {
@@ -309,8 +234,8 @@
           "separator": "|"
         },
         "position": {
-          "x": 600,
-          "y": 540
+          "x": 2660,
+          "y": 525
         }
       },
       {
@@ -322,24 +247,21 @@
           "separator": "|"
         },
         "position": {
-          "x": 900,
-          "y": 540
+          "x": 2660,
+          "y": 675
         }
       },
       {
         "id": "plan",
         "kind": "engine",
-        "engine": "llm",
-        "operation": "chat",
+        "engine": "util",
+        "operation": "json-parse",
         "params": {
-          "system": "You are a senior gaming video editor who cuts beat-synced kill montages. You answer only with valid JSON.",
-          "json": true,
-          "maxTokens": 16384,
-          "temperature": 0.2
+          "fenced": false
         },
         "position": {
-          "x": 1200,
-          "y": 540
+          "x": 380,
+          "y": 825
         }
       },
       {
@@ -352,8 +274,8 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 1500,
-          "y": 540
+          "x": 2660,
+          "y": 375
         }
       },
       {
@@ -367,8 +289,8 @@
           "invert": true
         },
         "position": {
-          "x": 1800,
-          "y": 540
+          "x": 3040,
+          "y": 525
         }
       },
       {
@@ -382,8 +304,8 @@
           "compareTo": "20"
         },
         "position": {
-          "x": 0,
-          "y": 720
+          "x": 3800,
+          "y": 675
         }
       },
       {
@@ -397,8 +319,8 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 300,
-          "y": 720
+          "x": 4180,
+          "y": 675
         }
       },
       {
@@ -411,8 +333,8 @@
           "op": "matches"
         },
         "position": {
-          "x": 600,
-          "y": 720
+          "x": 4560,
+          "y": 675
         }
       },
       {
@@ -424,8 +346,8 @@
         },
         "operation": "json-pick",
         "position": {
-          "x": 900,
-          "y": 720
+          "x": 5320,
+          "y": 375
         }
       },
       {
@@ -437,8 +359,8 @@
         },
         "operation": "json-stringify",
         "position": {
-          "x": 1200,
-          "y": 720
+          "x": 5700,
+          "y": 525
         }
       },
       {
@@ -450,8 +372,8 @@
           "separator": ""
         },
         "position": {
-          "x": 1500,
-          "y": 720
+          "x": 6080,
+          "y": 600
         }
       },
       {
@@ -465,8 +387,8 @@
           "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=2*(PTS-STARTPTS),framerate=fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.15*max(0,1-in/20)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.25:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000,volume=0,apad=pad_dur=$3[a$1];"
         },
         "position": {
-          "x": 1800,
-          "y": 720
+          "x": 6460,
+          "y": 600
         }
       },
       {
@@ -480,8 +402,8 @@
           "replace": "movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,split=2[f$1][b$1];[b$1]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:2,scale=1080:1920,setsar=1[bg$1];[f$1]crop=trunc(ih*1.02/2)*2:ih:(iw-trunc(ih*1.02/2)*2)/2:0,scale=1080:-2:flags=lanczos,setsar=1[fg$1];[bg$1][fg$1]overlay=(W-w)/2:(H-h)/2[v$1pre];[v$1pre]zoompan=z='1+0.08*max(0,1-in/12)':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60,fade=t=in:st=0:d=0.12:color=white[v$1];amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
         },
         "position": {
-          "x": 0,
-          "y": 900
+          "x": 6840,
+          "y": 525
         }
       },
       {
@@ -495,8 +417,8 @@
         },
         "operation": "regex",
         "position": {
-          "x": 300,
-          "y": 900
+          "x": 6460,
+          "y": 450
         }
       },
       {
@@ -509,8 +431,8 @@
           "path": "len"
         },
         "position": {
-          "x": 600,
-          "y": 900
+          "x": 5320,
+          "y": 675
         }
       },
       {
@@ -524,8 +446,8 @@
           "compareTo": "1"
         },
         "position": {
-          "x": 900,
-          "y": 900
+          "x": 5320,
+          "y": 975
         }
       },
       {
@@ -538,8 +460,8 @@
           "path": "len"
         },
         "position": {
-          "x": 1200,
-          "y": 900
+          "x": 5700,
+          "y": 825
         }
       },
       {
@@ -551,8 +473,8 @@
           "op": "add"
         },
         "position": {
-          "x": 1500,
-          "y": 900
+          "x": 6080,
+          "y": 750
         }
       },
       {
@@ -564,7 +486,7 @@
           "op": "min"
         },
         "position": {
-          "x": 1800,
+          "x": 6460,
           "y": 900
         }
       },
@@ -577,8 +499,8 @@
           "value": 0.8
         },
         "position": {
-          "x": 0,
-          "y": 1080
+          "x": 6460,
+          "y": 750
         }
       },
       {
@@ -590,8 +512,8 @@
           "op": "subtract"
         },
         "position": {
-          "x": 300,
-          "y": 1080
+          "x": 6840,
+          "y": 675
         }
       },
       {
@@ -603,8 +525,8 @@
           "template": "[\"-y\", \"-filter_complex\", \"{{a}}{{b}}concat=n={{c}}:v=1:a=1[vc][ga];color=c=black@0:s=1080x1920:r=60,format=rgba,{{g}}split=2[t1][t2];[t1]gblur=sigma=14,colorchannelmixer=aa=1.6[glow];[vc][glow]overlay=0:0:shortest=1:format=auto[vg];[vg][t2]overlay=0:0:shortest=1:format=auto,fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];[ga]anull[a]\", \"-map\", \"[v]\", \"-map\", \"[a]\", \"-c:v\", \"{enc:h264}\", \"-preset\", \"p5\", \"-tune\", \"hq\", \"-rc\", \"vbr\", \"-cq\", \"20\", \"-b:v\", \"0\", \"-maxrate\", \"20M\", \"-bufsize\", \"40M\", \"-profile:v\", \"high\", \"-pix_fmt\", \"yuv420p\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{d}}\", \"cut.mp4\"]"
         },
         "position": {
-          "x": 600,
-          "y": 1080
+          "x": 14060,
+          "y": 675
         }
       },
       {
@@ -616,8 +538,8 @@
         },
         "operation": "json-parse",
         "position": {
-          "x": 900,
-          "y": 1080
+          "x": 14440,
+          "y": 675
         }
       },
       {
@@ -627,8 +549,8 @@
         "params": {},
         "operation": "merge",
         "position": {
-          "x": 1200,
-          "y": 1080
+          "x": 14820,
+          "y": 675
         }
       },
       {
@@ -640,8 +562,8 @@
         },
         "operation": "text",
         "position": {
-          "x": 1500,
-          "y": 1080
+          "x": 5320,
+          "y": 825
         }
       },
       {
@@ -653,8 +575,8 @@
         },
         "operation": "compare",
         "position": {
-          "x": 1800,
-          "y": 1080
+          "x": 5700,
+          "y": 675
         }
       },
       {
@@ -664,8 +586,8 @@
         "params": {},
         "operation": "gate",
         "position": {
-          "x": 0,
-          "y": 1260
+          "x": 15200,
+          "y": 675
         }
       },
       {
@@ -678,8 +600,8 @@
         },
         "operation": "custom",
         "position": {
-          "x": 300,
-          "y": 1260
+          "x": 15580,
+          "y": 675
         }
       },
       {
@@ -709,8 +631,8 @@
           ]
         },
         "position": {
-          "x": 600,
-          "y": 1260
+          "x": 2280,
+          "y": 375
         }
       },
       {
@@ -724,8 +646,8 @@
           "replace": "$1"
         },
         "position": {
-          "x": 900,
-          "y": 1260
+          "x": 13300,
+          "y": 675
         }
       },
       {
@@ -739,8 +661,8 @@
           "replace": "{\"t\":$1}"
         },
         "position": {
-          "x": 1200,
-          "y": 1260
+          "x": 380,
+          "y": 1275
         }
       },
       {
@@ -752,8 +674,8 @@
           "fenced": false
         },
         "position": {
-          "x": 1500,
-          "y": 1260
+          "x": 760,
+          "y": 1350
         }
       },
       {
@@ -767,8 +689,8 @@
           "replace": "{\"start\":$1}"
         },
         "position": {
-          "x": 1800,
-          "y": 1260
+          "x": 380,
+          "y": 675
         }
       },
       {
@@ -780,8 +702,8 @@
           "fenced": false
         },
         "position": {
-          "x": 0,
-          "y": 1440
+          "x": 760,
+          "y": 450
         }
       },
       {
@@ -794,8 +716,8 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 300,
-          "y": 1440
+          "x": 1140,
+          "y": 375
         }
       },
       {
@@ -808,8 +730,8 @@
           "dropEmpty": true
         },
         "position": {
-          "x": 600,
-          "y": 1440
+          "x": 1520,
+          "y": 450
         }
       },
       {
@@ -821,8 +743,8 @@
           "separator": "|"
         },
         "position": {
-          "x": 900,
-          "y": 1440
+          "x": 1900,
+          "y": 450
         }
       },
       {
@@ -834,47 +756,8 @@
           "template": "^({{a}}|{{b}}|{{c}})0*$"
         },
         "position": {
-          "x": 1200,
-          "y": 1440
-        }
-      },
-      {
-        "id": "plan_prompt",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "template",
-        "params": {
-          "template": "You are planning a 9:16 Valorant/CS2 lyrical kill montage: a very short intro flex, then back-to-back kills at normal speed and in slow motion, with the song's words on screen, cut to a song.\n\nTHE PLAYER'S KILLS, listed in THIS RUN'S MONTAGE ORDER (shuffled on purpose, so every montage of this match is different). Each entry is one kill, or a multi-kill whose \"more\" lists its next kills in seconds after t. Times are recording seconds; t is when the kill-feed row appears, and the real kill is up to 2 s before it:\n{{a}}\nThe recording is {{f}} s long.\n\nINTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{m}}\nCLIP STARTS for normal-speed clips, in RECORDING seconds (each 2.5 s before one kill entry, same order as the entries, separated by |): {{k}}\nSLOW-MOTION CLIP STARTS, in RECORDING seconds (each 1 s before one kill entry, same order): {{l}}\n\nTHE SONG: {{g}} s long. Loudness every 0.25 s as \"time,RMS dB\" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):\n{{h}}\n\nLENGTH: the montage is at most {{i}} seconds. The song plays from its start, so montage time = song time.\nVARIATION for this run (follow it, so every run looks different): {{n}}\n\nPlan it:\n1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).\n2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role \"flex\", len 1 to 1.5 s, ending on a beat. If there are no flex moments, the first kill clip opens the montage instead.\n3. Then the kill section: exactly ONE clip per kill entry (normal OR slow motion, never both), in exactly the order the entries are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from the lists above.\n   Every kill must stay on screen at least {{p}} s after it happens before the next clip starts, so:\n   - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.\n   - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).\n   For an entry with \"more\" you may lengthen its clip to show those next kills too (add the last one's offset to len); it must keep playing {{p}} s after the last kill it shows.\n   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.\n   Make play times whole beats where you can, so the cuts land on beats.\n4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade.\n5. totalKills is the number of kills inside the kept clips.\nWrite each clip's keys in exactly this order: id, start, len, speed, role, kill. kill is the t of the entry the clip shows, copied exactly (0 for the flex clip). Numbers, not strings, with at most 2 decimals. Number the clips id 1, 2, 3... in montage order.\nAnswer exactly in this shape: {\"beatSec\": number, \"dropAtSec\": number, \"clips\": [{\"id\": integer, \"start\": number, \"len\": number, \"speed\": number, \"role\": string, \"kill\": number}], \"totalKills\": integer}, with no other keys and nothing before or after the JSON. If there are no kills, answer {\"beatSec\": 0.5, \"dropAtSec\": 0, \"clips\": [], \"totalKills\": 0}."
-        },
-        "position": {
-          "x": 1500,
-          "y": 1440
-        }
-      },
-      {
-        "id": "kills_text",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "json-stringify",
-        "params": {
-          "indent": 0
-        },
-        "position": {
-          "x": 1800,
-          "y": 1440
-        }
-      },
-      {
-        "id": "flex_text",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "json-stringify",
-        "params": {
-          "indent": 0
-        },
-        "position": {
-          "x": 0,
-          "y": 1620
+          "x": 3040,
+          "y": 675
         }
       },
       {
@@ -886,8 +769,8 @@
           "op": "min"
         },
         "position": {
-          "x": 300,
-          "y": 1620
+          "x": 380,
+          "y": 75
         }
       },
       {
@@ -901,8 +784,8 @@
           "compareTo": "^(1(\\.0+)?|0?\\.50*)$"
         },
         "position": {
-          "x": 600,
-          "y": 1620
+          "x": 3420,
+          "y": 675
         }
       },
       {
@@ -915,8 +798,8 @@
           "keep": "first"
         },
         "position": {
-          "x": 900,
-          "y": 1620
+          "x": 4940,
+          "y": 675
         }
       },
       {
@@ -928,8 +811,8 @@
           "op": "count"
         },
         "position": {
-          "x": 1200,
-          "y": 1620
+          "x": 5320,
+          "y": 525
         }
       },
       {
@@ -941,8 +824,8 @@
           "value": "\n15;1;3.5;1.5;[0-2](?:\\.\\d+)?|3(?:\\.(?:[0-4]\\d*)?)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-4]\\d*)?)?\n30;1.5;4;1.75;[0-3](?:\\.\\d+)?;[0-0](?:\\.\\d+)?|1(?:\\.(?:[0-6]\\d*|7[0-4]\\d*|7)?)?\n60;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?\n90;4;6.5;3;[0-5](?:\\.\\d+)?|6(?:\\.(?:[0-4]\\d*)?)?;[0-2](?:\\.\\d+)?\ndefault;2;4.5;2;[0-3](?:\\.\\d+)?|4(?:\\.(?:[0-4]\\d*)?)?;[0-1](?:\\.\\d+)?"
         },
         "position": {
-          "x": 1500,
-          "y": 1620
+          "x": 380,
+          "y": 1125
         }
       },
       {
@@ -954,21 +837,8 @@
           "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
         },
         "position": {
-          "x": 1800,
-          "y": 1620
-        }
-      },
-      {
-        "id": "hold_sec",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "replace": "$1"
-        },
-        "position": {
-          "x": 0,
-          "y": 1800
+          "x": 380,
+          "y": 975
         }
       },
       {
@@ -980,8 +850,8 @@
           "replace": "$2"
         },
         "position": {
-          "x": 300,
-          "y": 1800
+          "x": 760,
+          "y": 600
         }
       },
       {
@@ -993,8 +863,8 @@
           "replace": "$3"
         },
         "position": {
-          "x": 600,
-          "y": 1800
+          "x": 760,
+          "y": 900
         }
       },
       {
@@ -1006,8 +876,8 @@
           "replace": "$4"
         },
         "position": {
-          "x": 900,
-          "y": 1800
+          "x": 760,
+          "y": 750
         }
       },
       {
@@ -1019,8 +889,8 @@
           "replace": "$5"
         },
         "position": {
-          "x": 1200,
-          "y": 1800
+          "x": 760,
+          "y": 1050
         }
       },
       {
@@ -1032,8 +902,8 @@
           "indent": 0
         },
         "position": {
-          "x": 1500,
-          "y": 1800
+          "x": 760,
+          "y": 1200
         }
       },
       {
@@ -1047,8 +917,8 @@
           "replace": "{\"kill\":\"s$1\","
         },
         "position": {
-          "x": 1800,
-          "y": 1800
+          "x": 1140,
+          "y": 1125
         }
       },
       {
@@ -1060,8 +930,8 @@
           "template": "(\\{(?=[^{}]*\"speed\":\"?1(?:\\.0+)?\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
         },
         "position": {
-          "x": 0,
-          "y": 1980
+          "x": 1140,
+          "y": 675
         }
       },
       {
@@ -1073,8 +943,8 @@
           "template": "$1{{a}}"
         },
         "position": {
-          "x": 300,
-          "y": 1980
+          "x": 1140,
+          "y": 525
         }
       },
       {
@@ -1086,8 +956,8 @@
           "flags": "g"
         },
         "position": {
-          "x": 600,
-          "y": 1980
+          "x": 1520,
+          "y": 750
         }
       },
       {
@@ -1099,8 +969,8 @@
           "template": "(\\{(?=[^{}]*\"speed\":\"?0?\\.50*\"?[,}])(?![^{}]*\"role\":\"flex\")[^{}]*?\"len\":)\"?(?:{{a}})\"?(?=[,}])"
         },
         "position": {
-          "x": 900,
-          "y": 1980
+          "x": 1140,
+          "y": 975
         }
       },
       {
@@ -1112,8 +982,8 @@
           "template": "$1{{a}}"
         },
         "position": {
-          "x": 1200,
-          "y": 1980
+          "x": 1140,
+          "y": 825
         }
       },
       {
@@ -1125,8 +995,8 @@
           "flags": "g"
         },
         "position": {
-          "x": 1500,
-          "y": 1980
+          "x": 1900,
+          "y": 750
         }
       },
       {
@@ -1138,8 +1008,8 @@
           "fenced": false
         },
         "position": {
-          "x": 1800,
-          "y": 1980
+          "x": 2280,
+          "y": 525
         }
       },
       {
@@ -1151,8 +1021,8 @@
           "value": "\n0;{in0};fontsize=96:fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85;42.9\n1;{in1};fontsize=61:fontcolor=white:borderw=5:bordercolor=black:shadowx=0:shadowy=8:shadowcolor=black@0.75;37.7\n2;{in2};fontsize=69:fontcolor=0xFFD83D:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black;46.4\n3;{in3};fontsize=78:fontcolor=white:borderw=6:bordercolor=0x141414:shadowx=6:shadowy=6:shadowcolor=0xE5484D;43.8\n4;{in4};fontsize=67:fontcolor=white:borderw=5:bordercolor=0x5B21B6:shadowx=6:shadowy=6:shadowcolor=black@0.8;40.3\n5;{in5};fontsize=68:fontcolor=0xF4F4F4:borderw=4:bordercolor=black:shadowx=7:shadowy=7:shadowcolor=black@0.7;41.1\n6;{in6};fontsize=67:fontcolor=0x3DE8FF:borderw=4:bordercolor=0x03141A:shadowx=6:shadowy=6:shadowcolor=black@0.85;38.6\n7;{in7};fontsize=61:fontcolor=white:borderw=5:bordercolor=black:shadowx=4:shadowy=7:shadowcolor=0xFF3B30;41.7\n8;{in8};fontsize=53:fontcolor=white:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.8;47.3\n9;{in9};fontsize=80:fontcolor=0xFFE14D:borderw=5:bordercolor=0x1A1200:shadowx=6:shadowy=6:shadowcolor=black@0.85;39.5\ndefault;{in0};fontsize=96:fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85;42.9"
         },
         "position": {
-          "x": 0,
-          "y": 2160
+          "x": 380,
+          "y": 525
         }
       },
       {
@@ -1164,8 +1034,8 @@
           "template": "^[\\s\\S]*?\\n(?:{{a}}|default);([^;\\n]*);([^;\\n]*);([^\\n]*)[\\s\\S]*$"
         },
         "position": {
-          "x": 300,
-          "y": 2160
+          "x": 380,
+          "y": 375
         }
       },
       {
@@ -1177,8 +1047,8 @@
           "replace": "$1"
         },
         "position": {
-          "x": 600,
-          "y": 2160
+          "x": 760,
+          "y": 300
         }
       },
       {
@@ -1190,8 +1060,8 @@
           "replace": "$2"
         },
         "position": {
-          "x": 900,
-          "y": 2160
+          "x": 760,
+          "y": 150
         }
       },
       {
@@ -1203,8 +1073,8 @@
           "replace": "$3"
         },
         "position": {
-          "x": 1200,
-          "y": 2160
+          "x": 760,
+          "y": 0
         }
       },
       {
@@ -1216,8 +1086,8 @@
           "template": "[\"-y\", \"-f\", \"data\", \"-i\", \"{{a}}\", \"-map\", \"0\", \"-c\", \"copy\", \"-f\", \"data\", \"{out}\"]"
         },
         "position": {
-          "x": 1500,
-          "y": 2160
+          "x": 1140,
+          "y": 225
         }
       },
       {
@@ -1229,8 +1099,8 @@
           "fenced": false
         },
         "position": {
-          "x": 1800,
-          "y": 2160
+          "x": 1520,
+          "y": 300
         }
       },
       {
@@ -1240,8 +1110,8 @@
         "operation": "merge",
         "params": {},
         "position": {
-          "x": 0,
-          "y": 2340
+          "x": 1900,
+          "y": 300
         }
       },
       {
@@ -1253,8 +1123,8 @@
           "template": "{{a}}"
         },
         "position": {
-          "x": 300,
-          "y": 2340
+          "x": 6840,
+          "y": 825
         }
       },
       {
@@ -1266,8 +1136,8 @@
           "fenced": false
         },
         "position": {
-          "x": 600,
-          "y": 2340
+          "x": 380,
+          "y": 225
         }
       },
       {
@@ -1280,8 +1150,8 @@
           "op": "less-or-equal"
         },
         "position": {
-          "x": 900,
-          "y": 2340
+          "x": 7220,
+          "y": 675
         }
       },
       {
@@ -1293,8 +1163,8 @@
           "indent": 0
         },
         "position": {
-          "x": 1200,
-          "y": 2340
+          "x": 7600,
+          "y": 675
         }
       },
       {
@@ -1306,8 +1176,8 @@
           "separator": ""
         },
         "position": {
-          "x": 1500,
-          "y": 2340
+          "x": 7980,
+          "y": 675
         }
       },
       {
@@ -1321,8 +1191,8 @@
           "replace": "\"x0\":\"70\",\"k\":\"0\",\"y\":\"h*0.34\""
         },
         "position": {
-          "x": 1800,
-          "y": 2340
+          "x": 8360,
+          "y": 600
         }
       },
       {
@@ -1336,8 +1206,8 @@
           "replace": "\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.34\""
         },
         "position": {
-          "x": 0,
-          "y": 2520
+          "x": 8740,
+          "y": 675
         }
       },
       {
@@ -1351,8 +1221,8 @@
           "replace": "\"x0\":\"w-70\",\"k\":\"1\",\"y\":\"h*0.34\""
         },
         "position": {
-          "x": 300,
-          "y": 2520
+          "x": 9120,
+          "y": 675
         }
       },
       {
@@ -1366,8 +1236,8 @@
           "replace": "\"x0\":\"70\",\"k\":\"0\",\"y\":\"h*0.64\""
         },
         "position": {
-          "x": 600,
-          "y": 2520
+          "x": 9500,
+          "y": 675
         }
       },
       {
@@ -1381,8 +1251,8 @@
           "replace": "\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.64\""
         },
         "position": {
-          "x": 900,
-          "y": 2520
+          "x": 9880,
+          "y": 675
         }
       },
       {
@@ -1396,8 +1266,8 @@
           "replace": "\"x0\":\"w-70\",\"k\":\"1\",\"y\":\"h*0.64\""
         },
         "position": {
-          "x": 1200,
-          "y": 2520
+          "x": 10260,
+          "y": 675
         }
       },
       {
@@ -1411,8 +1281,8 @@
           "replace": "{\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.64\","
         },
         "position": {
-          "x": 1500,
-          "y": 2520
+          "x": 10640,
+          "y": 675
         }
       },
       {
@@ -1426,8 +1296,8 @@
           "replace": "\"dy\":\"-lh/2\""
         },
         "position": {
-          "x": 1800,
-          "y": 2520
+          "x": 11020,
+          "y": 675
         }
       },
       {
@@ -1441,8 +1311,8 @@
           "replace": "\"dy\":\"-lh-8\""
         },
         "position": {
-          "x": 0,
-          "y": 2700
+          "x": 11400,
+          "y": 675
         }
       },
       {
@@ -1456,8 +1326,8 @@
           "replace": "\"dy\":\"+8\""
         },
         "position": {
-          "x": 300,
-          "y": 2700
+          "x": 11780,
+          "y": 675
         }
       },
       {
@@ -1471,8 +1341,8 @@
           "replace": "{\"dy\":\"-lh/2\","
         },
         "position": {
-          "x": 600,
-          "y": 2700
+          "x": 12160,
+          "y": 675
         }
       },
       {
@@ -1486,8 +1356,8 @@
           "replace": "{\"a\":$1,\"b\":$2,\"ix\":0,\"iy\":0,\"ox\":0,\"oy\":0,"
         },
         "position": {
-          "x": 900,
-          "y": 2700
+          "x": 12540,
+          "y": 675
         }
       },
       {
@@ -1500,8 +1370,8 @@
           "pattern": "\\{(?=[^}]*\"s\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"e\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"t\":\"([^\"]+)\")(?=[^}]*\"x0\":\"([^\"]+)\")(?=[^}]*\"k\":\"([^\"]+)\")(?=[^}]*\"n\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"y\":\"([^\"]+)\")(?=[^}]*\"dy\":\"([^\"]+)\")(?=[^}]*\"a\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"b\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"ix\":\"?(-?\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"iy\":\"?(-?\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"ox\":\"?(-?\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"oy\":\"?(-?\\d+(?:\\.\\d+)?)\"?)[^}]*\\}"
         },
         "position": {
-          "x": 1200,
-          "y": 2700
+          "x": 12920,
+          "y": 675
         }
       },
       {
@@ -1513,8 +1383,8 @@
           "template": "\u00a7drawtext=fontfile='{in2}':text='$3':{{a}}:x='$4-$5*$6*@cw+$11*240*pow(max(0,1-(t-$9)/0.18),2)+$13*240*pow(max(0,(t-$10)/0.2),2)':y='$7$8+$12*160*pow(max(0,1-(t-$9)/0.18),2)+$14*160*pow(max(0,(t-$10)/0.2),2)':alpha='min(1,(t-$9)/0.18)*(1-min(1,max(0,(t-$10)/0.2)))':enable='gte(t,$1)*lt(t,$2)',\u00a7"
         },
         "position": {
-          "x": 1500,
-          "y": 2700
+          "x": 1140,
+          "y": 75
         }
       },
       {
@@ -1527,8 +1397,8 @@
           "pattern": "@cw"
         },
         "position": {
-          "x": 1800,
-          "y": 2700
+          "x": 13680,
+          "y": 675
         }
       },
       {
@@ -1544,8 +1414,8 @@
           "format": "wav"
         },
         "position": {
-          "x": 0,
-          "y": 2880
+          "x": 15960,
+          "y": 600
         }
       },
       {
@@ -1557,8 +1427,8 @@
           "template": "[\"-y\", \"-i\", \"{in0}\", \"-i\", \"{in1}\", \"-i\", \"{in2}\", \"-filter_complex\", \"[2:a]aresample=48000,volume=0.3[g];[1:a]aresample=48000,volume=1[m];[m][g]amix=inputs=2:duration=shortest:normalize=0,afade=t=in:st=0:d=0.3,afade=t=out:st={{a}}:d=0.8[a]\", \"-map\", \"0:v\", \"-map\", \"[a]\", \"-c:v\", \"copy\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{b}}\", \"{out}\"]"
         },
         "position": {
-          "x": 300,
-          "y": 2880
+          "x": 7220,
+          "y": 525
         }
       },
       {
@@ -1570,8 +1440,8 @@
           "fenced": false
         },
         "position": {
-          "x": 600,
-          "y": 2880
+          "x": 7600,
+          "y": 525
         }
       },
       {
@@ -1581,8 +1451,8 @@
         "operation": "merge",
         "params": {},
         "position": {
-          "x": 900,
-          "y": 2880
+          "x": 7980,
+          "y": 525
         }
       },
       {
@@ -1595,8 +1465,8 @@
           "output": "montage.mp4"
         },
         "position": {
-          "x": 1200,
-          "y": 2880
+          "x": 16340,
+          "y": 675
         }
       },
       {
@@ -1609,8 +1479,8 @@
           "replace": "$1"
         },
         "position": {
-          "x": 1500,
-          "y": 2880
+          "x": 2280,
+          "y": 975
         }
       },
       {
@@ -1623,8 +1493,8 @@
           "replace": "0"
         },
         "position": {
-          "x": 1800,
-          "y": 2880
+          "x": 2660,
+          "y": 825
         }
       },
       {
@@ -1636,8 +1506,8 @@
           "value": 2.3
         },
         "position": {
-          "x": 0,
-          "y": 3060
+          "x": 2660,
+          "y": 975
         }
       },
       {
@@ -1649,8 +1519,8 @@
           "op": "add"
         },
         "position": {
-          "x": 300,
-          "y": 3060
+          "x": 3040,
+          "y": 825
         }
       },
       {
@@ -1662,8 +1532,8 @@
           "op": "min"
         },
         "position": {
-          "x": 600,
-          "y": 3060
+          "x": 7220,
+          "y": 825
         }
       },
       {
@@ -1675,8 +1545,8 @@
           "template": "[\"-y\", \"-ss\", \"{{a}}\", \"-i\", \"{in0}\", \"-frames:v\", \"1\", \"-vf\", \"scale=720:-2\", \"-q:v\", \"3\", \"{out}\"]"
         },
         "position": {
-          "x": 900,
-          "y": 3060
+          "x": 7600,
+          "y": 825
         }
       },
       {
@@ -1688,8 +1558,8 @@
           "fenced": false
         },
         "position": {
-          "x": 1200,
-          "y": 3060
+          "x": 7980,
+          "y": 825
         }
       },
       {
@@ -1699,8 +1569,8 @@
         "operation": "merge",
         "params": {},
         "position": {
-          "x": 1500,
-          "y": 3060
+          "x": 8360,
+          "y": 750
         }
       },
       {
@@ -1718,8 +1588,8 @@
           ]
         },
         "position": {
-          "x": 1800,
-          "y": 3060
+          "x": 15960,
+          "y": 750
         }
       },
       {
@@ -1731,23 +1601,24 @@
           "thumbnail"
         ],
         "position": {
+          "x": 17100,
+          "y": 675
+        }
+      },
+      {
+        "id": "plan_in",
+        "kind": "input",
+        "name": "plan",
+        "type": "text",
+        "sample": "{\"beatSec\":0.5,\"dropAtSec\":0,\"clips\":[],\"totalKills\":0}",
+        "required": true,
+        "position": {
           "x": 0,
-          "y": 3240
+          "y": 1125
         }
       }
     ],
     "edges": [
-      {
-        "id": "llm.connection->plan.connection",
-        "from": {
-          "node": "llm",
-          "port": "connection"
-        },
-        "to": {
-          "node": "plan",
-          "port": "connection"
-        }
-      },
       {
         "id": "clip_id_range.value->clip_id_range_text.value",
         "from": {
@@ -1980,17 +1851,6 @@
         }
       },
       {
-        "id": "starts_normal.value->starts_normal_csv.value",
-        "from": {
-          "node": "starts_normal",
-          "port": "value"
-        },
-        "to": {
-          "node": "starts_normal_csv",
-          "port": "value"
-        }
-      },
-      {
         "id": "starts_normal.value->starts_normal_alt.value",
         "from": {
           "node": "starts_normal",
@@ -2043,17 +1903,6 @@
         "to": {
           "node": "starts_slow",
           "port": "b"
-        }
-      },
-      {
-        "id": "starts_slow.value->starts_slow_csv.value",
-        "from": {
-          "node": "starts_slow",
-          "port": "value"
-        },
-        "to": {
-          "node": "starts_slow_csv",
-          "port": "value"
         }
       },
       {
@@ -2244,28 +2093,6 @@
         }
       },
       {
-        "id": "kills_json.value->kills_text.value",
-        "from": {
-          "node": "kills_json",
-          "port": "value"
-        },
-        "to": {
-          "node": "kills_text",
-          "port": "value"
-        }
-      },
-      {
-        "id": "flex_list.value->flex_text.value",
-        "from": {
-          "node": "flex_list",
-          "port": "value"
-        },
-        "to": {
-          "node": "flex_text",
-          "port": "value"
-        }
-      },
-      {
         "id": "song_dur.value->cap.a",
         "from": {
           "node": "song_dur",
@@ -2285,116 +2112,6 @@
         "to": {
           "node": "cap",
           "port": "b"
-        }
-      },
-      {
-        "id": "kills_text.value->plan_prompt.a",
-        "from": {
-          "node": "kills_text",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "a"
-        }
-      },
-      {
-        "id": "game_dur.value->plan_prompt.f",
-        "from": {
-          "node": "game_dur",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "f"
-        }
-      },
-      {
-        "id": "flex_text.value->plan_prompt.m",
-        "from": {
-          "node": "flex_text",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "m"
-        }
-      },
-      {
-        "id": "starts_normal_alt.value->plan_prompt.k",
-        "from": {
-          "node": "starts_normal_alt",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "k"
-        }
-      },
-      {
-        "id": "starts_slow_alt.value->plan_prompt.l",
-        "from": {
-          "node": "starts_slow_alt",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "l"
-        }
-      },
-      {
-        "id": "song_dur.value->plan_prompt.g",
-        "from": {
-          "node": "song_dur",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "g"
-        }
-      },
-      {
-        "id": "loudness_in.value->plan_prompt.h",
-        "from": {
-          "node": "loudness_in",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "h"
-        }
-      },
-      {
-        "id": "cap.value->plan_prompt.i",
-        "from": {
-          "node": "cap",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "i"
-        }
-      },
-      {
-        "id": "variation_in.value->plan_prompt.n",
-        "from": {
-          "node": "variation_in",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "n"
-        }
-      },
-      {
-        "id": "plan_prompt.value->plan.prompt",
-        "from": {
-          "node": "plan_prompt",
-          "port": "value"
-        },
-        "to": {
-          "node": "plan",
-          "port": "prompt"
         }
       },
       {
@@ -2552,28 +2269,6 @@
         }
       },
       {
-        "id": "hold_table.value->hold_sec.text",
-        "from": {
-          "node": "hold_table",
-          "port": "value"
-        },
-        "to": {
-          "node": "hold_sec",
-          "port": "text"
-        }
-      },
-      {
-        "id": "hold_pattern.value->hold_sec.pattern",
-        "from": {
-          "node": "hold_pattern",
-          "port": "value"
-        },
-        "to": {
-          "node": "hold_sec",
-          "port": "pattern"
-        }
-      },
-      {
         "id": "hold_table.value->len_normal.text",
         "from": {
           "node": "hold_table",
@@ -2662,43 +2357,10 @@
         }
       },
       {
-        "id": "len_normal.text->plan_prompt.o",
-        "from": {
-          "node": "len_normal",
-          "port": "text"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "o"
-        }
-      },
-      {
-        "id": "hold_sec.text->plan_prompt.p",
-        "from": {
-          "node": "hold_sec",
-          "port": "text"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "p"
-        }
-      },
-      {
-        "id": "len_slow.text->plan_prompt.q",
-        "from": {
-          "node": "len_slow",
-          "port": "text"
-        },
-        "to": {
-          "node": "plan_prompt",
-          "port": "q"
-        }
-      },
-      {
-        "id": "plan.json->plan_text.value",
+        "id": "plan.value->plan_text.value",
         "from": {
           "node": "plan",
-          "port": "json"
+          "port": "value"
         },
         "to": {
           "node": "plan_text",
@@ -3520,10 +3182,10 @@
         }
       },
       {
-        "id": "plan.json->out.plan",
+        "id": "plan.value->out.plan",
         "from": {
           "node": "plan",
-          "port": "json"
+          "port": "value"
         },
         "to": {
           "node": "out",
@@ -3539,6 +3201,17 @@
         "to": {
           "node": "out",
           "port": "thumbnail"
+        }
+      },
+      {
+        "id": "plan_in.value->plan.text",
+        "from": {
+          "node": "plan_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "plan",
+          "port": "text"
         }
       }
     ]

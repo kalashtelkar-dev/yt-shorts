@@ -3,6 +3,7 @@ import { db, type Tx } from "@/db/client";
 import { Prisma } from "@/generated/prisma/client";
 import type { ActionResult } from "@/lib/jobs";
 import { adjustCredits, getBalance, InsufficientCreditsError, refundJob } from "@/server/credits";
+import { cancelJob } from "@/server/jobs/lifecycle";
 import { enqueueStart } from "@/server/queue";
 import type { Admin } from "./guard";
 
@@ -81,6 +82,15 @@ export async function refundJobByAdmin(admin: Admin, jobId: string, reason: stri
   });
 }
 
+/** Stops an unfinished job and its Engine X runs. The user isn't charged. */
+export async function cancelJobByAdmin(admin: Admin, jobId: string): Promise<ActionResult<null>> {
+  const before = await db.job.findUnique({ where: { id: jobId }, select: { status: true, currentStage: true } });
+  if (!before) return fail("not_found", "That job doesn't exist.");
+  if (!(await cancelJob(jobId, `canceled by admin ${admin.email}`))) return fail("finished", "This job has already finished.");
+  await db.$transaction((tx) => audit(tx, admin, "job.cancel", `job:${jobId}`, before, { status: "canceled" }));
+  return { ok: true, data: null };
+}
+
 /**
  * Run the same montage again as a new job, free of charge for the user (support gesture).
  * Uses the catalog's current template, so a fixed pipeline is picked up; the input stays the same.
@@ -92,12 +102,15 @@ export async function retryJob(admin: Admin, jobId: string): Promise<ActionResul
     if (["queued", "starting", "running"].includes(old.status)) return fail("running", "This job is still running. Wait for it to finish.");
     const item = await tx.catalogItem.findUnique({ where: { id: old.catalogItemId } });
     if (!item) return fail("not_found", "This job's style no longer exists.");
+    // The style's current pipelines, snapshotted as createJob does: a staged style needs its index pipelines too, or the
+    // worker sends the job's input straight to the style pipeline ("the request body does not match", 2026-09-30).
     const job = await tx.job.create({
       data: {
         userId: old.userId,
         catalogItemId: item.id,
         catalogSlug: item.slug,
-        templateId: item.templateId,
+        templateId: old.source === "upload" && !item.indexTemplates ? (item.uploadTemplateId ?? item.templateId) : item.templateId,
+        indexTemplates: item.indexTemplates ?? Prisma.DbNull,
         input: old.input as Prisma.InputJsonValue,
         source: old.source,
         sourceUrl: old.sourceUrl,

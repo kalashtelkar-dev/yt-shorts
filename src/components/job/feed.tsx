@@ -9,11 +9,12 @@ export function Frame({ children, className }: { children?: React.ReactNode; cla
 
 type Tone = "you" | "other" | "active" | "done" | "failed";
 
-export function FeedRow({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+export function FeedRow({ tone, children, className }: { tone: Tone; children: React.ReactNode; className?: string }) {
   return (
     <div
       className={cn(
         "flex max-w-full items-center gap-2 rounded-[3px] border-l-2 bg-black/70 px-2.5 py-1.5 text-[13px] leading-tight",
+        className,
         tone === "you" && "border-danger text-foreground",
         tone === "active" && "border-danger text-foreground",
         tone === "other" && "border-transparent text-muted-foreground",
@@ -30,11 +31,24 @@ export function FeedRow({ tone, children }: { tone: Tone; children: React.ReactN
 const FEED_ROWS = 4;
 
 /** Stages as kill-feed rows: finished ones dim, the current one marked. */
-export function StageFeed({ stages, stage, status, detail }: { stages: string[]; stage: string | null; status: "queued" | "running" | "succeeded" | "failed"; detail?: string | null }) {
+export function StageFeed({
+  stages,
+  stage,
+  status,
+  detail,
+  below,
+}: {
+  stages: string[];
+  stage: string | null;
+  status: "queued" | "running" | "succeeded" | "failed";
+  detail?: string | null;
+  /** Attached under the current row, as one piece with it (the video download's progress). */
+  below?: React.ReactNode;
+}) {
   if (status === "queued" || (status === "running" && !stage)) {
     return (
       <FeedRow tone="active">
-        <Pulse /> Waiting for an editing server
+        <Pulse /> {status === "queued" && detail ? `Waiting in line · ${detail}` : "Waiting for an editing server"}
       </FeedRow>
     );
   }
@@ -47,12 +61,29 @@ export function StageFeed({ stages, stage, status, detail }: { stages: string[];
         const i = first + j;
         const isCurrent = i === current && status !== "succeeded";
         const tone: Tone = isCurrent ? (status === "failed" ? "failed" : "active") : "done";
-        return (
-          <FeedRow key={label} tone={tone}>
-            {isCurrent ? status === "failed" ? <X className="size-3.5 shrink-0" aria-hidden /> : <Pulse /> : <Check className="size-3.5 shrink-0" aria-hidden />}
+        const attached = isCurrent && status === "running" && below;
+        const row = (
+          <FeedRow key={label} tone={tone} className={attached ? "rounded-b-none" : undefined}>
+            {isCurrent ? (
+              status === "failed" ? (
+                <X className="size-3.5 shrink-0" aria-hidden />
+              ) : (
+                <Pulse />
+              )
+            ) : (
+              <Check className="size-3.5 shrink-0" aria-hidden />
+            )}
             <span className="truncate">{label}</span>
             {isCurrent && detail && status === "running" && <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular">{detail}</span>}
           </FeedRow>
+        );
+        return attached ? (
+          <div key={label} className="flex max-w-full flex-col items-stretch">
+            {row}
+            {below}
+          </div>
+        ) : (
+          row
         );
       })}
     </>

@@ -1,10 +1,11 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 import { z } from "zod";
-import { db } from "@/db/client";
+import { db, type Tx } from "@/db/client";
 import type { CatalogField } from "@/db/types";
 import { Prisma } from "@/generated/prisma/client";
 import { MapInputError, mapInput } from "@/server/catalog";
+import { isAdmin } from "@/server/admin/guard";
 import { checkStartGate, InsufficientCreditsError } from "@/server/credits";
 import { enqueueStart } from "@/server/queue";
 import { underLimit } from "@/server/redis";
@@ -37,6 +38,8 @@ export const createJobInput = z.strictObject({
   source: z.enum(["url", "upload"]).default("url"),
   url: z.string().max(500).optional(),
   upload: z.strictObject({ key: z.string().min(1).max(300), name: z.string().max(300) }).optional(),
+  /** The song as an uploaded audio file instead of the song link field (the user, 2026-09-30). */
+  songUpload: z.strictObject({ key: z.string().min(1).max(300), name: z.string().max(300) }).optional(),
   durationSec: z.coerce.number().int(),
   fields: z.record(z.string().max(64), z.unknown()).default({}),
 });
@@ -45,22 +48,36 @@ export type CreateJobInput = z.input<typeof createJobInput>;
 // Staged styles shuffle where the slow-motion and speed-up clips go on every run (docs/edit-styles/kill-montage.md).
 const SLOW_AT = ["first", "second", "third", "in the middle", "second to last", "last", "on the drop"];
 export const randomVariation = () => `Put the slow-motion clip ${SLOW_AT[randomInt(SLOW_AT.length)]}.`;
-/** One of the lyrical style's ten looks (font, colours); the pipeline maps the digit (pipelines/build.py LOOKS). */
+/** One of the lyrics' ten looks (font, colours), for styles that show the song's words; the pipeline maps the digit (pipelines/build.py LOOKS). */
 export const randomLyricLook = () => String(randomInt(10));
 /** Seeds this job's kill order (shuffleKills in staged.ts). */
 export const randomKillSeed = () => String(randomInt(1, 2 ** 31));
 
 const fail = (code: string, message: string, field?: string): ActionResult<never> => ({ ok: false, error: { code, message, field } });
+/** The catalog field a song file replaces (src/db/catalog-seed.ts FIELDS). */
+const SONG_FIELD = "songUrl";
 
 /** Validates one catalog-defined field. Returns the clean value or an error message. */
 function checkField(f: CatalogField, raw: unknown): { value?: unknown; error?: string } {
-  if (f.type === "range") return { value: raw }; // lyrical only; validated when that style is switched on
+  if (f.type === "range") return { value: raw }; // a song time range (an older lyric style); no current style uses it
   const value = typeof raw === "string" ? raw.trim() : "";
   if (!value) return f.required ? { error: `Enter ${f.label.toLowerCase()}` } : {};
   if (f.max && value.length > f.max) return { error: `${f.label} can be at most ${f.max} characters` };
   if (f.type === "url" && !youtubeUrl.safeParse(value).success) return { error: "Paste a YouTube link that starts with https://" };
   return { value };
 }
+
+class BusyError extends Error {}
+
+const activeJobs = (tx: Tx, userId: string) => tx.job.count({ where: { userId, status: { in: ["queued", "starting", "running"] } } });
+
+const busy = (max: number) =>
+  fail(
+    "busy",
+    max === 1
+      ? "You already have a montage being made. Wait for it to finish, then start the next one."
+      : `You already have ${max} montages being made. Wait for one to finish, then start the next one.`,
+  );
 
 export async function createJob(user: SessionUser, raw: unknown): Promise<ActionResult<{ jobId: string }>> {
   const parsed = createJobInput.safeParse(raw);
@@ -79,7 +96,7 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   }
 
   // Read from the DB: the session cookie cache can be up to 5 minutes old.
-  const fresh = await db.user.findUnique({ where: { id: user.id }, select: { suspendedAt: true } });
+  const fresh = await db.user.findUnique({ where: { id: user.id }, select: { suspendedAt: true, role: true, isAnonymous: true } });
   if (fresh?.suspendedAt ?? user.suspendedAt) return fail("suspended", "Your account is paused, so you can't make new montages. Contact support if this looks wrong.");
 
   const item = await db.catalogItem.findFirst({ where: { slug: input.catalogSlug, enabled: true } });
@@ -89,6 +106,10 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
     if (!(item.uploadTemplateId || item.indexTemplates?.gameplayUpload)) return fail("unavailable", "This style doesn't take uploads yet. Paste a YouTube link instead.", "upload");
     if (!(await ownsUpload(user.id, input.upload!.key))) return fail("invalid", "That upload has expired. Choose the file again.", "upload");
   }
+  if (input.songUpload) {
+    if (!item.indexTemplates?.songUpload) return fail("unavailable", "This style doesn't take song files yet. Paste a YouTube link instead.", SONG_FIELD);
+    if (!(await ownsUpload(user.id, input.songUpload.key))) return fail("invalid", "That song upload has expired. Choose the file again.", SONG_FIELD);
+  }
   // Staged styles always render with the style pipeline; the source only changes which gameplay index runs.
   const templateId = input.source === "upload" && !item.indexTemplates ? item.uploadTemplateId! : item.templateId;
   const uploadName = input.upload ? cleanFileName(input.upload.name).replace(/\.[^.]+$/, "") : undefined;
@@ -97,6 +118,7 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
 
   const fields: Record<string, unknown> = {};
   for (const f of item.fields) {
+    if (input.songUpload && f.name === SONG_FIELD) continue; // the file stands in for the song link
     const { value, error } = checkField(f, input.fields[f.name]);
     if (error) return fail("invalid", error, f.name);
     if (value !== undefined) fields[f.name] = value;
@@ -110,6 +132,11 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
     throw e;
   }
 
+  if (input.songUpload) {
+    // read by staged.ts indexInputs (the song-upload pipeline's "audio") and shown as the song's name
+    pipelineInput.songUpload = input.songUpload.key;
+    pipelineInput.songName = cleanFileName(input.songUpload.name).replace(/\.[^.]+$/, "");
+  }
   if (item.indexTemplates) {
     pipelineInput.variation = randomVariation();
     pipelineInput.lyricLook = randomLyricLook();
@@ -117,10 +144,10 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   }
 
   const settings = await getSettings();
-  const active = await db.job.count({ where: { userId: user.id, status: { in: ["queued", "starting", "running"] } } });
-  if (active >= settings.maxConcurrentJobsPerUser) {
-    return fail("busy", `You already have ${active} montage${active === 1 ? "" : "s"} in progress. Wait for one to finish, then try again.`);
-  }
+  // Admins may run more at once (both limits are set in the admin Billing settings).
+  const maxActive = fresh && isAdmin(fresh) ? settings.maxConcurrentJobsPerAdmin : settings.maxConcurrentJobsPerUser;
+  // A quick check before spending an hourly start; the one that counts runs under the balance lock below.
+  if ((await activeJobs(db, user.id)) >= maxActive) return busy(maxActive);
   if (!(await underLimit(`jobs:${user.id}`, JOB_STARTS_PER_HOUR, 3600))) {
     return fail("rate_limited", "You've started a lot of montages this hour. Try again later.");
   }
@@ -129,6 +156,8 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   try {
     jobId = await db.$transaction(async (tx) => {
       await checkStartGate(tx, user.id, range.max);
+      // Under the balance row lock, so two quick starts can't both slip past the limit.
+      if ((await activeJobs(tx, user.id)) >= maxActive) throw new BusyError();
       const job = await tx.job.create({
         data: {
           userId: user.id,
@@ -149,6 +178,7 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
       return job.id;
     });
   } catch (e) {
+    if (e instanceof BusyError) return busy(maxActive);
     if (e instanceof InsufficientCreditsError) {
       return fail(
         "insufficient",

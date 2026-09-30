@@ -1,12 +1,15 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db/client";
 import { getBalance, grant } from "@/server/credits";
-import { startJob, sweep } from "./lifecycle";
-import { signedVideo } from "./public";
+import { enginex } from "@/server/enginex/client";
+import { cancelJob, startJob, sweep } from "./lifecycle";
+import { saveFilesFor } from "./files";
+import { getPublicJob, signedVideo } from "./public";
 import { ensureIndex, indexInputs, introMoments, shuffleKills, styleInput } from "./staged";
 
 // The mock (ENGINEX_MODE=mock) knows these as gameplay-index / song-index / the two styles.
-const INDEX = { gameplay: "tpl_Yn4z8LVxNvFw", gameplayUpload: "tpl_MR-vL8OuXjf7", song: "tpl_8nvlocGpQ3nT" };
+const INDEX = { gameplay: "tpl_HHdgqEu5oz46", gameplayUpload: "tpl_MR-vL8OuXjf7", song: "tpl_2e8cr5IiomI_" };
 const T0 = Date.UTC(2026, 8, 28, 10, 0, 0);
 const stageMap = [
   { match: "download", label: "Downloading your video" },
@@ -42,6 +45,10 @@ const tick = async (ms: number) => {
 };
 
 beforeEach(async () => {
+  // Other tests' unfinished jobs share this DB: give the site plenty of slots (the queue test sets its own limit).
+  await db.settings.upsert({ where: { id: 1 }, update: { maxConcurrentJobsTotal: 500 }, create: { id: 1, maxConcurrentJobsTotal: 500 } });
+  // Saving the finished files downloads them: serve fake bytes instead of the mock sample links.
+  vi.stubGlobal("fetch", async () => new Response("fake-bytes", { headers: { "content-type": "video/mp4" } }));
   vi.useFakeTimers({ toFake: ["Date"] });
   at(0);
   tag = crypto.randomUUID();
@@ -51,7 +58,10 @@ beforeEach(async () => {
   catalogItemId = item.id;
   await grant(userId, 2000, "test");
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("staged styles (mock Engine X)", () => {
   it("indexes the gameplay and the song in parallel, then renders; a second job for the same video runs its own", async () => {
@@ -87,8 +97,11 @@ describe("staged styles (mock Engine X)", () => {
     row = await load(job.id);
     expect(row).toMatchObject({ status: "succeeded", outputKey: expect.stringContaining("montage.mp4") });
     expect(row.outputMeta).toMatchObject({ totalKills: 5, title: "Mock match", thumbnailKey: expect.stringContaining("thumbnail.jpg") });
-    // the result page gets fresh links to the video and its cover still
+    // Until the background copy lands everything comes from Engine X.
     expect(await signedVideo(job.id, userId)).toMatchObject({ url: expect.stringContaining(".mp4"), poster: expect.stringContaining("data:image/svg") });
+    await saveFilesFor(job.id);
+    // Just finished: still Engine X for the video (our copy as the fallback); the cover is ours at once.
+    expect(await signedVideo(job.id, userId)).toEqual({ url: expect.stringContaining(".mp4"), poster: `/api/jobs/${job.id}/files/thumbnail`, fallback: `/api/jobs/${job.id}/files/video` });
     // Each job pays for its whole run, indexes included: started at T0, finished at T0 + 30 s → 30 credits.
     expect(row.chargedCredits).toBe(30);
     expect(await getBalance(userId)).toBe(2000 - 60);
@@ -138,12 +151,17 @@ describe("staged styles (mock Engine X)", () => {
   });
 
   it("fails and refunds when the song can't be fetched, with the song message", async () => {
+    const retryRun = vi.spyOn(enginex(), "retryRun");
     const job = await newJob({ musicUrl: `https://youtu.be/fail-${tag}` });
     await startJob(job.id, T0);
-    for (const ms of [3_000, 6_000, 8_000]) await tick(ms);
+    for (const ms of [3_000, 6_000, 8_000, 9_000]) await tick(ms);
     const row = await load(job.id);
     expect(row.status).toBe("failed");
     expect(row.errorPublic).toMatch(/couldn't get that song/);
+    // The mock's failure looks like a blip (exit 137), so the index retried its failed steps once before giving up.
+    expect(retryRun).toHaveBeenCalledTimes(1);
+    expect(await db.mediaIndex.findUnique({ where: { id: row.songIndexId! }, select: { retries: true, status: true } })).toEqual({ retries: 1, status: "failed" });
+    retryRun.mockRestore();
     expect(await getBalance(userId)).toBe(2000);
   });
 
@@ -177,6 +195,14 @@ describe("staged styles (mock Engine X)", () => {
     expect(introMoments(undefined, "7")).toEqual({ flex: [] });
   });
 
+  it("an uploaded song goes to the song-upload pipeline as its audio", () => {
+    const templates = { ...INDEX, songUpload: "tpl_su" };
+    const job = { id: "j1", source: "url", indexTemplates: templates, input: { youtubeUrl: "https://youtu.be/x", playerName: "Aqua", songUpload: "input/song.mp3" } } as never;
+    expect(indexInputs(job).song).toEqual({ templateId: "tpl_su", input: { audio: "input/song.mp3" }, parts: ["j1", "input/song.mp3"] });
+    const link = { id: "j2", source: "url", indexTemplates: templates, input: { youtubeUrl: "https://youtu.be/x", playerName: "Aqua", musicUrl: "https://youtu.be/s" } } as never;
+    expect(indexInputs(link).song).toMatchObject({ templateId: INDEX.song, input: { musicUrl: "https://youtu.be/s" } });
+  });
+
   it("sends a style only the inputs it declares", () => {
     const g = { video: "v.mp4", durationSec: 1800, kills: { kills: [{ t: 51 }], totalKills: 1 }, flex: { flex: [] } };
     const s = { audio: "a.m4a", durationSec: 22, loudness: "0,-30", words: [{ word: "so", start: 1, end: 1.3, score: 0.9 }] };
@@ -186,7 +212,39 @@ describe("staged styles (mock Engine X)", () => {
     expect(kill).not.toHaveProperty("lyricLook");
     expect(kill).toMatchObject({ maxDurationSec: "60", variation: "slow last", gameDurationSec: "1800", kills: JSON.stringify(g.kills) });
     expect(styleInput(job, g, s, null)).toMatchObject({ lyricLook: "7", lines: expect.stringContaining('{"s":1,"e":1.5,"t":"so","r":0,"n":2,"p":') });
+    // Too little loudness to read: safe defaults, and the planner is told there's no drop.
+    expect(styleInput(job, g, s, null)).toMatchObject({ beatSec: "0.5", beats: "", dropAtSec: "none" });
+    // A real song's loudness: its beat (105 BPM) and the beat times up to the montage's length (the song's 22 s here).
+    const real = { ...s, loudness: readFileSync(new URL("./fixtures/loudness-rolling-in-the-deep-60s.csv", import.meta.url), "utf8") };
+    const measured = styleInput(job, g, real, ["beatSec", "beats", "dropAtSec"]);
+    expect(Math.abs(Number(measured.beatSec) - 0.571)).toBeLessThanOrEqual(0.005);
+    expect(Math.max(...measured.beats.split(", ").map(Number))).toBeLessThanOrEqual(22);
     const seg = { ...s, segments: [{ start: 1, end: 2, words: [{ word: "so", start: 1, end: 1.3 }, { word: "cool", start: 1.4, end: 2 }] }] };
     expect(JSON.parse(styleInput(job, g, seg, ["lines"]).lines)).toMatchObject([{ s: 1, e: 1.4, t: "so" }, { s: 1.4, e: 2.2, t: "so cool" }, { t: "" }]); // + the no-text item
+  });
+
+  it("shows the video download's own progress while it downloads, then clears it", async () => {
+    const job = await newJob();
+    await startJob(job.id, T0);
+    await tick(1_500); // the mock's download step runs 0-3 s
+    // Half way through the step: the picture file is 0.5 / 0.65 of the way in (the mock: picture, sound, join, save).
+    expect((await getPublicJob(job.id, userId))?.download).toEqual({ pct: 76, bytes: 553_846_154, totalBytes: 720_000_000, etaSec: 1, phase: "downloading" });
+    await tick(2_400); // both files in, joining them
+    expect((await getPublicJob(job.id, userId))?.download).toEqual({ pct: 100, bytes: 750_000_000, totalBytes: 750_000_000, etaSec: 0, phase: "joining" });
+    await tick(9_500); // downloaded: reading the kill feed
+    expect((await getPublicJob(job.id, userId))?.download).toBeNull();
+  });
+
+  it("canceling in the index phase stops both index runs", async () => {
+    const cancelRun = vi.spyOn(enginex(), "cancelRun");
+    const job = await newJob();
+    await startJob(job.id, T0);
+    const row = await load(job.id);
+    const indexes = await db.mediaIndex.findMany({ where: { id: { in: [row.gameplayIndexId!, row.songIndexId!] } } });
+    expect(await cancelJob(job.id, "canceled by admin")).toBe(true);
+    expect(cancelRun.mock.calls.map(([id]) => id).sort()).toEqual(indexes.map((i) => i.runId).sort());
+    expect(await db.mediaIndex.count({ where: { id: { in: indexes.map((i) => i.id) }, status: "failed" } })).toBe(2);
+    expect(await load(job.id)).toMatchObject({ status: "canceled", chargedCredits: 0 });
+    cancelRun.mockRestore();
   });
 });

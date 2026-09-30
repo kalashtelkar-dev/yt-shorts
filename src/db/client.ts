@@ -3,13 +3,13 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import type { ITXClientDenyList } from "@prisma/client/runtime/client";
 import { env } from "@/config/env";
 import { PrismaClient } from "@/generated/prisma/client";
-import type { Buyer, CatalogField, CreditRange, IndexTemplates, InputMap, JobPhase, RunStep, Seller, StageMapEntry } from "./types";
+import type { Buyer, CatalogField, CreditRange, DownloadProgress, IndexTemplates, InputMap, JobPhase, RunStep, Seller, StageMapEntry } from "./types";
 
-function create() {
-  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL, max: 10 });
-  // JSON columns come back as their real shapes (src/db/types.ts) instead of Prisma's JsonValue.
-  // Transactions wait on row locks (balances, payments), so give them longer than Prisma's 5 s default.
-  return new PrismaClient({ adapter, transactionOptions: { maxWait: 10_000, timeout: 20_000 } }).$extends({
+// JSON columns typed as their real shapes (src/db/types.ts) instead of Prisma's JsonValue. Types only: the extension is
+// never applied, because extended rows carry a Symbol(nodejs.util.inspect.custom) that React refuses to pass to Client
+// Components ("Only plain objects can be passed…"). Every compute is a plain cast, so the base client returns the same values.
+const _typed = (client: PrismaClient) =>
+  client.$extends({
     result: {
       catalogItem: {
         indexTemplates: { needs: { indexTemplates: true }, compute: (r) => r.indexTemplates as IndexTemplates | null },
@@ -21,6 +21,7 @@ function create() {
       job: {
         indexTemplates: { needs: { indexTemplates: true }, compute: (r) => r.indexTemplates as IndexTemplates | null },
         phase: { needs: { phase: true }, compute: (r) => r.phase as JobPhase | null },
+        download: { needs: { download: true }, compute: (r) => r.download as DownloadProgress | null },
       },
       mediaIndex: {
         input: { needs: { input: true }, compute: (r) => r.input as Record<string, string> },
@@ -31,12 +32,19 @@ function create() {
       invoice: { seller: { needs: { seller: true }, compute: (r) => r.seller as Seller }, buyer: { needs: { buyer: true }, compute: (r) => r.buyer as Buyer } },
     },
   });
+
+function create() {
+  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL, max: 10 });
+  // Transactions wait on row locks (balances, payments), so give them longer than Prisma's 5 s default.
+  const client = new PrismaClient({ adapter, transactionOptions: { maxWait: 10_000, timeout: 20_000 } });
+  return client as unknown as ReturnType<typeof _typed>;
 }
 
 // One pool per process. Cached on globalThis so dev hot reloads reuse it instead of opening another
 // 10 connections each time (which ran Postgres out of connections).
-const g = globalThis as unknown as { prisma?: ReturnType<typeof create> };
-export const db = (g.prisma ??= create());
+// (A new key when what's cached changes shape: a hot reload would otherwise keep the old client.)
+const g = globalThis as unknown as { prismaPlain?: ReturnType<typeof create> };
+export const db = (g.prismaPlain ??= create());
 
 export type Db = typeof db;
 /** The client inside `db.$transaction(async (tx) => …)`. */

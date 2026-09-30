@@ -3,6 +3,9 @@ import { db } from "@/db/client";
 import { Prisma, type JobStatus } from "@/generated/prisma/client";
 import { enginex } from "@/server/enginex/client";
 import type { RunStep } from "@/server/enginex/types";
+import { mediaLinks, type MediaLinks } from "@/server/jobs/files";
+import { jobSources } from "@/server/jobs/public";
+import { getSettings } from "@/server/settings";
 
 // Read side of the admin. Admin pages may see raw Engine X data (CLAUDE.md §4.8).
 
@@ -73,8 +76,10 @@ export async function recentAdjustments(page = 0) {
 }
 
 const GALLERY_PAGE = 24;
+// The Jobs page's list is as tall as its rows (no scroll box of its own), so a page stays short.
+const JOBS_PAGE = 13;
 
-/** Finished montages, newest first, with fresh signed links for the video and its cover (never stored). */
+/** Finished montages, newest first, with links to the video and its cover. */
 export async function galleryItems(catalogSlug: string | null, page = 0) {
   const rows = await db.job.findMany({
     where: { status: "succeeded", outputKey: { not: null }, ...(catalogSlug ? { catalogSlug } : {}) },
@@ -99,10 +104,8 @@ export async function galleryItems(catalogSlug: string | null, page = 0) {
     skip: page * GALLERY_PAGE,
   });
   const pageRows = rows.slice(0, GALLERY_PAGE);
-  const meta = (r: (typeof rows)[number]) => (r.outputMeta ?? {}) as { totalKills?: number; title?: string | null; thumbnailKey?: unknown };
-  const thumb = (r: (typeof rows)[number]) => (typeof meta(r).thumbnailKey === "string" ? (meta(r).thumbnailKey as string) : null);
-  const keys = pageRows.flatMap((r) => [r.outputKey!, thumb(r)].filter((k): k is string => !!k));
-  const urls: Record<string, string> = keys.length ? await enginex().signOutput(keys, 3600).catch(() => ({})) : {};
+  const meta = (r: (typeof rows)[number]) => (r.outputMeta ?? {}) as { totalKills?: number; title?: string | null };
+  const links = await mediaLinks(pageRows).catch(() => new Map<string, MediaLinks>());
   const slugs = await db.catalogItem.findMany({ select: { slug: true, title: true } });
   return {
     items: pageRows.map((r) => ({
@@ -120,8 +123,9 @@ export async function galleryItems(catalogSlug: string | null, page = 0) {
       isAnonymous: r.user.isAnonymous,
       kills: typeof meta(r).totalKills === "number" ? meta(r).totalKills! : null,
       videoTitle: meta(r).title ?? null,
-      video: urls[r.outputKey!] ?? null,
-      poster: thumb(r) ? (urls[thumb(r)!] ?? null) : null,
+      video: links.get(r.id)?.video ?? null,
+      videoFallback: links.get(r.id)?.videoFallback ?? null,
+      poster: links.get(r.id)?.poster ?? null,
     })),
     hasMore: rows.length > GALLERY_PAGE,
     slugs,
@@ -135,6 +139,17 @@ export const JOB_STATUSES: JobStatus[] = ["queued", "starting", "running", "succ
  * Run time per style and length, from finished jobs: average, fastest, slowest, and the credits that time uses
  * (1 credit = 1 s, what usage pricing charges; older jobs were charged a fixed price, so chargedCredits would mislead).
  */
+/** The live queue across the whole site (not the filtered page): jobs holding a slot, jobs waiting, and the slot limit. */
+export async function queueCounts() {
+  const [running, line, limit] = await Promise.all([
+    db.job.count({ where: { status: { in: ["starting", "running"] } } }),
+    // The waiting jobs in the order they'll start (their place in line is their index + 1).
+    db.job.findMany({ where: { status: "queued" }, orderBy: { createdAt: "asc" }, select: { id: true }, take: 500 }),
+    getSettings().then((s) => s.maxConcurrentJobsTotal),
+  ]);
+  return { running, queued: line.length, line: line.map((j) => j.id), limit, at: Date.now() };
+}
+
 export async function runTimeStats() {
   // Raw: avg of ceil() and rounding aren't expressible with groupBy.
   return db.$queryRaw<{ catalogSlug: string; durationSec: number; runs: number; avgMs: number; minMs: number; maxMs: number; avgCredits: number }[]>`
@@ -158,6 +173,7 @@ type JobListRow = {
   runMs: number | null;
   computeCostPaise: number | null;
   createdAt: Date;
+  startedAt: Date | null;
   currentStage: string | null;
   stepsDone: number;
   stepsTotal: number;
@@ -188,40 +204,66 @@ export async function listAllJobs(status: JobStatus | null, catalogSlug: string 
   const where = filters.length ? Prisma.sql`where ${Prisma.join(filters, " and ")}` : Prisma.empty;
   const rows = await db.$queryRaw<JobListRow[]>`
     select j.id, j.status, j.catalog_slug as "catalogSlug", j.duration_sec as "durationSec", j.charged_credits as "chargedCredits",
-      j.run_ms as "runMs", j.compute_cost_paise as "computeCostPaise", j.created_at as "createdAt", j.current_stage as "currentStage",
+      j.run_ms as "runMs", j.compute_cost_paise as "computeCostPaise", j.created_at as "createdAt", j.started_at as "startedAt", j.current_stage as "currentStage",
       j.steps_done as "stepsDone", j.steps_total as "stepsTotal", j.error_public as "errorPublic", j.user_id as "userId",
       u.email, u.is_anonymous as "isAnonymous"
     from jobs j
     join users u on u.id = j.user_id
     ${where}
     order by j.created_at desc
-    limit ${PAGE + 1} offset ${page * PAGE}`;
+    limit ${JOBS_PAGE + 1} offset ${page * JOBS_PAGE}`;
   const slugs = await db.catalogItem.findMany({ select: { slug: true, title: true, durations: true }, orderBy: { sortOrder: "asc" } });
-  return { rows: rows.slice(0, PAGE), hasMore: rows.length > PAGE, slugs };
+  return { rows: rows.slice(0, JOBS_PAGE), hasMore: rows.length > JOBS_PAGE, slugs };
 }
 
-export async function jobDetail(jobId: string) {
+/** One job for the admin. `live: false` skips Engine X (steps and timeline), for views that don't show them: the Jobs pane. */
+export async function jobDetail(jobId: string, { live = true } = {}) {
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) return null;
-  const found = await db.job.findUnique({ where: { id: jobId }, include: { user: { select: { email: true, isAnonymous: true } } } });
+  const found = await db.job.findUnique({
+    where: { id: jobId },
+    include: { user: { select: { email: true, isAnonymous: true } }, catalogItem: { select: { title: true } } },
+  });
   if (!found) return null;
-  const { user, ...job } = found;
-  const row = { job, email: user.email, isAnonymous: user.isAnonymous };
+  const { user, catalogItem, ...job } = found;
+  const row = { job, email: user.email, isAnonymous: user.isAnonymous, styleTitle: catalogItem.title, sources: await jobSources(job) };
   const [events, ledger] = await Promise.all([
     db.jobEvent.findMany({ where: { jobId }, orderBy: { createdAt: "asc" } }),
     db.creditLedger.findMany({ where: { jobId }, orderBy: { createdAt: "asc" } }),
   ]);
   // Live step list from Engine X (admin-only). Failure here must not break the page.
-  let steps: RunStep[] | null = null;
-  let stepsError: string | null = null;
-  if (row.job.runId) {
-    try {
-      steps = (await enginex().getRun(row.job.runId)).steps;
-    } catch (e) {
-      stepsError = e instanceof Error ? e.message : String(e);
-    }
-  }
-  return { ...row, events, ledger, steps, stepsError };
+  // A staged job's two index runs, for the timeline: fetched beside the render run, and left out if Engine X can't find them.
+  const indexIds = live ? [row.job.gameplayIndexId, row.job.songIndexId].filter((x): x is string => !!x) : [];
+  const [indexRuns, main] = await Promise.all([
+    db.mediaIndex.findMany({ where: { id: { in: indexIds } }, select: { kind: true, runId: true }, orderBy: { kind: "asc" } }).then((rows) =>
+      Promise.all(
+        rows.map(async (i) => ({
+          name: INDEX_LANE[i.kind],
+          steps: i.runId
+            ? await enginex()
+                .getRun(i.runId)
+                .then(
+                  (r) => r.steps,
+                  () => null,
+                )
+            : null,
+        })),
+      ),
+    ),
+    live && row.job.runId
+      ? enginex()
+          .getRun(row.job.runId)
+          .then(
+            (r) => ({ steps: r.steps, stepsError: null }),
+            (e: unknown) => ({ steps: null, stepsError: e instanceof Error ? e.message : String(e) }),
+          )
+      : { steps: null, stepsError: null },
+  ]);
+  const timeline = [...indexRuns, { name: indexIds.length ? "Editor" : "Run", steps: main.steps }].filter((l): l is TimelineLane => !!l.steps?.length);
+  return { ...row, events, ledger, ...main, timeline, timelineAt: Date.now() };
 }
+
+export type TimelineLane = { name: string; steps: RunStep[] };
+const INDEX_LANE = { gameplay: "Gameplay reader", song: "Song reader" } as const;
 
 export async function auditLog(page = 0) {
   const rows = await db.adminAuditLog.findMany({

@@ -13,6 +13,8 @@ export type PublicJob = {
   stageDetail: string | null;
   stages: string[];
   progress: number; // 0..1
+  /** While the video downloads: its own progress (whole percent, bytes, seconds left), then joining and saving it. */
+  download: { pct: number; bytes: number; totalBytes: number; etaSec: number | null; phase?: "downloading" | "joining" | "saving" } | null;
   events: { at: string; message: string; level: "info" | "warn" | "error" }[];
   createdAt: string;
   startedAt: string | null;
@@ -22,7 +24,12 @@ export type PublicJob = {
   kills: number | null;
   videoTitle: string | null;
   error: string | null;
+  /** What the montage is made from, as the user gave it; titles appear once the video and song have been read. */
+  sources: { gameplay: MediaSource; song: MediaSource | null };
 };
+
+/** A YouTube video (youtubeId set) or an uploaded file (youtubeId null). */
+export type MediaSource = { youtubeId: string | null; title: string | null };
 
 export type LibraryItem = {
   id: string;
@@ -43,6 +50,8 @@ export type CatalogOption = {
   slug: string;
   /** This style also takes uploaded files. */
   uploads: boolean;
+  /** The song can be an uploaded audio file instead of a YouTube link. */
+  songUploads: boolean;
   title: string;
   description: string;
   beta: boolean;

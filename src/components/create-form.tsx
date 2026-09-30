@@ -21,8 +21,7 @@ const VideoUpload = dynamic(() => import("@/components/video-upload").then((m) =
 
 // What the preview frame hints at for each style. Unknown styles show the kill feed only.
 const PREVIEW: Record<string, { lyric?: boolean; slow?: boolean }> = {
-  "lyrical-kill-montage": { lyric: true },
-  "ultra-edit": { lyric: true, slow: true },
+  "smart-edit": { lyric: true, slow: true },
 };
 
 const pill = "has-focus-visible:ring-3 has-focus-visible:ring-ring/50 cursor-pointer transition-colors";
@@ -53,6 +52,8 @@ export function CreateForm({
   const [url, setUrl] = useState("");
   const [sourceChoice, setSource] = useState<"url" | "upload">("url");
   const [upload, setUpload] = useState<UploadState>({ kind: "idle" });
+  const [songChoice, setSongSource] = useState<"url" | "upload">("url");
+  const [songUpload, setSongUpload] = useState<UploadState>({ kind: "idle" });
   const [fields, setFields] = useState<Record<string, string>>({});
   const [durationChoice, setDurationSec] = useState(60);
   const [state, formAction, pending] = useActionState(createJobAction, { error: null });
@@ -65,9 +66,14 @@ export function CreateForm({
   // Uploads need a user to own the file, so visitors without an account see the link flow only.
   const canUpload = item.uploads && !needsAccount;
   const source = canUpload ? sourceChoice : "url";
-  const uploadBusy = source === "upload" && upload.kind !== "done";
+  // The song can be a file too, where the style has a song-upload pipeline (SONG_FIELD in src/server/jobs/create.ts).
+  const canSongUpload = item.songUploads && !needsAccount;
+  const songSource = canSongUpload ? songChoice : "url";
+  const uploadBusy = (source === "upload" && upload.kind !== "done") || (songSource === "upload" && songUpload.kind !== "done");
   // Styles can offer different lengths; keep the pick when it exists, else the nearest one.
-  const durationSec = item.durations.includes(durationChoice) ? durationChoice : item.durations.reduce((a, b) => (Math.abs(b - durationChoice) < Math.abs(a - durationChoice) ? b : a));
+  const durationSec = item.durations.includes(durationChoice)
+    ? durationChoice
+    : item.durations.reduce((a, b) => (Math.abs(b - durationChoice) < Math.abs(a - durationChoice) ? b : a));
   const range = item.creditRanges[String(durationSec)] ?? { min: 0, max: 0 };
   // To start, the top of the range must be free; the montage then uses only the time it takes.
   const short = needsAccount ? 0 : range.max - available;
@@ -78,7 +84,9 @@ export function CreateForm({
   const errorFor = (name: string) => (error?.field === name ? error.message : null);
   const general = error && !["url", "upload", "durationSec", ...item.fields.map((f) => f.name)].includes(error.field ?? "") ? error.message : null;
   const uploadError = upload.kind === "error" ? upload.message : errorFor("upload");
-  const fieldError = errorFor("url") ?? (source === "upload" ? uploadError : null) ?? visibleFields.map((f) => errorFor(f.name)).find(Boolean) ?? null;
+  const songUploadError = songSource === "upload" && songUpload.kind === "error" ? songUpload.message : null;
+  const fieldError =
+    errorFor("url") ?? (source === "upload" ? uploadError : null) ?? songUploadError ?? visibleFields.map((f) => errorFor(f.name)).find(Boolean) ?? null;
 
   return (
     // Phones: exactly one screen (below the header), no scrolling. The form keeps its size and the preview takes
@@ -87,37 +95,42 @@ export function CreateForm({
       {/* The one memorable element: a 9:16 frame hinting at what this style makes. On phones only its top 3/4
           shows, fading into a blur at the bottom, so the form starts higher up. */}
       <div className="flex min-h-36 flex-1 basis-0 justify-center lg:sticky lg:top-8 lg:block lg:min-h-0 lg:flex-none lg:basis-auto">
-      <div className="relative aspect-[9/12] h-full max-w-full lg:aspect-auto lg:h-auto lg:w-full lg:max-w-[340px]">
-      <div className="size-full overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:h-auto lg:overflow-visible lg:[mask-image:none]">
-      <Frame className="@container lg:aspect-[3/4]">
-        {/* The art is 3:4, and so is what shows: on phones the visible top 3/4 of the 9:16 frame, on desktop the
+        <div className="relative aspect-[9/12] h-full max-w-full lg:aspect-auto lg:h-auto lg:w-full lg:max-w-[340px]">
+          <div className="size-full overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:h-auto lg:overflow-visible lg:[mask-image:none]">
+            <Frame className="@container lg:aspect-[3/4]">
+              {/* The art is 3:4, and so is what shows: on phones the visible top 3/4 of the 9:16 frame, on desktop the
             whole frame (3:4 there), so it's never zoomed or cut. */}
-        <div className="absolute inset-x-0 top-0 h-3/4 lg:h-full">
-          <Image src={previewArt} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 340px, 16rem" className="object-cover" />
-        </div>
-        <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 lg:top-4 lg:right-4">
-          <KillRow killer={playerName || "you"} victim="Reyna" you />
-          {/* A small preview (short phones) keeps one row and the length, so the art still shows. */}
-          <div className="@max-[12rem]:hidden">
-            <KillRow killer={playerName || "you"} victim="Jett" you />
+              <div className="absolute inset-x-0 top-0 h-3/4 lg:h-full">
+                <Image src={previewArt} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 340px, 16rem" className="object-cover" />
+              </div>
+              <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 lg:top-4 lg:right-4">
+                <KillRow killer={playerName || "you"} victim="Reyna" you />
+                {/* A small preview (short phones) keeps one row and the length, so the art still shows. */}
+                <div className="@max-[12rem]:hidden">
+                  <KillRow killer={playerName || "you"} victim="Jett" you />
+                </div>
+              </div>
+              {hint.lyric && (
+                <p className="absolute top-[38%] left-4 text-xl leading-none font-black tracking-tight [text-shadow:2px_2px_0_#000] lg:text-3xl" aria-hidden>
+                  BABY BET
+                  <br />
+                  AYY
+                </p>
+              )}
+              {hint.slow && (
+                <span className="absolute bottom-[44%] left-3 rounded bg-black/70 px-1.5 py-1 font-mono text-[11px] lg:bottom-14 lg:left-4">0.5× slow-mo</span>
+              )}
+              <p className="absolute inset-x-3 bottom-[37%] flex justify-between gap-2 font-mono text-[11px] lg:inset-x-4 lg:bottom-4 lg:text-xs">
+                <span className="truncate rounded bg-black/70 px-1.5 py-1 @max-[12rem]:invisible">{item.title}</span>
+                <span className="rounded bg-black/70 px-1.5 py-1 tabular">{durationSec}s</span>
+              </p>
+            </Frame>
           </div>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 backdrop-blur-[3px] [mask-image:linear-gradient(to_top,#000,transparent)] lg:hidden"
+          />
         </div>
-        {hint.lyric && (
-          <p className="absolute top-[38%] left-4 text-xl leading-none font-black tracking-tight [text-shadow:2px_2px_0_#000] lg:text-3xl" aria-hidden>
-            BABY BET
-            <br />
-            AYY
-          </p>
-        )}
-        {hint.slow && <span className="absolute bottom-[44%] left-3 rounded bg-black/70 px-1.5 py-1 font-mono text-[11px] lg:bottom-14 lg:left-4">0.5× slow-mo</span>}
-        <p className="absolute inset-x-3 bottom-[37%] flex justify-between gap-2 font-mono text-[11px] lg:inset-x-4 lg:bottom-4 lg:text-xs">
-          <span className="truncate rounded bg-black/70 px-1.5 py-1 @max-[12rem]:invisible">{item.title}</span>
-          <span className="rounded bg-black/70 px-1.5 py-1 tabular">{durationSec}s</span>
-        </p>
-      </Frame>
-      </div>
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 backdrop-blur-[3px] [mask-image:linear-gradient(to_top,#000,transparent)] lg:hidden" />
-      </div>
       </div>
 
       <form
@@ -143,14 +156,20 @@ export function CreateForm({
           <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="sr-only">Style</legend>
             {/* Up to three styles share the row equally (names may wrap to two lines); more than that scroll sideways. */}
-            <div className={cn(items.length <= 3 ? "grid grid-cols-3 gap-2" : "-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0")}>
+            <div
+              className={cn(
+                items.length <= 3 ? "grid grid-cols-3 gap-2" : "-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0",
+              )}
+            >
               {items.map((i) => (
                 <label
                   key={i.slug}
                   className={cn(
                     pill,
                     "flex min-h-11 items-center justify-center border text-sm font-medium",
-                    items.length <= 3 ? "rounded-xl px-2 py-1.5 text-center text-[13px] leading-tight lg:rounded-full lg:text-sm" : "shrink-0 rounded-full px-4 whitespace-nowrap",
+                    items.length <= 3
+                      ? "rounded-xl px-2 py-1.5 text-center text-[13px] leading-tight lg:rounded-full lg:text-sm"
+                      : "shrink-0 rounded-full px-4 whitespace-nowrap",
                     slug === i.slug ? "border-foreground bg-foreground text-background" : "bg-panel text-foreground hover:bg-panel-raised",
                   )}
                 >
@@ -167,6 +186,7 @@ export function CreateForm({
         )}
 
         <input type="hidden" name="source" value={source} />
+        <input type="hidden" name="songSource" value={songSource} />
         <div className="overflow-hidden rounded-2xl border bg-panel">
           {source === "url" ? (
             <Row id={`${uid}-url`} label="Match" invalid={!!errorFor("url")}>
@@ -195,7 +215,11 @@ export function CreateForm({
                 <label htmlFor={`${uid}-file`} className="text-xs text-muted-foreground">
                   Match recording
                 </label>
-                <button type="button" onClick={() => setSource("url")} className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+                <button
+                  type="button"
+                  onClick={() => setSource("url")}
+                  className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
                   <Link2 className="size-4" aria-hidden /> Use a link
                 </button>
               </div>
@@ -209,32 +233,61 @@ export function CreateForm({
             </div>
           )}
 
-          {visibleFields.map((f) => (
-            <Row key={f.name} id={`${uid}-${f.name}`} label={f.label} invalid={!!errorFor(f.name)}>
-              <input
-                id={`${uid}-${f.name}`}
-                name={`field:${f.name}`}
-                type={f.type === "url" ? "url" : "text"}
-                inputMode={f.type === "url" ? "url" : undefined}
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                placeholder={f.type === "url" ? "YouTube link" : f.help}
-                required={f.required}
-                maxLength={f.max}
-                value={fields[f.name] ?? ""}
-                onChange={(e) => setFields((prev) => ({ ...prev, [f.name]: e.target.value }))}
-                aria-invalid={!!errorFor(f.name)}
-                aria-describedby={f.help && f.type === "url" ? `${uid}-${f.name}-help` : undefined}
-                className={rowInput}
-              />
-              {f.help && f.type === "url" && (
-                <span id={`${uid}-${f.name}-help`} className="sr-only">
-                  {f.help}
-                </span>
-              )}
-            </Row>
-          ))}
+          {visibleFields.map((f) =>
+            f.name === "songUrl" && songSource === "upload" ? (
+              <div key={f.name} className="flex flex-col gap-2 border-b p-3">
+                <div className="flex items-center justify-between gap-2 px-1">
+                  <label htmlFor={`${uid}-song-file`} className="text-xs text-muted-foreground">
+                    Song file
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSongSource("url")}
+                    className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  >
+                    <Link2 className="size-4" aria-hidden /> Use a link
+                  </button>
+                </div>
+                <VideoUpload id={`${uid}-song-file`} kind="audio" maxUploadMb={maxUploadMb} state={songUpload} onChange={setSongUpload} />
+                {songUpload.kind === "done" && (
+                  <>
+                    <input type="hidden" name="songUploadKey" value={songUpload.key} />
+                    <input type="hidden" name="songUploadName" value={songUpload.name} />
+                  </>
+                )}
+              </div>
+            ) : (
+              <Row key={f.name} id={`${uid}-${f.name}`} label={f.label} invalid={!!errorFor(f.name)}>
+                <input
+                  id={`${uid}-${f.name}`}
+                  name={`field:${f.name}`}
+                  type={f.type === "url" ? "url" : "text"}
+                  inputMode={f.type === "url" ? "url" : undefined}
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  placeholder={f.type === "url" ? "YouTube link" : f.help}
+                  required={f.required}
+                  maxLength={f.max}
+                  value={fields[f.name] ?? ""}
+                  onChange={(e) => setFields((prev) => ({ ...prev, [f.name]: e.target.value }))}
+                  aria-invalid={!!errorFor(f.name)}
+                  aria-describedby={f.help && f.type === "url" ? `${uid}-${f.name}-help` : undefined}
+                  className={rowInput}
+                />
+                {f.help && f.type === "url" && (
+                  <span id={`${uid}-${f.name}-help`} className="sr-only">
+                    {f.help}
+                  </span>
+                )}
+                {f.name === "songUrl" && canSongUpload && (
+                  <button type="button" onClick={() => setSongSource("upload")} aria-label="Upload a song file instead" className={rowButton}>
+                    <Upload className="size-4" aria-hidden />
+                  </button>
+                )}
+              </Row>
+            ),
+          )}
           <CostRow range={range} available={available} short={short} needsAccount={needsAccount} starterCredits={starterCredits} />
         </div>
 
@@ -280,19 +333,30 @@ export function CreateForm({
                 className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 rounded-xl")}
               >
                 {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-                {pending ? "Starting…" : upload.kind === "uploading" && source === "upload" ? "Uploading…" : "Make my montage"}
+                {pending
+                  ? "Starting…"
+                  : (upload.kind === "uploading" && source === "upload") || (songUpload.kind === "uploading" && songSource === "upload")
+                    ? "Uploading…"
+                    : "Make my montage"}
               </button>
             )}
           </div>
           {needsAccount && (
-            <Link href="/sign-in" className="self-center rounded px-2 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+            <Link
+              href="/sign-in"
+              className="self-center rounded px-2 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
               I have an account
             </Link>
           )}
         </div>
       </form>
 
-      <dialog ref={confirmRef} aria-labelledby={`${uid}-confirm`} className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-2xl border bg-panel p-0 text-foreground backdrop:bg-black/70">
+      <dialog
+        ref={confirmRef}
+        aria-labelledby={`${uid}-confirm`}
+        className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-2xl border bg-panel p-0 text-foreground backdrop:bg-black/70"
+      >
         <div className="flex flex-col gap-5 p-5 sm:p-6">
           <div className="flex flex-col gap-1">
             <h2 id={`${uid}-confirm`} className="text-lg font-semibold">
@@ -305,7 +369,14 @@ export function CreateForm({
               ["Style", item.title],
               ["Length", `${durationSec} s`],
               ["Match", source === "upload" ? (upload.kind === "done" ? upload.name : "Uploaded file") : url.trim()],
-              ...visibleFields.map((f) => [f.label, fields[f.name]?.trim() ?? ""]),
+              ...visibleFields.map((f) => [
+                f.label,
+                f.name === "songUrl" && songSource === "upload"
+                  ? songUpload.kind === "done"
+                    ? songUpload.name
+                    : "Uploaded file"
+                  : (fields[f.name]?.trim() ?? ""),
+              ]),
               ["Estimated cost", `${formatCredits(range.min)}–${formatCredits(range.max)} credits, charged after it's made`],
             ].map(([k, v]) => (
               <div key={k} className="flex flex-col gap-0.5 px-3 py-2.5">
@@ -344,7 +415,12 @@ const rowButton =
 /** One line of the form card: a small label above a borderless input. */
 function Row({ id, label, invalid, children }: { id: string; label: string; invalid: boolean; children: React.ReactNode }) {
   return (
-    <div className={cn("flex flex-col border-b px-4 pt-2 pb-1.5 last:border-b-0 focus-within:bg-panel-raised lg:gap-0.5 lg:pt-2.5 lg:pb-2", invalid && "shadow-[inset_2px_0_0_var(--accent-red)]")}>
+    <div
+      className={cn(
+        "flex flex-col border-b px-4 pt-2 pb-1.5 last:border-b-0 focus-within:bg-panel-raised lg:gap-0.5 lg:pt-2.5 lg:pb-2",
+        invalid && "shadow-[inset_2px_0_0_var(--accent-red)]",
+      )}
+    >
       <label htmlFor={id} className={cn("text-xs", invalid ? "text-danger" : "text-muted-foreground")}>
         {label}
       </label>
@@ -354,7 +430,19 @@ function Row({ id, label, invalid, children }: { id: string; label: string; inva
 }
 
 /** The last line of the form card: what this edit usually costs; the i opens how it's worked out. */
-function CostRow({ range, available, short, needsAccount, starterCredits }: { range: { min: number; max: number }; available: number; short: number; needsAccount: boolean; starterCredits: number }) {
+function CostRow({
+  range,
+  available,
+  short,
+  needsAccount,
+  starterCredits,
+}: {
+  range: { min: number; max: number };
+  available: number;
+  short: number;
+  needsAccount: boolean;
+  starterCredits: number;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
   return (
@@ -376,7 +464,12 @@ function CostRow({ range, available, short, needsAccount, starterCredits }: { ra
           <Info className="size-4" aria-hidden />
         </button>
       </span>
-      <dialog ref={dialog} aria-labelledby={id} className="m-auto w-[min(24rem,calc(100vw-2rem))] rounded-2xl border bg-panel p-0 text-foreground backdrop:bg-black/70" onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}>
+      <dialog
+        ref={dialog}
+        aria-labelledby={id}
+        className="m-auto w-[min(24rem,calc(100vw-2rem))] rounded-2xl border bg-panel p-0 text-foreground backdrop:bg-black/70"
+        onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}
+      >
         <div className="flex flex-col gap-4 p-5 sm:p-6">
           <h2 id={id} className="text-lg font-semibold">
             How the cost works

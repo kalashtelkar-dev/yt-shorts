@@ -1,6 +1,6 @@
 # Style: Ultra Edit
 
-The third style (the user's spec, 2026-09-29): every kill gets the same cinematic treatment. It slows into the kill, plays the kill in slow motion, then speed-ramps into a zoom-tilt transition that pinches into the next kill. Loud gunshots play under the song, and the song's words are on screen karaoke-style.
+The third style (the user's spec, 2026-09-29): every kill gets the same cinematic treatment. It slows into the kill, plays the kill in slow motion, then speed-ramps into a pinch transition (with a blur and glitch at the cut) into the next kill. Loud gunshots play under the song, and the song's words are on screen karaoke-style.
 
 - **Inputs:** gameplay link (or uploaded file), in-game name, song link. Same as the Lyrical Kill Montage.
 - **Pipeline:** `style-ultra-edit`, built by `pipelines/build.py` (`style("ultra")`), with the same gameplay-index and song-index as the other styles.
@@ -8,7 +8,7 @@ The third style (the user's spec, 2026-09-29): every kill gets the same cinemati
 ## Structure
 
 ```
-| intro flex (1-1.5 s, zoom-tilt out) | kill | kill | kill | ... | fade 0.8 s |
+| intro flex (1-1.5 s, pinch out) | kill | kill | kill | ... | fade 0.8 s |
 ```
 
 **One kill (K = the kill-feed time), a fixed 6 s window of the recording from K-2, as steps (`ULTRA_STEPS`):**
@@ -29,10 +29,11 @@ That's 6.67 s per kill on screen, so a 30 s edit holds the intro plus about four
   - **Measured on the user's job:** the sound ran up to about 0.5 s ahead of the picture in every ramp.
   - **Measured with a flash-and-click test:** 58–120 ms off through the clip and 305 ms in the ramp before the fix; 0 ms after (worst 19 ms, one frame).
 
-**Transitions (in every clip, so a plain concat joins them):**
-- **Out:** over the ramp, the frame zooms in (to 1.6×), tilts (to 0.12 rad) and slides right.
-- **In:** the next clip starts zoomed (1.4×) and tilted the other way, and pinches back to normal over 0.35 s.
-- **Corners:** the zoom always outgrows the tilt, so the rotated frame's corners never show.
+**Transitions (in every clip, so a plain concat joins them). The user, 2026-09-29: no tilt, just the pinch, with a glitch or blur:**
+- **Out:** over the ramp, the frame zooms in to 1.6×, centred (no tilt, no slide).
+- **In:** the next clip starts zoomed (1.4×) and pinches back to normal over 0.35 s.
+- **At the cut:** a light blur over the last 0.3 s and first 0.2 s, a heavy one over the last 0.12 s and first 0.08 s, and a colour split (chroma shifted 16 px) on alternate frames over the last 0.18 s and first 0.12 s. The filters run only in those moments (`enable`).
+- **Intro flex:** the same pinch out, blur and glitch over its last 0.5 s; no pinch in (the edit fades in from black).
 
 **The planner's job:** only which kills and in what order. It gets the shuffled, merged kill list, like the other styles, and copies clip starts (2 s before each kill). Whatever speed or length it writes for a kill clip is replaced (speed 1, 6.68 s). One clip per kill, as in every style.
 
@@ -52,4 +53,5 @@ That's 6.67 s per kill on screen, so a 30 s edit holds the intro plus about four
 ## Checked
 
 - **`check.py`:** input order, the window per kill, the warp and the audio pieces, transitions on every clip, the play time, the mix and the lyrics.
-- **Local ffmpeg 7.1 render** on test media: exit 0, 14.65 s for the intro plus two kills. Frames show the zoom-tilt out, the opposite-tilt pinch in, and no black corners.
+- **Local ffmpeg 7.1 render** on test media: exit 0, 14.65 s for the intro plus two kills (the first, tilted version).
+- **Pinch-only version (2026-09-29), local render:** exit 0, 23 s for the intro plus two kills. Frames show the centred pinch out, the pinch in, the blur building to the cut, and the colour split on alternate frames.

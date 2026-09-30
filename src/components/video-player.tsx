@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   src: string;
+  /** Played instead if `src` fails to load (our Postgres copy behind an Engine X link). */
+  fallbackSrc?: string | null;
   poster?: string | null;
   label: string;
   /** "metadata" shows the length before play; "none" for grids of many videos. */
@@ -17,7 +19,7 @@ type Props = {
 };
 
 /** Our own controls over a plain <video>: big play button, scrubber, time, sound and full screen. */
-export function VideoPlayer({ src, poster, label, preload = "metadata", className, fit = "contain" }: Props) {
+export function VideoPlayer({ src, fallbackSrc, poster, label, preload = "metadata", className, fit = "contain" }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -29,6 +31,9 @@ export function VideoPlayer({ src, poster, label, preload = "metadata", classNam
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [chrome, setChrome] = useState(true);
+  // The src that failed to load, if any: then the fallback plays (a new src starts fresh).
+  const [failed, setFailed] = useState<string | null>(null);
+  const current = failed === src && fallbackSrc ? fallbackSrc : src;
 
   useEffect(() => {
     const onFull = () => setFull(document.fullscreenElement === box.current);
@@ -99,12 +104,13 @@ export function VideoPlayer({ src, poster, label, preload = "metadata", classNam
     >
       <video
         ref={video}
-        src={src}
+        src={current}
         poster={poster ?? undefined}
         preload={preload}
         playsInline
         aria-label={label}
         onClick={toggle}
+        onError={() => fallbackSrc && current !== fallbackSrc && setFailed(src)}
         onPlay={() => {
           setPlaying(true);
           setStarted(true);

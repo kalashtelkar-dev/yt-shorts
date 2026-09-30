@@ -24,24 +24,45 @@ const fieldSchema = z.strictObject({
   help: z.string().max(200).optional(),
 });
 
-const inputMapSchema = z
-  .record(ident, z.union([z.string().max(500), z.number(), z.boolean()]))
-  .superRefine((map, ctx) => {
-    for (const [k, v] of Object.entries(map)) {
-      const problem = checkExpression(v);
-      if (problem) ctx.addIssue({ code: "custom", path: [k], message: problem });
-    }
-  });
+const inputMapSchema = z.record(ident, z.union([z.string().max(500), z.number(), z.boolean()])).superRefine((map, ctx) => {
+  for (const [k, v] of Object.entries(map)) {
+    const problem = checkExpression(v);
+    if (problem) ctx.addIssue({ code: "custom", path: [k], message: problem });
+  }
+});
 
 export const catalogInput = z
   .strictObject({
-    slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and dashes, like kill-montage").max(64),
+    slug: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and dashes, like kill-montage")
+      .max(64),
     title: z.string().trim().min(1).max(80),
     description: z.string().trim().max(300),
     templateId: z.string().trim().min(1).max(100),
-    uploadTemplateId: z.string().trim().max(100).nullish().transform((v) => v || null),
+    uploadTemplateId: z
+      .string()
+      .trim()
+      .max(100)
+      .nullish()
+      .transform((v) => v || null),
     indexTemplates: z
-      .strictObject({ gameplay: z.string().trim().min(1).max(100), gameplayUpload: z.string().trim().max(100).nullish().transform((v) => v || null), song: z.string().trim().min(1).max(100) })
+      .strictObject({
+        gameplay: z.string().trim().min(1).max(100),
+        gameplayUpload: z
+          .string()
+          .trim()
+          .max(100)
+          .nullish()
+          .transform((v) => v || null),
+        song: z.string().trim().min(1).max(100),
+        songUpload: z
+          .string()
+          .trim()
+          .max(100)
+          .nullish()
+          .transform((v) => v || null),
+      })
       .nullish()
       .transform((v) => v ?? null),
     enabled: z.boolean(),
@@ -50,15 +71,27 @@ export const catalogInput = z
     durations: z.array(z.number().int().min(5).max(600)).min(1).max(6),
     creditRanges: z.record(
       z.string().regex(/^\d+$/),
-      z.strictObject({ min: z.number().int().min(1).max(1_000_000), max: z.number().int().min(1).max(1_000_000) }).refine((r) => r.min <= r.max, "The lowest can't be more than the highest"),
+      z
+        .strictObject({ min: z.number().int().min(1).max(1_000_000), max: z.number().int().min(1).max(1_000_000) })
+        .refine((r) => r.min <= r.max, "The lowest can't be more than the highest"),
     ),
     fields: z.array(fieldSchema).max(10),
     inputMap: inputMapSchema,
-    stageMap: z.array(z.strictObject({ match: z.string().min(1).max(64), label: z.string().min(1).max(60), itemSeconds: z.number().int().min(1).max(3600).optional(), only: z.enum(["url", "upload"]).optional() })).max(40),
+    stageMap: z
+      .array(
+        z.strictObject({
+          match: z.string().min(1).max(64),
+          label: z.string().min(1).max(60),
+          itemSeconds: z.number().int().min(1).max(3600).optional(),
+          only: z.enum(["url", "upload"]).optional(),
+        }),
+      )
+      .max(40),
     outputKey: ident,
   })
   .superRefine((v, ctx) => {
-    for (const d of v.durations) if (!v.creditRanges[String(d)]) ctx.addIssue({ code: "custom", path: ["creditRanges"], message: `Set the credits range for ${d} s` });
+    for (const d of v.durations)
+      if (!v.creditRanges[String(d)]) ctx.addIssue({ code: "custom", path: ["creditRanges"], message: `Set the credits range for ${d} s` });
     const names = v.fields.map((f) => f.name);
     if (new Set(names).size !== names.length) ctx.addIssue({ code: "custom", path: ["fields"], message: "Two fields have the same name" });
     for (const [k, expr] of Object.entries(v.inputMap)) {
@@ -79,8 +112,19 @@ export type ValidationReport = {
  * Checks a template against Engine X and against the item's inputMap / outputKey. With `source`, the
  * other source's entries ($source.url vs $source.key/name) are ignored: they're empty for this template.
  */
-export async function validateTemplate(templateId: string, inputMap: Record<string, unknown>, outputKey: string, source?: "url" | "upload"): Promise<ValidationReport> {
-  if (source) inputMap = Object.fromEntries(Object.entries(inputMap).filter(([, expr]) => { const s = sourceOf(expr); return !s || s === source; }));
+export async function validateTemplate(
+  templateId: string,
+  inputMap: Record<string, unknown>,
+  outputKey: string,
+  source?: "url" | "upload",
+): Promise<ValidationReport> {
+  if (source)
+    inputMap = Object.fromEntries(
+      Object.entries(inputMap).filter(([, expr]) => {
+        const s = sourceOf(expr);
+        return !s || s === source;
+      }),
+    );
   let p;
   try {
     p = await enginex().getPipeline(templateId);
@@ -97,7 +141,8 @@ export async function validateTemplate(templateId: string, inputMap: Record<stri
   const errors: string[] = [];
   const warnings: string[] = [];
   if (p.publishedVersion === null) errors.push("This pipeline has never been published, so it can't run. Publish it in Engine X first.");
-  else if (p.version !== null && p.version > p.publishedVersion) warnings.push(`Engine X has an unpublished draft (v${p.version}); jobs run the published v${p.publishedVersion}.`);
+  else if (p.version !== null && p.version > p.publishedVersion)
+    warnings.push(`Engine X has an unpublished draft (v${p.version}); jobs run the published v${p.publishedVersion}.`);
   if (!p.compiles) errors.push("This pipeline doesn't compile in Engine X.");
   const names = p.inputs.map((i) => i.name);
   const mapped = Object.keys(inputMap);
@@ -108,7 +153,13 @@ export async function validateTemplate(templateId: string, inputMap: Record<stri
     ok: errors.length === 0,
     errors,
     warnings,
-    pipeline: { name: p.name, version: p.version, publishedVersion: p.publishedVersion, inputs: p.inputs.map(({ name, required }) => ({ name, required })), outputs: p.outputs },
+    pipeline: {
+      name: p.name,
+      version: p.version,
+      publishedVersion: p.publishedVersion,
+      inputs: p.inputs.map(({ name, required }) => ({ name, required })),
+      outputs: p.outputs,
+    },
   };
 }
 
@@ -127,7 +178,9 @@ function merge(reports: [string, ValidationReport][]): ValidationReport {
  * Validates a catalog item's pipelines. Single styles: the template (and the upload template) against the input map.
  * Staged styles: the style pipeline against what the app sends it, and each index pipeline against the mapped inputs.
  */
-export async function validateItem(item: Pick<CatalogInput, "templateId" | "uploadTemplateId" | "indexTemplates" | "inputMap" | "outputKey">): Promise<ValidationReport> {
+export async function validateItem(
+  item: Pick<CatalogInput, "templateId" | "uploadTemplateId" | "indexTemplates" | "inputMap" | "outputKey">,
+): Promise<ValidationReport> {
   const t = item.indexTemplates;
   if (!t) {
     const reports: [string, ValidationReport][] = [["", await validateTemplate(item.templateId, item.inputMap, item.outputKey, "url")]];
@@ -142,7 +195,10 @@ export async function validateItem(item: Pick<CatalogInput, "templateId" | "uplo
     ["Gameplay index", await validateTemplate(t.gameplay, pick(item.inputMap, ["youtubeUrl", "playerName"]), "kills")],
     ["Song index", await validateTemplate(t.song, pick(item.inputMap, ["musicUrl"]), "audio")],
   ];
-  if (t.gameplayUpload) reports.push(["Gameplay index (uploads)", await validateTemplate(t.gameplayUpload, pick(item.inputMap, ["video", "playerName"]), "kills")]);
+  if (t.gameplayUpload)
+    reports.push(["Gameplay index (uploads)", await validateTemplate(t.gameplayUpload, pick(item.inputMap, ["video", "playerName"]), "kills")]);
+  // the uploaded song's key goes in as "audio" (staged.ts indexInputs), not through the input map
+  if (t.songUpload) reports.push(["Song index (uploads)", await validateTemplate(t.songUpload, { audio: "the uploaded song" }, "audio")]);
   return merge(reports);
 }
 
@@ -207,15 +263,18 @@ export async function deleteCatalogItem(admin: Admin, id: string): Promise<Actio
     const row = await tx.catalogItem.findUnique({ where: { id } });
     if (!row) return { ok: false as const, error: { code: "not_found", message: "That catalog item doesn't exist." } };
     const n = await tx.job.count({ where: { catalogItemId: id } });
-    if (n > 0) return { ok: false as const, error: { code: "in_use", message: `${n} job${n === 1 ? "" : "s"} use this item. Switch it off instead of deleting it.` } };
-    await tx.adminAuditLog.create({ data: { adminId: admin.id, action: "catalog.delete", target: `catalog:${id}`, before: snapshot(row), after: Prisma.DbNull } });
+    if (n > 0)
+      return { ok: false as const, error: { code: "in_use", message: `${n} job${n === 1 ? "" : "s"} use this item. Switch it off instead of deleting it.` } };
+    await tx.adminAuditLog.create({
+      data: { adminId: admin.id, action: "catalog.delete", target: `catalog:${id}`, before: snapshot(row), after: Prisma.DbNull },
+    });
     await tx.catalogItem.delete({ where: { id } });
     return { ok: true as const, data: null };
   });
 }
 
 type PipelineRow = Pick<CatalogItemRow, "title" | "enabled" | "templateId" | "uploadTemplateId" | "indexTemplates">;
-export const PIPELINE_GROUPS = ["Style", "Upload (one-run styles)", "Gameplay from a link", "Gameplay from an upload", "Song"] as const;
+export const PIPELINE_GROUPS = ["Style", "Upload (one-run styles)", "Gameplay from a link", "Gameplay from an upload", "Song", "Song from an upload"] as const;
 export type PipelineGroup = { group: (typeof PIPELINE_GROUPS)[number]; pipelines: { templateId: string; usedBy: string[] }[] };
 
 /** Every Engine X pipeline the catalog uses, grouped by stage, each with the styles that use it (disabled ones marked "off"). */
@@ -232,6 +291,7 @@ export function pipelinesInUse(items: PipelineRow[]): PipelineGroup[] {
     add("Gameplay from a link", i.indexTemplates?.gameplay, i);
     add("Gameplay from an upload", i.indexTemplates?.gameplayUpload, i);
     add("Song", i.indexTemplates?.song, i);
+    add("Song from an upload", i.indexTemplates?.songUpload, i);
   }
   return PIPELINE_GROUPS.map((group) => ({ group, pipelines: [...groups.get(group)!].map(([templateId, usedBy]) => ({ templateId, usedBy })) })).filter(
     (g) => g.pipelines.length > 0,

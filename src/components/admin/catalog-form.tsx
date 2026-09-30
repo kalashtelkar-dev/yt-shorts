@@ -82,7 +82,7 @@ export function CatalogForm({ initial }: { initial: CatalogFormValues }) {
           </L>
           <L
             label="Index pipelines (staged styles)"
-            hint='JSON: {"gameplay": "tpl_…", "gameplayUpload": "tpl_…", "song": "tpl_…"}. Set = the template above is a style pipeline fed by these. Empty = a single-pipeline style.'
+            hint='JSON: {"gameplay": "tpl_…", "gameplayUpload": "tpl_…", "song": "tpl_…", "songUpload": "tpl_…"}. Set = the template above is a style pipeline fed by these. Empty = a single-pipeline style.'
             className="md:col-span-2"
           >
             <textarea name="indexTemplates" defaultValue={initial.indexTemplates ? pretty(initial.indexTemplates) : ""} spellCheck={false} rows={4} className={textareaClass} />

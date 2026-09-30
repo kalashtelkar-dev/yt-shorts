@@ -19,7 +19,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 0
+          "y": 300
         }
       },
       {
@@ -54,7 +54,7 @@
         },
         "operation": "custom",
         "position": {
-          "x": 300,
+          "x": 380,
           "y": 0
         }
       },
@@ -85,8 +85,8 @@
         },
         "operation": "custom",
         "position": {
-          "x": 600,
-          "y": 0
+          "x": 760,
+          "y": 225
         }
       },
       {
@@ -101,8 +101,8 @@
         },
         "operation": "frames",
         "position": {
-          "x": 900,
-          "y": 0
+          "x": 1140,
+          "y": 225
         }
       },
       {
@@ -114,8 +114,8 @@
         },
         "operation": "ocr",
         "position": {
-          "x": 1200,
-          "y": 0
+          "x": 1520,
+          "y": 225
         }
       },
       {
@@ -129,8 +129,8 @@
         },
         "operation": "regex",
         "position": {
-          "x": 1500,
-          "y": 0
+          "x": 380,
+          "y": 150
         }
       },
       {
@@ -144,8 +144,8 @@
         },
         "operation": "regex",
         "position": {
-          "x": 1800,
-          "y": 0
+          "x": 760,
+          "y": 375
         }
       },
       {
@@ -159,8 +159,8 @@
         },
         "operation": "regex",
         "position": {
-          "x": 0,
-          "y": 180
+          "x": 1140,
+          "y": 375
         }
       },
       {
@@ -174,8 +174,8 @@
         },
         "operation": "regex",
         "position": {
-          "x": 300,
-          "y": 180
+          "x": 1520,
+          "y": 375
         }
       },
       {
@@ -189,8 +189,8 @@
         },
         "operation": "regex",
         "position": {
-          "x": 600,
-          "y": 180
+          "x": 1900,
+          "y": 300
         }
       },
       {
@@ -202,8 +202,8 @@
         },
         "operation": "json-filter",
         "position": {
-          "x": 900,
-          "y": 180
+          "x": 2280,
+          "y": 150
         }
       },
       {
@@ -215,8 +215,8 @@
         },
         "operation": "join",
         "position": {
-          "x": 1200,
-          "y": 180
+          "x": 2660,
+          "y": 300
         }
       },
       {
@@ -228,8 +228,8 @@
         },
         "operation": "template",
         "position": {
-          "x": 1500,
-          "y": 180
+          "x": 3040,
+          "y": 300
         }
       },
       {
@@ -238,11 +238,11 @@
         "engine": "util",
         "operation": "template",
         "params": {
-          "template": "The text is the OCR of the kill feed (top-right corner) of a Valorant or CS2 gameplay recording, sampled once per second and read in blocks of 10 seconds. Blocks are separated by ###. Inside a block, each frame starts with a line \"TS <seconds>\", the time of that frame in the video (OCR may read the digit 0 as the letter O), followed by the kill-feed rows at that moment, until the next TS line. Only blocks where the player's name appears are included. The player's name is: {{a}} (OCR may misread a few letters, e.g. 0/O, 1/l/I, 5/S, 8/B).\nEach kill-feed row reads: killer name, weapon icon, victim name. The killer is always the name on the LEFT (first), the victim the name on the RIGHT (second).\nTask: list every kill-feed row that has the player's name in it, once, at the first second it appears. A row stays on screen for about 5 seconds, so it repeats in consecutive frames: list it when it first appears, and again only if it reappears after a gap of more than 2 seconds. When several new rows appear at once, list each.\nFor each row give t (that second), killer (the first name, exactly as read) and victim (the second name, exactly as read).\nAnswer exactly in this shape: {\"rows\":[{\"t\":number,\"killer\":string,\"victim\":string}]}, in time order, with no other keys. If there are none, answer {\"rows\":[]}."
+          "template": "The text is the OCR of the kill feed (top-right corner) of a Valorant or CS2 gameplay recording, sampled once per second and read in blocks of 10 seconds. Blocks are separated by ###. Inside a block, each frame starts with a line \"TS <seconds>\", the time of that frame in the video (OCR may read the digit 0 as the letter O), followed by the kill-feed rows at that moment, until the next TS line. Only blocks where the player's name appears are included. The player's name is: {{a}} (OCR may misread a few letters, e.g. 0/O, 1/l/I, 5/S, 8/B).\nEach kill-feed row reads: killer name, weapon icon, victim name. The killer is always the name on the LEFT (first), the victim the name on the RIGHT (second).\nTask: list every row with the player's name in it: the player's KILLS (the player's name on the LEFT) and the player's DEATHS (the player's name on the RIGHT). Leave out every row without the player's name. List each row once, at the first second it appears. A row stays on screen for about 5 seconds, so the same row repeats in consecutive frames: list it only when it first appears, and again only if it reappears after a gap of more than 5 seconds. When several new rows appear at once, list each.\nFor each row give t (that second), killer (the first name, exactly as read) and victim (the second name, exactly as read).\nAnswer exactly in this shape: {\"rows\":[{\"t\":number,\"killer\":string,\"victim\":string}]}, in time order, with no other keys. If there are none, answer {\"rows\":[]}."
         },
         "position": {
-          "x": 1800,
-          "y": 180
+          "x": 380,
+          "y": 300
         }
       },
       {
@@ -254,8 +254,8 @@
         },
         "operation": "connection",
         "position": {
-          "x": 0,
-          "y": 360
+          "x": 3040,
+          "y": 450
         }
       },
       {
@@ -269,8 +269,8 @@
           "temperature": 0.1
         },
         "position": {
-          "x": 300,
-          "y": 360
+          "x": 3420,
+          "y": 375
         }
       },
       {
@@ -281,8 +281,8 @@
         "sample": "",
         "required": true,
         "position": {
-          "x": 600,
-          "y": 360
+          "x": 0,
+          "y": 450
         }
       },
       {
@@ -294,8 +294,8 @@
           "tier": "cpu"
         },
         "position": {
-          "x": 900,
-          "y": 360
+          "x": 380,
+          "y": 450
         }
       },
       {
@@ -305,8 +305,8 @@
         "operation": "merge",
         "params": {},
         "position": {
-          "x": 1200,
-          "y": 360
+          "x": 380,
+          "y": 600
         }
       },
       {
@@ -319,8 +319,8 @@
           "fallback": "[]"
         },
         "position": {
-          "x": 1500,
-          "y": 360
+          "x": 3800,
+          "y": 375
         }
       },
       {
@@ -332,8 +332,8 @@
           "indent": 0
         },
         "position": {
-          "x": 1800,
-          "y": 360
+          "x": 4180,
+          "y": 375
         }
       },
       {
@@ -345,8 +345,8 @@
           "template": "\\{(?=[^{}]*\"killer\":\"\\W*(?:{{a}})\\W*\")[^{}]*\\}"
         },
         "position": {
-          "x": 0,
-          "y": 540
+          "x": 2280,
+          "y": 300
         }
       },
       {
@@ -359,8 +359,8 @@
           "replace": "\u00a7$&\u00a7"
         },
         "position": {
-          "x": 300,
-          "y": 540
+          "x": 4560,
+          "y": 300
         }
       },
       {
@@ -374,8 +374,8 @@
           "replace": ""
         },
         "position": {
-          "x": 600,
-          "y": 540
+          "x": 4940,
+          "y": 300
         }
       },
       {
@@ -389,8 +389,8 @@
           "replace": ""
         },
         "position": {
-          "x": 900,
-          "y": 540
+          "x": 5320,
+          "y": 300
         }
       },
       {
@@ -400,12 +400,12 @@
         "operation": "regex",
         "params": {
           "flags": "g",
-          "pattern": ",(?=,|\\])|(?<=\\[),",
+          "pattern": "(?<=[\\[,]),|,(?=,*\\])",
           "replace": ""
         },
         "position": {
-          "x": 1200,
-          "y": 540
+          "x": 5700,
+          "y": 300
         }
       },
       {
@@ -417,8 +417,8 @@
           "template": "{\"kills\":{{a}}}"
         },
         "position": {
-          "x": 1500,
-          "y": 540
+          "x": 6080,
+          "y": 300
         }
       },
       {
@@ -430,8 +430,106 @@
           "fenced": false
         },
         "position": {
-          "x": 1800,
-          "y": 540
+          "x": 6460,
+          "y": 300
+        }
+      },
+      {
+        "id": "victim_pattern",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "\\{(?=[^{}]*\"victim\":\"\\W*(?:{{a}})\\W*\")[^{}]*\\}"
+        },
+        "position": {
+          "x": 2280,
+          "y": 450
+        }
+      },
+      {
+        "id": "mark_deaths",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "replace": "\u00a7$&\u00a7"
+        },
+        "position": {
+          "x": 4560,
+          "y": 450
+        }
+      },
+      {
+        "id": "drop_rows_d",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "(?<!\u00a7)\\{[^{}]*\\}(?!\u00a7)",
+          "replace": ""
+        },
+        "position": {
+          "x": 4940,
+          "y": 450
+        }
+      },
+      {
+        "id": "unmark_d",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "\u00a7",
+          "replace": ""
+        },
+        "position": {
+          "x": 5320,
+          "y": 450
+        }
+      },
+      {
+        "id": "tidy_commas_d",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "regex",
+        "params": {
+          "flags": "g",
+          "pattern": "(?<=[\\[,]),|,(?=,*\\])",
+          "replace": ""
+        },
+        "position": {
+          "x": 5700,
+          "y": 450
+        }
+      },
+      {
+        "id": "deaths_wrap",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "template",
+        "params": {
+          "template": "{\"deaths\":{{a}}}"
+        },
+        "position": {
+          "x": 6080,
+          "y": 450
+        }
+      },
+      {
+        "id": "deaths_found",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "json-parse",
+        "params": {
+          "fenced": false
+        },
+        "position": {
+          "x": 6460,
+          "y": 450
         }
       },
       {
@@ -443,8 +541,8 @@
           "value": 120
         },
         "position": {
-          "x": 0,
-          "y": 720
+          "x": 380,
+          "y": 750
         }
       },
       {
@@ -456,8 +554,8 @@
           "op": "divide"
         },
         "position": {
-          "x": 300,
-          "y": 720
+          "x": 760,
+          "y": 525
         }
       },
       {
@@ -469,8 +567,8 @@
           "template": "[\"-y\", \"-skip_frame\", \"nokey\", \"-i\", \"{in0}\", \"-vf\", \"fps={{a}},scale=-2:300,drawtext=fontfile={in1}:text='%{pts\\\\:hms}':x=6:y=6:fontsize=22:fontcolor=white:box=1:boxcolor=black@0.7:boxborderw=4,tile=4x4:padding=4:margin=4\", \"-an\", \"-c:v\", \"libx264\", \"-g\", \"1\", \"-preset\", \"veryfast\", \"-crf\", \"22\", \"-pix_fmt\", \"yuv420p\", \"{out}\"]"
         },
         "position": {
-          "x": 600,
-          "y": 720
+          "x": 1140,
+          "y": 525
         }
       },
       {
@@ -482,8 +580,8 @@
           "fenced": false
         },
         "position": {
-          "x": 900,
-          "y": 720
+          "x": 1520,
+          "y": 525
         }
       },
       {
@@ -493,8 +591,8 @@
         "operation": "merge",
         "params": {},
         "position": {
-          "x": 1200,
-          "y": 720
+          "x": 1900,
+          "y": 450
         }
       },
       {
@@ -507,8 +605,8 @@
           "output": "flex.mp4"
         },
         "position": {
-          "x": 1500,
-          "y": 720
+          "x": 2280,
+          "y": 600
         }
       },
       {
@@ -523,8 +621,8 @@
           "quality": 3
         },
         "position": {
-          "x": 1800,
-          "y": 720
+          "x": 2660,
+          "y": 450
         }
       },
       {
@@ -536,8 +634,8 @@
           "indent": 0
         },
         "position": {
-          "x": 0,
-          "y": 900
+          "x": 6840,
+          "y": 375
         }
       },
       {
@@ -549,8 +647,8 @@
           "template": "These contact sheets show one first-person Valorant/CS2 gameplay recording, {{b}} seconds long. Each sheet is a 4x4 grid of frames, read left to right, top to bottom, spread evenly over the recording; every frame is stamped top-left with its time (HH:MM:SS.mmm).\nThe player's kills happen at these times (seconds): {{a}}\n\nFind up to 5 FLEX moments for the intro of a montage: 2 to 4 seconds where the player shows off without killing anyone - knife out, weapon inspect, stylish walking or jumping, buying, using an ability - at least 6 seconds away from every kill. Prefer knife out or weapon inspect, then movement.\nOnly moments inside a live round, in first-person view with the weapon and the HUD on screen. Never the agent select screen, a loading screen, a menu, the scoreboard, a death or spectating screen, or a replay.\nstart is the recording time in seconds (convert the stamp: 00:01:23.500 = 83.5) where the moment begins.\nAnswer exactly in this shape, best first: {\"flex\": [{\"start\": number, \"what\": string}]}. If nothing fits, answer {\"flex\": []}."
         },
         "position": {
-          "x": 300,
-          "y": 900
+          "x": 7220,
+          "y": 375
         }
       },
       {
@@ -565,8 +663,8 @@
           "temperature": 0.2
         },
         "position": {
-          "x": 600,
-          "y": 900
+          "x": 7600,
+          "y": 375
         }
       },
       {
@@ -576,11 +674,12 @@
           "video",
           "durationSec",
           "kills",
+          "deaths",
           "flex"
         ],
         "position": {
-          "x": 900,
-          "y": 900
+          "x": 8360,
+          "y": 375
         }
       }
     ],
@@ -905,6 +1004,94 @@
         }
       },
       {
+        "id": "name_b.text->victim_pattern.a",
+        "from": {
+          "node": "name_b",
+          "port": "text"
+        },
+        "to": {
+          "node": "victim_pattern",
+          "port": "a"
+        }
+      },
+      {
+        "id": "rows_text.value->mark_deaths.text",
+        "from": {
+          "node": "rows_text",
+          "port": "value"
+        },
+        "to": {
+          "node": "mark_deaths",
+          "port": "text"
+        }
+      },
+      {
+        "id": "victim_pattern.value->mark_deaths.pattern",
+        "from": {
+          "node": "victim_pattern",
+          "port": "value"
+        },
+        "to": {
+          "node": "mark_deaths",
+          "port": "pattern"
+        }
+      },
+      {
+        "id": "mark_deaths.text->drop_rows_d.text",
+        "from": {
+          "node": "mark_deaths",
+          "port": "text"
+        },
+        "to": {
+          "node": "drop_rows_d",
+          "port": "text"
+        }
+      },
+      {
+        "id": "drop_rows_d.text->unmark_d.text",
+        "from": {
+          "node": "drop_rows_d",
+          "port": "text"
+        },
+        "to": {
+          "node": "unmark_d",
+          "port": "text"
+        }
+      },
+      {
+        "id": "unmark_d.text->tidy_commas_d.text",
+        "from": {
+          "node": "unmark_d",
+          "port": "text"
+        },
+        "to": {
+          "node": "tidy_commas_d",
+          "port": "text"
+        }
+      },
+      {
+        "id": "tidy_commas_d.text->deaths_wrap.a",
+        "from": {
+          "node": "tidy_commas_d",
+          "port": "text"
+        },
+        "to": {
+          "node": "deaths_wrap",
+          "port": "a"
+        }
+      },
+      {
+        "id": "deaths_wrap.value->deaths_found.text",
+        "from": {
+          "node": "deaths_wrap",
+          "port": "value"
+        },
+        "to": {
+          "node": "deaths_found",
+          "port": "text"
+        }
+      },
+      {
         "id": "flex_frames_n.value->flex_fps.a",
         "from": {
           "node": "flex_frames_n",
@@ -1067,6 +1254,17 @@
         "to": {
           "node": "flex_pick",
           "port": "images"
+        }
+      },
+      {
+        "id": "deaths_found.value->out.deaths",
+        "from": {
+          "node": "deaths_found",
+          "port": "value"
+        },
+        "to": {
+          "node": "out",
+          "port": "deaths"
         }
       },
       {

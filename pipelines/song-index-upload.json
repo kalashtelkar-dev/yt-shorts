@@ -1,0 +1,310 @@
+{
+  "kind": "editor-api/pipeline",
+  "formatVersion": 1,
+  "source": {
+    "id": "tpl_x4p9irJIKNb-",
+    "version": 1
+  },
+  "name": "song-index-upload",
+  "description": "Uploaded song -> audio file, duration, loudness every 0.05 s (the app measures the beat and drop from it), the lyrics as segments with every word force-aligned on the separated vocals, and where the voice is (voice activity). Cache per song; feeds every style-* pipeline.",
+  "graph": {
+    "version": 1,
+    "nodes": [
+      {
+        "id": "audio_in",
+        "kind": "input",
+        "name": "audio",
+        "type": "file:audio",
+        "sample": "",
+        "required": true,
+        "position": {
+          "x": 0,
+          "y": 75
+        }
+      },
+      {
+        "id": "music_loudness",
+        "kind": "engine",
+        "engine": "video",
+        "operation": "custom",
+        "params": {
+          "bin": "ffprobe",
+          "tier": "cpu",
+          "args": [
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "amovie='{in0}',aresample=8000,asetnsamples=n=400:p=0,astats=metadata=1:reset=1",
+            "-show_entries",
+            "frame=pts_time:frame_tags=lavfi.astats.Overall.RMS_level",
+            "-of",
+            "csv=p=0"
+          ]
+        },
+        "position": {
+          "x": 760,
+          "y": 0
+        }
+      },
+      {
+        "id": "vocals",
+        "kind": "engine",
+        "engine": "transcribe",
+        "operation": "separate",
+        "params": {
+          "model": "vocals",
+          "stems": [
+            "vocals"
+          ],
+          "format": "wav"
+        },
+        "position": {
+          "x": 760,
+          "y": 150
+        }
+      },
+      {
+        "id": "music_file",
+        "kind": "engine",
+        "engine": "util",
+        "operation": "merge",
+        "params": {},
+        "position": {
+          "x": 380,
+          "y": 0
+        }
+      },
+      {
+        "id": "info",
+        "kind": "engine",
+        "engine": "video",
+        "operation": "video-info",
+        "params": {
+          "tier": "cpu"
+        },
+        "position": {
+          "x": 380,
+          "y": 150
+        }
+      },
+      {
+        "id": "transcript",
+        "kind": "engine",
+        "engine": "transcribe",
+        "operation": "transcribe",
+        "params": {
+          "model": "large-v3",
+          "language": "en",
+          "align": false,
+          "formats": [
+            "json"
+          ]
+        },
+        "position": {
+          "x": 1140,
+          "y": 0
+        }
+      },
+      {
+        "id": "aligned",
+        "kind": "engine",
+        "engine": "transcribe",
+        "operation": "align",
+        "params": {},
+        "position": {
+          "x": 1520,
+          "y": 75
+        }
+      },
+      {
+        "id": "voice",
+        "kind": "engine",
+        "engine": "voice-activity",
+        "operation": "segments",
+        "params": {
+          "threshold": 0.5,
+          "minSpeechMs": 100,
+          "minSilenceMs": 150,
+          "paddingMs": 0
+        },
+        "position": {
+          "x": 1140,
+          "y": 150
+        }
+      },
+      {
+        "id": "out",
+        "kind": "output",
+        "fields": [
+          "audio",
+          "durationSec",
+          "loudness",
+          "segments",
+          "voice"
+        ],
+        "position": {
+          "x": 2280,
+          "y": 75
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "audio_in.value->music_file.a",
+        "from": {
+          "node": "audio_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "music_file",
+          "port": "a"
+        }
+      },
+      {
+        "id": "audio_in.value->info.input",
+        "from": {
+          "node": "audio_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "info",
+          "port": "input"
+        }
+      },
+      {
+        "id": "music_file.value->music_loudness.input",
+        "from": {
+          "node": "music_file",
+          "port": "value"
+        },
+        "to": {
+          "node": "music_loudness",
+          "port": "input"
+        }
+      },
+      {
+        "id": "music_file.value->vocals.input",
+        "from": {
+          "node": "music_file",
+          "port": "value"
+        },
+        "to": {
+          "node": "vocals",
+          "port": "input"
+        }
+      },
+      {
+        "id": "vocals.vocals->transcript.input",
+        "from": {
+          "node": "vocals",
+          "port": "vocals"
+        },
+        "to": {
+          "node": "transcript",
+          "port": "input"
+        }
+      },
+      {
+        "id": "vocals.vocals->aligned.input",
+        "from": {
+          "node": "vocals",
+          "port": "vocals"
+        },
+        "to": {
+          "node": "aligned",
+          "port": "input"
+        }
+      },
+      {
+        "id": "transcript.segments->aligned.segments",
+        "from": {
+          "node": "transcript",
+          "port": "segments"
+        },
+        "to": {
+          "node": "aligned",
+          "port": "segments"
+        }
+      },
+      {
+        "id": "transcript.language->aligned.language",
+        "from": {
+          "node": "transcript",
+          "port": "language"
+        },
+        "to": {
+          "node": "aligned",
+          "port": "language"
+        }
+      },
+      {
+        "id": "vocals.vocals->voice.input",
+        "from": {
+          "node": "vocals",
+          "port": "vocals"
+        },
+        "to": {
+          "node": "voice",
+          "port": "input"
+        }
+      },
+      {
+        "id": "music_file.value->out.audio",
+        "from": {
+          "node": "music_file",
+          "port": "value"
+        },
+        "to": {
+          "node": "out",
+          "port": "audio"
+        }
+      },
+      {
+        "id": "info.duration->out.durationSec",
+        "from": {
+          "node": "info",
+          "port": "duration"
+        },
+        "to": {
+          "node": "out",
+          "port": "durationSec"
+        }
+      },
+      {
+        "id": "music_loudness.stdout->out.loudness",
+        "from": {
+          "node": "music_loudness",
+          "port": "stdout"
+        },
+        "to": {
+          "node": "out",
+          "port": "loudness"
+        }
+      },
+      {
+        "id": "aligned.segments->out.segments",
+        "from": {
+          "node": "aligned",
+          "port": "segments"
+        },
+        "to": {
+          "node": "out",
+          "port": "segments"
+        }
+      },
+      {
+        "id": "voice.segments->out.voice",
+        "from": {
+          "node": "voice",
+          "port": "segments"
+        },
+        "to": {
+          "node": "out",
+          "port": "voice"
+        }
+      }
+    ]
+  }
+}

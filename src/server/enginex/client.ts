@@ -68,6 +68,12 @@ export function createClient(
       return normaliseRun(runId, await request("GET", `/v1/runs/${encodeURIComponent(runId)}`));
     },
 
+    async getJobEvents(jobId) {
+      const data = await request("GET", `/v1/jobs/${encodeURIComponent(jobId)}/events`);
+      const events = Array.isArray(data.events) ? (data.events as Json[]) : [];
+      return events.map((e) => ({ at: str(e.at) ?? "", kind: str(e.kind) ?? "", data: e.data && typeof e.data === "object" ? (e.data as Json) : null }));
+    },
+
     async cancelRun(runId) {
       await request("DELETE", `/v1/runs/${encodeURIComponent(runId)}`);
     },
@@ -161,6 +167,9 @@ function normaliseStep(s: Json): RunStep {
     engine: str(s.engine) ?? null,
     status: String(s.status ?? "queued").toLowerCase(),
     error: errorText(s.error),
+    job: str(s.job) ?? null,
+    startedAt: str(s.startedAt) ?? null,
+    finishedAt: str(s.finishedAt) ?? null,
     items: items
       ? { total: num(items.total) ?? 0, done: num(items.done) ?? 0, failed: Array.isArray(items.failed) ? items.failed.length : (num(items.failed) ?? 0) }
       : null,

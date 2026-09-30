@@ -32,6 +32,8 @@ export const settingsInput = z.strictObject({
   starterCredits: z.number().int().min(0).max(1_000_000),
   maxUploadMb: z.number().int().min(1).max(20_000),
   maxConcurrentJobsPerUser: z.number().int().min(1).max(50),
+  maxConcurrentJobsPerAdmin: z.number().int().min(1).max(50),
+  maxConcurrentJobsTotal: z.number().int().min(1).max(500),
   maxRunMinutes: z.number().int().min(5).max(24 * 60),
 });
 

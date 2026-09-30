@@ -27,10 +27,15 @@ export const noKillsMessage = (name: string) =>
 /** Failures worth one automatic retry: infrastructure blips, not problems with the video or the edit. */
 export function isTransientFailure(engine: string | null, error: string | null): boolean {
   if (/exit(ed)?( with)? code 137|out of memory|oom|timed? ?out|timeout|econn|connection|unavailable|503|502|worker (lost|died|restarted)/i.test(error ?? "")) return true;
+  // YouTube refusing the stream itself (its anti-bot throttling) usually works on a second try. Private or age-gated videos fail earlier, with other messages.
+  if (/unable to download video data: HTTP Error 403/i.test(error ?? "")) return true;
+  // Engine X's object store taking a file short (seen on a real 60 s job's frames step, 2026-09-30): the write, not the job.
+  if (/number of bytes specified by the Content-Length|IncompleteBody|RequestTimeout|SlowDown|InternalError|connection reset/i.test(error ?? "")) return true;
   const e = canonical(engine);
   return e === "ocr" || e === "vllm";
 }
 
+export const CANCELED_MESSAGE = "This montage was stopped before it finished. It didn't cost you any credits.";
 export const TIMEOUT_MESSAGE = `This video took too long to edit, so we stopped. Try a shorter recording. ${REFUND}`;
 
 export function publicErrorFor(engine: string | null, code?: string): string {

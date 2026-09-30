@@ -4,12 +4,13 @@ The stage pipelines behind the edit styles (see `docs/edit-styles/`), built from
 
 | File | Pipeline | Engine X id |
 |---|---|---|
-| `gameplay-index.json` | gameplay link + player → video, kill times, intro-flex moments | `tpl_Yn4z8LVxNvFw` |
-| `gameplay-index-upload.json` | same, from an uploaded file | `tpl_MR-vL8OuXjf7` |
-| `song-index.json` | song link → audio, duration, loudness, lyrics as force-aligned segments | `tpl_8nvlocGpQ3nT` |
-| `style-kill-montage.json` | indexes → Kill Montage | `tpl_P0krMNymIjdb` |
-| `style-ultra-edit.json` | indexes → Ultra Edit | `tpl_9nMrXrS54mk3` |
-| `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage | `tpl_UbAzXGQjRxHH` |
+| `gameplay-index.json` | gameplay link + player → video, kill times, intro-flex moments | `tpl_v6kGXcY1_I82` |
+| `gameplay-index-upload.json` | same, from an uploaded file | `tpl_6V6yanSolGTE` |
+| `song-index.json` | song link → audio, duration, loudness, lyrics as force-aligned segments | `tpl_gLc9bMedBz16` |
+| `song-index-upload.json` | same, from an uploaded audio file | `tpl_sVzbs9FDpeFW` |
+| `style-kill-montage.json` | indexes → Kill Montage | `tpl_A_MNb8DRHume` |
+| `style-ultra-edit.json` | indexes → Smart Edit (called Ultra Edit until 2026-09-30) | `tpl_dxRIHs2Bd4VP` |
+| `style-lyrical-kill-montage.json` | indexes → Lyrical Kill Montage (retired 2026-09-30: switched off in the catalog, pipeline kept) | `tpl_v9F-bU2kppn3` |
 
 **Changing a pipeline:**
 1. Edit `build.py`, then run `python3 pipelines/build.py`.

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, FileVideo, Upload, X } from "lucide-react";
+import { CheckCircle2, FileAudio, FileVideo, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { startUploadAction } from "@/app/(user)/actions";
 import { cn } from "@/lib/utils";
@@ -14,22 +14,58 @@ export type UploadState =
   | { kind: "done"; key: string; name: string; size: number }
   | { kind: "error"; message: string };
 
-const EXTENSIONS = ["mp4", "mov", "mkv", "webm"];
+// The match recording (video) or the song (audio); the server checks the same lists (src/server/uploads.ts).
+const KINDS = {
+  video: {
+    extensions: ["mp4", "mov", "mkv", "webm"],
+    accept: ".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime,video/x-matroska,video/webm",
+    wrong: "Upload an MP4, MOV, MKV or WebM video file.",
+    choose: "Choose a video",
+    formats: "MP4, MOV, MKV or WebM",
+    tooBig: "Trim it or paste a YouTube link instead.",
+    Icon: FileVideo,
+  },
+  audio: {
+    extensions: ["mp3", "m4a", "wav", "aac", "ogg", "flac"],
+    accept: ".mp3,.m4a,.wav,.aac,.ogg,.flac,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/x-wav,audio/aac,audio/ogg,audio/flac",
+    wrong: "Upload an MP3, M4A, WAV, AAC, OGG or FLAC audio file.",
+    choose: "Choose a song",
+    formats: "MP3, M4A, WAV, AAC, OGG or FLAC",
+    tooBig: "Use a shorter file or paste a YouTube link instead.",
+    Icon: FileAudio,
+  },
+} as const;
 
 const formatSize = (b: number) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.max(1, Math.round(b / 1024 ** 2))} MB`);
 
-export function VideoUpload({ id, maxUploadMb, state, onChange, describedBy }: { id: string; maxUploadMb: number; state: UploadState; onChange: (s: UploadState) => void; describedBy?: string }) {
+export function VideoUpload({
+  id,
+  maxUploadMb,
+  state,
+  onChange,
+  describedBy,
+  kind = "video",
+}: {
+  id: string;
+  maxUploadMb: number;
+  state: UploadState;
+  onChange: (s: UploadState) => void;
+  describedBy?: string;
+  kind?: keyof typeof KINDS;
+}) {
+  const k = KINDS[kind];
   const xhr = useRef<XMLHttpRequest | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
   async function start(file: File) {
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!EXTENSIONS.includes(ext)) return onChange({ kind: "error", message: "Upload an MP4, MOV, MKV or WebM video file." });
-    if (file.size > maxUploadMb * 1024 * 1024) return onChange({ kind: "error", message: `That file is over ${formatSize(maxUploadMb * 1024 * 1024)}. Trim it or paste a YouTube link instead.` });
+    if (!(k.extensions as readonly string[]).includes(ext)) return onChange({ kind: "error", message: k.wrong });
+    if (file.size > maxUploadMb * 1024 * 1024)
+      return onChange({ kind: "error", message: `That file is over ${formatSize(maxUploadMb * 1024 * 1024)}. ${k.tooBig}` });
 
     onChange({ kind: "uploading", name: file.name, size: file.size, progress: 0 });
-    const r = await startUploadAction({ name: file.name, size: file.size, type: file.type });
+    const r = await startUploadAction({ name: file.name, size: file.size, type: file.type }, kind);
     if (!r.ok) return onChange({ kind: "error", message: r.error.message });
 
     const req = new XMLHttpRequest();
@@ -58,7 +94,11 @@ export function VideoUpload({ id, maxUploadMb, state, onChange, describedBy }: {
     return (
       <div className="flex flex-col gap-2 rounded-lg border border-input bg-panel-raised p-3" aria-live="polite">
         <div className="flex items-center gap-3">
-          {state.kind === "done" ? <CheckCircle2 className="size-5 shrink-0 text-success" aria-hidden /> : <FileVideo className="size-5 shrink-0 text-muted-foreground" aria-hidden />}
+          {state.kind === "done" ? (
+            <CheckCircle2 className="size-5 shrink-0 text-success" aria-hidden />
+          ) : (
+            <k.Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+          )}
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-sm">{state.name}</span>
             <span className="font-mono text-xs text-muted-foreground tabular">
@@ -75,7 +115,10 @@ export function VideoUpload({ id, maxUploadMb, state, onChange, describedBy }: {
           </button>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-border" aria-hidden>
-          <div className={cn("h-full origin-left transition-transform duration-300", state.kind === "done" ? "bg-success" : "bg-danger")} style={{ transform: `scaleX(${pct / 100})` }} />
+          <div
+            className={cn("h-full origin-left transition-transform duration-300", state.kind === "done" ? "bg-success" : "bg-danger")}
+            style={{ transform: `scaleX(${pct / 100})` }}
+          />
         </div>
         {state.kind === "uploading" && <p className="text-xs text-muted-foreground">Keep this tab open until the upload finishes.</p>}
       </div>
@@ -103,14 +146,16 @@ export function VideoUpload({ id, maxUploadMb, state, onChange, describedBy }: {
     >
       <Upload className="size-5 text-muted-foreground" aria-hidden />
       <span className="text-sm">
-        <span className="font-medium">Choose a video</span> <span className="text-muted-foreground max-sm:hidden">or drop it here</span>
+        <span className="font-medium">{k.choose}</span> <span className="text-muted-foreground max-sm:hidden">or drop it here</span>
       </span>
-      <span className="text-xs text-muted-foreground">MP4, MOV, MKV or WebM · up to {formatSize(maxUploadMb * 1024 * 1024)}</span>
+      <span className="text-xs text-muted-foreground">
+        {k.formats} · up to {formatSize(maxUploadMb * 1024 * 1024)}
+      </span>
       <input
         ref={input}
         id={id}
         type="file"
-        accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime,video/x-matroska,video/webm"
+        accept={k.accept}
         className="sr-only"
         aria-describedby={describedBy}
         onChange={(e) => {

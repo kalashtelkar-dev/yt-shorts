@@ -4,6 +4,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 V8 = json.load(open(os.path.join(HERE, 'base', 'edit-studio-v8.json')))
 SRC = {n['id']: n for n in V8['graph']['nodes']}
 SRC_E = V8['graph']['edges']
+# YouTube downloads look like a Chrome browser: without it YouTube now and then refuses the stream ("unable to download
+# video data: HTTP Error 403 ... `impersonate` may help"), seen on a real job 2026-09-30 (the user approved the change).
+IMPERSONATE = "chrome"
+STRIP = 10  # kill-feed snapshots (one per second) stacked into each OCR picture; see gameplay_index. 15 is on test as tpl_AObyvg5ahVLw
 
 class G:
     def __init__(self): self.N = {}; self.E = []
@@ -21,14 +25,62 @@ class G:
         return self
     def doc(self, name, desc):
         nodes = list(self.N.values())
-        for i, n in enumerate(nodes): n["position"] = {"x": (i % 7) * 300, "y": (i // 7) * 180}
         ids = set(self.N); seen = set(); edges = []
         for e in self.E:  # the same wire added twice (copied from v8 and added again) is kept once
             assert e['from']['node'] in ids and e['to']['node'] in ids, e['id']
             if e['id'] not in seen: seen.add(e['id']); edges.append(e)
         self.E = edges
+        layout(nodes, edges)
         return {"kind": "editor-api/pipeline", "formatVersion": 1, "source": {"id": "tpl_x4p9irJIKNb-", "version": 1},
                 "name": name, "description": desc, "graph": {"version": V8['graph'].get('version', 1), "nodes": nodes, "edges": self.E}}
+
+# Where each step sits in the Engine X editor (the view only; nothing a run reads). Left to right in the order data flows:
+# inputs in the first column, each step one column right of the steps it needs, the output last; a step with no inputs
+# of its own (a number, a font, the model connection) just before the step it feeds. In a column, steps sit level with
+# what feeds them, so wires stay short and seldom cross (the user, 2026-09-30: the old 7-wide grid was hard to read).
+COL_W, ROW_H = 380, 150
+def layout(nodes, edges):
+    by = {n["id"]: n for n in nodes}
+    parents = {nid: [] for nid in by}; children = {nid: [] for nid in by}
+    for e in edges:
+        parents[e["to"]["node"]].append(e["from"]["node"]); children[e["from"]["node"]].append(e["to"]["node"])
+    col = {}
+    def depth(nid, trail=()):
+        if nid in col: return col[nid]
+        if nid in trail: return 0  # a cycle can't run; don't loop on one
+        ps = [p for p in parents[nid] if by[p].get("kind") != "input"]
+        col[nid] = 1 + max((depth(p, trail + (nid,)) for p in ps), default=0) if by[nid].get("kind") != "input" else 0
+        return col[nid]
+    for nid in by: depth(nid)
+    for nid, n in by.items():  # sources: next to their first consumer, not in the inputs' column
+        if n.get("kind") != "input" and not parents[nid] and children[nid]: col[nid] = max(1, min(col[c] for c in children[nid]) - 1)
+    last = max(col.values(), default=0) + 1
+    for nid, n in by.items():
+        if n.get("kind") == "output": col[nid] = last
+    columns = {}
+    for nid in by: columns.setdefault(col[nid], []).append(nid)
+    row = {nid: i for c in columns.values() for i, nid in enumerate(c)}
+    wires = [(e["from"]["node"], e["to"]["node"]) for e in edges]
+    def crossings():  # wires between the same two columns that swap order
+        n = 0
+        for i, (a, b) in enumerate(wires):
+            for c, d in wires[i + 1:]:
+                if col[a] == col[c] and col[b] == col[d] and (row[a] - row[c]) * (row[b] - row[d]) < 0: n += 1
+        return n
+    best = (crossings(), {c: list(m) for c, m in columns.items()})
+    for _ in range(8):  # sweeps: each step level with the average of what feeds it, then of what it feeds; keep the best
+        for c in sorted(columns):
+            columns[c].sort(key=lambda nid: (sum(row[p] for p in parents[nid]) / len(parents[nid]) if parents[nid] else row[nid], nid))
+            for i, nid in enumerate(columns[c]): row[nid] = i
+        for c in sorted(columns, reverse=True):
+            columns[c].sort(key=lambda nid: (sum(row[k] for k in children[nid]) / len(children[nid]) if children[nid] else row[nid], nid))
+            for i, nid in enumerate(columns[c]): row[nid] = i
+        if (x := crossings()) < best[0]: best = (x, {c: list(m) for c, m in columns.items()})
+    columns = best[1]
+    tallest = max(len(c) for c in columns.values())
+    for c, members in columns.items():
+        top = (tallest - len(members)) * ROW_H / 2  # each column centred on the tallest
+        for i, nid in enumerate(members): by[nid]["position"] = {"x": c * COL_W, "y": round(top + i * ROW_H)}
 
 def inp(g, nid, name, typ, sample): return g.node(nid, kind="input", name=name, type=typ, sample=sample, required=True)
 
@@ -46,7 +98,7 @@ def gameplay_index(upload=False):
         src, dur = ("video_in", "value"), ("info", "duration")
     else:
         inp(g, "youtube_url", "youtubeUrl", "text", "https://www.youtube.com/watch?v=_q_DGT5qpSU")
-        g.take("download"); g.util("video_file", "pick", {"index": 0})
+        g.take("download"); g.N["download"]["params"]["impersonate"] = IMPERSONATE; g.util("video_file", "pick", {"index": 0})
         g.edge("youtube_url", "value", "download", "url").edge("download", "files", "video_file", "list")
         src, dur = ("download", "files"), ("download", "duration")
     g.edge(*src, "kill_feed", "input")
@@ -55,15 +107,24 @@ def gameplay_index(upload=False):
     g.edge("stamp_font", "file", "kill_feed", "input")
     g.edge("player_name", "value", "kill_instruction", "a")
     for a, b in (("name_escape", "text"),): g.edge("player_name", "value", a, b)
-    # The model only transcribes the rows with the player in them (killer, victim); the pipeline decides what's a kill: the
-    # killer must be the player (the OCR-tolerant name pattern the kill feed is already filtered with). A real run counted
-    # "taffishmegafan > Me" (the player dying) as a kill, though the instruction said to ignore those, 2026-09-29.
+    # The model lists only the player's kills (the user, 2026-09-29: the kill finder showed deaths too). The pipeline still
+    # checks the killer is the player (the OCR-tolerant name pattern the kill feed is already filtered with): a real run
+    # counted "taffishmegafan > Me" (the player dying) as a kill, though the instruction said to ignore those, 2026-09-29.
     feed = g.N["kill_instruction"]["params"]["template"]
+    # Snapshots per OCR picture (v8: 10): the strip video then has one frame per STRIP seconds, and the kill finder is
+    # told the block size. 15 turns an 18-min match's 112 OCR calls into 75 (the user, 2026-09-30, to test OCR speed).
+    kf = g.N["kill_feed"]["params"]["args"]
+    assert sum("tile=1x10" in a for a in kf) == 1 and g.N["feed_frames"]["params"]["everySec"] == 10 and "blocks of 10 seconds" in feed
+    g.N["kill_feed"]["params"]["args"] = [a.replace("tile=1x10", f"tile=1x{STRIP}") for a in kf]
+    g.N["feed_frames"]["params"]["everySec"] = STRIP
+    feed = feed.replace("blocks of 10 seconds", f"blocks of {STRIP} seconds")
     intro = feed[:feed.index("In each kill-feed row")]
     g.N["kill_instruction"]["params"]["template"] = intro + (
         "Each kill-feed row reads: killer name, weapon icon, victim name. The killer is always the name on the LEFT (first), the victim the name on the RIGHT (second).\n"
-        "Task: list every kill-feed row that has the player's name in it, once, at the first second it appears. A row stays on screen for about 5 seconds, so it repeats in "
-        "consecutive frames: list it when it first appears, and again only if it reappears after a gap of more than 2 seconds. When several new rows appear at once, list each.\n"
+        "Task: list every row with the player's name in it: the player's KILLS (the player's name on the LEFT) and the player's DEATHS (the player's name on the RIGHT). "
+        "Leave out every row without the player's name. List each row once, at the first second it appears. A row stays on screen for about 5 seconds, so the "
+        "same row repeats in consecutive frames: list it only when it first appears, and again only if it reappears after a gap of more than 5 seconds. "
+        "When several new rows appear at once, list each.\n"
         "For each row give t (that second), killer (the first name, exactly as read) and victim (the second name, exactly as read).\n"
         "Answer exactly in this shape: {\"rows\":[{\"t\":number,\"killer\":string,\"victim\":string}]}, in time order, with no other keys. If there are none, answer {\"rows\":[]}.")
     # All on the rows as one text (a filter's list would make the next steps run per row, or be skipped when empty):
@@ -74,9 +135,21 @@ def gameplay_index(upload=False):
     g.util("mark_kills", "regex", {"flags": "g", "replace": "§$&§"}).edge("rows_text", "value", "mark_kills", "text").edge("killer_pattern", "value", "mark_kills", "pattern")
     g.util("drop_rows", "regex", {"flags": "g", "pattern": r"(?<!§)\{[^{}]*\}(?!§)", "replace": ""}).edge("mark_kills", "text", "drop_rows", "text")
     g.util("unmark", "regex", {"flags": "g", "pattern": "§", "replace": ""}).edge("drop_rows", "text", "unmark", "text")
-    g.util("tidy_commas", "regex", {"flags": "g", "pattern": r",(?=,|\])|(?<=\[),", "replace": ""}).edge("unmark", "text", "tidy_commas", "text")
+    # Drops a comma after "[" or after another comma, and any run of commas before "]", so "[,,{a},,{b},]" -> "[{a},{b}]".
+    # (The old ",(?=,|\])|(?<=\[)," left "[,{" when two rows came before the first kill: two real jobs failed as
+    # "no kills found", 2026-09-30.)
+    g.util("tidy_commas", "regex", {"flags": "g", "pattern": r"(?<=[\[,]),|,(?=,*\])", "replace": ""}).edge("unmark", "text", "tidy_commas", "text")
     g.util("kills_wrap", "template", {"template": '{"kills":{{a}}}'}).edge("tidy_commas", "text", "kills_wrap", "a")
     g.util("kills_found", "json-parse", {"fenced": False}).edge("kills_wrap", "value", "kills_found", "text")
+    # The player's deaths, the same way from the same rows (the player is the VICTIM): the app keeps every clip clear of
+    # them, so a montage shows the kills and never the player dying just after (the user, 2026-09-30).
+    g.util("victim_pattern", "template", {"template": r'\{(?=[^{}]*"victim":"\W*(?:{{a}})\W*")[^{}]*\}'}).edge("name_b", "text", "victim_pattern", "a")
+    g.util("mark_deaths", "regex", {"flags": "g", "replace": "§$&§"}).edge("rows_text", "value", "mark_deaths", "text").edge("victim_pattern", "value", "mark_deaths", "pattern")
+    g.util("drop_rows_d", "regex", {"flags": "g", "pattern": r"(?<!§)\{[^{}]*\}(?!§)", "replace": ""}).edge("mark_deaths", "text", "drop_rows_d", "text")
+    g.util("unmark_d", "regex", {"flags": "g", "pattern": "§", "replace": ""}).edge("drop_rows_d", "text", "unmark_d", "text")
+    g.util("tidy_commas_d", "regex", {"flags": "g", "pattern": r"(?<=[\[,]),|,(?=,*\])", "replace": ""}).edge("unmark_d", "text", "tidy_commas_d", "text")
+    g.util("deaths_wrap", "template", {"template": '{"deaths":{{a}}}'}).edge("tidy_commas_d", "text", "deaths_wrap", "a")
+    g.util("deaths_found", "json-parse", {"fenced": False}).edge("deaths_wrap", "value", "deaths_found", "text")
     # flex candidates: ~120 time-stamped frames spread over the whole recording, read by the vision model
     g.util("flex_frames_n", "number", {"value": 120})
     g.util("flex_fps", "math", {"op": "divide"}).edge("flex_frames_n", "value", "flex_fps", "a").edge(*dur, "flex_fps", "b")
@@ -105,7 +178,8 @@ def gameplay_index(upload=False):
     g.edge("kills_text", "value", "flex_prompt", "a").edge(*dur, "flex_prompt", "b")
     g.node("flex_pick", engine="llm", operation="chat", params={"system": "You are a gaming video editor choosing intro shots. You answer only with valid JSON.", "json": True, "maxTokens": 2048, "temperature": 0.2})
     g.edge("llm", "connection", "flex_pick", "connection").edge("flex_prompt", "value", "flex_pick", "prompt").edge("flex_sheets", "frames", "flex_pick", "images")
-    g.node("out", kind="output", fields=["video", "durationSec", "kills", "flex"] + ([] if upload else ["title"]))
+    g.node("out", kind="output", fields=["video", "durationSec", "kills", "deaths", "flex"] + ([] if upload else ["title"]))
+    g.edge("deaths_found", "value", "out", "deaths")
     g.edge("video_file", "value", "out", "video").edge(*dur, "out", "durationSec").edge("kills_found", "value", "out", "kills").edge("flex_pick", "json", "out", "flex")
     if not upload: g.edge("download", "title", "out", "title")
     return g.doc("gameplay-index" + ("-upload" if upload else ""),
@@ -113,11 +187,27 @@ def gameplay_index(upload=False):
         "(no kill, >= 6 s from kills; picked by the vision model from 120 time-stamped frames). Cache per (video, player); feeds every style-* pipeline.")
 
 # ---------------- song-index ----------------
-def song_index():
+def song_index(upload=False):
     g = G()
-    inp(g, "music_url", "musicUrl", "text", "https://www.youtube.com/watch?v=V-2ToWpNx9s")
-    g.take("music", "music_file", "music_loudness", "vocals").keep_src_edges()
-    g.edge("music_url", "value", "music", "url")
+    if upload:
+        # an audio file the user uploaded (the user, 2026-09-30): the same steps from the file, its length from the info
+        # step, no title (the app shows the file's name)
+        inp(g, "audio_in", "audio", "file:audio", "")
+        g.take("music_loudness", "vocals").keep_src_edges()
+        g.util("music_file", "merge", {}).edge("audio_in", "value", "music_file", "a")
+        g.node("info", engine="video", operation="video-info", params={"tier": "cpu"}).edge("audio_in", "value", "info", "input")
+        g.edge("music_file", "value", "music_loudness", "input").edge("music_file", "value", "vocals", "input")
+    else:
+        inp(g, "music_url", "musicUrl", "text", "https://www.youtube.com/watch?v=V-2ToWpNx9s")
+        g.take("music", "music_file", "music_loudness", "vocals").keep_src_edges()
+    # Loudness every 0.05 s (400 samples at 8 kHz; v8: 2000 = 0.25 s), for the app's beat finder (src/server/jobs/beats.ts):
+    # at 0.25 s it missed two of four known tempos by 0.1-0.3 s, at 0.05 s all four came within 4 ms (2026-09-30).
+    la = g.N["music_loudness"]["params"]["args"]
+    assert sum("asetnsamples=n=2000:" in a for a in la) == 1
+    g.N["music_loudness"]["params"]["args"] = [a.replace("asetnsamples=n=2000:", "asetnsamples=n=400:") for a in la]
+    if not upload:
+        g.N["music"]["params"]["impersonate"] = IMPERSONATE
+        g.edge("music_url", "value", "music", "url")
     # lyrics: the vocals stem -> Whisper segments (its own alignment off) -> the forced aligner times every word in each segment
     g.node("transcript", engine="transcribe", operation="transcribe", params={"model": "large-v3", "language": "en", "align": False, "formats": ["json"]})
     g.node("aligned", engine="transcribe", operation="align", params={})
@@ -126,13 +216,14 @@ def song_index():
     # where someone is actually singing, on the vocals stem: the app never shows a word before the voice comes in
     g.node("voice", engine="voice-activity", operation="segments", params={"threshold": 0.5, "minSpeechMs": 100, "minSilenceMs": 150, "paddingMs": 0})
     g.edge("vocals", "vocals", "voice", "input")
-    g.node("out", kind="output", fields=["audio", "durationSec", "loudness", "segments", "voice", "title"])
-    g.edge("music_file", "value", "out", "audio").edge("music", "duration", "out", "durationSec").edge("music_loudness", "stdout", "out", "loudness")
-    g.edge("aligned", "segments", "out", "segments").edge("voice", "segments", "out", "voice").edge("music", "title", "out", "title")
-    return g.doc("song-index", "Song link -> audio file, duration, loudness every 0.25 s (beats/drop), the lyrics as segments with every word force-aligned on the separated vocals, and where the voice is (voice activity). Cache per song; feeds every style-* pipeline.")
+    g.node("out", kind="output", fields=["audio", "durationSec", "loudness", "segments", "voice"] + ([] if upload else ["title"]))
+    g.edge("music_file", "value", "out", "audio").edge(*(("info", "duration") if upload else ("music", "duration")), "out", "durationSec").edge("music_loudness", "stdout", "out", "loudness")
+    g.edge("aligned", "segments", "out", "segments").edge("voice", "segments", "out", "voice")
+    if not upload: g.edge("music", "title", "out", "title")
+    return g.doc("song-index" + ("-upload" if upload else ""), ("Uploaded song" if upload else "Song link") + " -> audio file, duration, loudness every 0.05 s (the app measures the beat and drop from it), the lyrics as segments with every word force-aligned on the separated vocals, and where the voice is (voice activity). Cache per song; feeds every style-* pipeline.")
 
 if __name__ == "__main__" and (len(sys.argv) == 1 or sys.argv[1] == "all"):
-    for fname, d in (("gameplay-index", gameplay_index()), ("gameplay-index-upload", gameplay_index(True)), ("song-index", song_index())):
+    for fname, d in (("gameplay-index", gameplay_index()), ("gameplay-index-upload", gameplay_index(True)), ("song-index", song_index()), ("song-index-upload", song_index(True))):
         json.dump(d, open(os.path.join(HERE, f'{fname}.json'), 'w'), indent=2)
         print(fname, "nodes", len(d['graph']['nodes']), "edges", len(d['graph']['edges']))
 
@@ -151,9 +242,9 @@ MIXED_RULES = """3. Then the kill section: exactly ONE clip per kill entry (norm
    - Normal: speed 1, start from CLIP STARTS (the kill is 2.5 s in), len at least {{o}} s, up to 2 s longer to land the cut on a beat.
    - Slow motion: speed 0.5, start from SLOW-MOTION CLIP STARTS (the kill is 1 s in), len at least {{q}} s, up to 1 s longer (it plays for 2 x len).
    For an entry with "more" you may lengthen its clip to show those next kills too (add the last one's offset to len); it must keep playing {{p}} s after the last kill it shows.
-   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says. Don't use a kill twice or let clips overlap in the recording.
-   Make play times whole beats where you can, so the cuts land on beats.
-4. The play time of all clips (len / speed, added up) should reach the LENGTH when there are enough kills; the end is trimmed with a fade."""
+   There are only these two speeds. Use at least one slow-motion clip and at most one slow-motion clip for every 4 clips, and place them as the VARIATION says: "on the drop" means a slow-motion clip is playing at the DROP time or starts on it (a DROP inside the intro: the first kill clip is the slow-motion one; no DROP: in the middle of the LENGTH). A slow-motion clip must start before the LENGTH, or nobody sees it. Don't use a kill twice or let clips overlap in the recording.
+   Every cut lands on a beat: the play time so far (len / speed, added up from 0) must equal one of the BEATS at each cut. Lengthen a clip within its limits to reach the next beat.
+4. Stop adding clips once the play time reaches the LENGTH: at most one clip may run past it (the end is trimmed with a fade)."""
 ULTRA_STARTS = "CLIP STARTS, in RECORDING seconds (each 2 s before one kill entry, same order as the entries, separated by |): {{k}}"
 ULTRA_RULES = """3. Then the kill section: use the first {{r}} kill entries (all of them if there are fewer), exactly ONE clip each, in exactly the order they are listed. Never sort them by time or by strength. A clip's start is a time in the RECORDING, never a position in the montage; copy it exactly from CLIP STARTS.
    Every kill clip is speed 1, role "kill", len 6. The edit gives each one its own slow motion, speed ramp and transition, so each kill clip plays for 6.7 s. Ignore "more". Don't use a kill twice.
@@ -168,14 +259,15 @@ The recording is {{{{f}}}} s long.
 INTRO FLEX MOMENTS (no kill, the player showing off), in recording seconds: {{{{m}}}}
 {starts}
 
-THE SONG: {{{{g}}}} s long. Loudness every 0.25 s as "time,RMS dB" (a sudden rise is a hit or beat; the biggest sustained rise is the drop):
-{{{{h}}}}
+THE SONG: {{{{g}}}} s long, measured for you. One beat every {{{{e}}}} s.
+BEATS (montage seconds a cut may land on, up to the LENGTH): {{{{h}}}}
+DROP (the biggest lift inside the montage, on a beat; "none" if there isn't one): {{{{d}}}}
 {extra}
 LENGTH: the montage is at most {{{{i}}}} seconds. The song plays from its start, so montage time = song time.
 {variation}
 
 Plan it:
-1. From the loudness, find beatSec (time between beats, usually 0.35 to 0.6 s) and dropAtSec (song seconds).
+1. beatSec and dropAtSec: copy them from above (dropAtSec 0 when the DROP is none).
 2. Clip 1 is the intro flex: start is the start of one of the INTRO FLEX MOMENTS (copy it exactly), speed 1, role "flex", len {flex_len}. If there are no flex moments, the first kill clip opens the montage instead.
 {kill_rules}
 5. totalKills is the number of kills inside the kept clips.
@@ -259,20 +351,25 @@ def warp(steps):
 WARP, ULTRA_LEN = warp(ULTRA_STEPS)
 ULTRA_CLIP_SEC = round(ULTRA_LEN, 3)
 RAMP_START = sum(l / v for l, v in ULTRA_STEPS[:4])  # 5.25 s into the clip
-# The transition: over the ramp the frame zooms in, tilts and slides out; the next clip starts zoomed and tilted the
-# other way and pinches back out over its first 0.35 s. Zoom always outgrows the tilt, so the rotated frame's corners
-# never show.
+# The transition (the user, 2026-09-29: no tilt, just the pinch, with a glitch or blur): over the ramp the frame zooms
+# in (pinch out); the next clip starts zoomed and pinches back to normal over its first 0.35 s. Around each cut the
+# frame blurs (light, then heavy nearest the cut) and its colours split on alternate frames (a glitch). Blur and split
+# run only in those fractions of a second (the filters' `enable`), so they cost almost nothing.
 OUT = f"pow(max(0,(TT-{RAMP_START:g})/{ULTRA_LEN - RAMP_START:.3f}),2)"
 IN = "pow(max(0,1-TT/0.35),2)"
-def motion(tt, out=OUT, into=IN):
-    o, i = out.replace("TT", tt), into.replace("TT", tt)
-    return {"a": f"0.12*{o}-0.08*{i}", "z": f"1+0.6*{o}+0.4*{i}", "x": f"iw*(0.12*{o}-0.08*{i})"}
-def ultra_video(first, dur, out=OUT, into=IN):
+def cut_fx(end, pinch_in):
+    """Blur and colour split before `end` (the clip's last moments) and, with a pinch in, after its start."""
+    def near(out_s, in_s):
+        w = f"gt(t,{end}-{out_s})"
+        return f"{w}+lt(t,{in_s})" if pinch_in else w
+    return (f",gblur=sigma=6:enable='{near(0.3, 0.2)}',gblur=sigma=14:enable='{near(0.12, 0.08)}'"
+            f",chromashift=cbh=-16:crh=16:enable='({near(0.18, 0.12)})*lt(mod(n,2),1)'")
+def ultra_video(first, end, out=OUT, into=IN):
     normal = SRC["segment_filters"]["params"]["replace"]
     layout = normal[normal.index("split=2[f$1][b$1];"):normal.index("[v$1pre]") + len("[v$1pre]")]  # blurred bands + near-square band
-    t, f = motion("t", out, into), motion("in/60", out, into)
-    return (first + layout + ";[v$1pre]rotate=a='" + t["a"] + "':c=black,zoompan=z='" + f["z"] + "':d=1:x='iw/2-iw/zoom/2+" + f["x"]
-            + "':y='ih/2-ih/zoom/2':s=1080x1920:fps=60[v$1];")
+    o, i = out.replace("TT", "in/60"), into.replace("TT", "in/60")
+    return (first + layout + ";[v$1pre]zoompan=z='1+0.6*" + o + "+0.4*" + i + "':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s=1080x1920:fps=60"
+            + cut_fx(end, into != "0") + "[v$1];")
 # The game sound in the same steps, always exactly under its picture:
 #  - normal speed (1x): natural pitch, 20 ms fades so the cuts don't click;
 #  - slow motion (0.5x, including the kill): slowed with the picture, tape-style (asetrate: lower, one clean boom per
@@ -299,9 +396,9 @@ def ultra_sound():
             + "".join(f"[g$1{c}]" for c in labels) + ";" + "".join(pieces) + "".join(f"[h$1{c}]" for c in labels) + f"concat=n={len(labels)}:v=0:a=1[a$1];")
 # Two passes per kill clip (a regex replacement holds at most 2000 characters): the picture, keeping the clip ($&) for the
 # second pass, which swaps it for the sound.
-ULTRA_KILL_PICTURE = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=6,setpts=PTS-STARTPTS,setpts='(" + WARP + ")/TB',framerate=fps=60,", 6) + "$&"
+ULTRA_KILL_PICTURE = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=6,setpts=PTS-STARTPTS,setpts='(" + WARP + ")/TB',framerate=fps=60,", ULTRA_CLIP_SEC) + "$&"
 ULTRA_KILL_SOUND = ultra_sound()
-# the intro flex: normal speed, the same zoom-tilt out over its last 0.5 s, no pinch in (the edit fades in from black)
+# the intro flex: normal speed, the same pinch out (and blur, glitch) over its last 0.5 s, no pinch in (the edit fades in from black)
 ULTRA_FLEX = ultra_video("movie='{in0}':seek_point=$2,trim=start=$2:duration=$3,setpts=PTS-STARTPTS,fps=60,", "$3",
                          out="pow(max(0,(TT-($3-0.5))/0.5),2)", into="0") + "amovie='{in0}':seek_point=$2,atrim=start=$2:duration=$3,asetpts=PTS-STARTPTS,aresample=48000[a$1];"
 def role_pat(flex):
@@ -311,13 +408,35 @@ def role_pat(flex):
 # Ultra: how many kill clips fill each length (a 1.5 s intro + ULTRA_CLIP_SEC per kill, the last one trimmed by the fade)
 ULTRA_FIT = {d: math.ceil((d - 1.5) / ULTRA_CLIP_SEC) for d in (15, 30, 45, 60, 90, 120)}
 
+def code_plan(g):
+    """The clip list comes from the app (src/server/jobs/plan.ts, the user's call 2026-09-30): the planner model kept the
+    hard rules but not the timing (cuts off the beat, 78 s planned for 30 s, slow motion outside the video). Its node
+    becomes a parse of the `plan` input, so every check after it (starts, speeds, lengths, one clip per kill, holds) and
+    the render stay as they were; the prompt, the model and whatever only fed the prompt are removed."""
+    inp(g, "plan_in", "plan", "text", '{"beatSec":0.5,"dropAtSec":0,"clips":[],"totalKills":0}')
+    g.N["plan"] = {"id": "plan", "kind": "engine", "engine": "util", "operation": "json-parse", "params": {"fenced": False}}
+    g.E = [e for e in g.E if e["to"]["node"] != "plan"]
+    for e in g.E:
+        if e["from"]["node"] == "plan" and e["from"]["port"] == "json":
+            e["from"]["port"] = "value"; e["id"] = f"plan.value->{e['to']['node']}.{e['to']['port']}"
+    g.edge("plan_in", "value", "plan", "text")
+    for nid in ("plan_prompt", "llm"): g.N.pop(nid)
+    while True:  # prune util steps and inputs nothing reads any more
+        feeding = {e["from"]["node"] for e in g.E}
+        dead = [nid for nid, n in g.N.items() if nid not in feeding and (n.get("kind") == "input" or n.get("engine") == "util")]
+        g.E = [e for e in g.E if e["from"]["node"] in g.N and e["to"]["node"] in g.N]
+        if not dead: break
+        for nid in dead: g.N.pop(nid)
+        g.E = [e for e in g.E if e["from"]["node"] in g.N and e["to"]["node"] in g.N]
+
 def style(kind):
     lyrical, ultra = kind != "kill", kind == "ultra"
     g = G()
     for nid, name, typ, sample in (("video_in", "video", "file:video", ""), ("kills_in", "kills", "text", '{"kills":[{"t":51}],"totalKills":1}'),
                                    ("flex_in", "flex", "text", '{"flex":[{"start":20,"what":"knife out"}]}'), ("game_dur", "gameDurationSec", "text", "2400"),
                                    ("audio_in", "audio", "file:audio", ""), ("song_dur", "songDurationSec", "text", "22"),
-                                   ("loudness_in", "loudness", "text", "0.000000,-30.0"), ("max_dur", "maxDurationSec", "text", "60"),
+                                   ("beat_sec_in", "beatSec", "text", "0.5"), ("beats_in", "beats", "text", "0.2, 0.7, 1.2, 1.7"),
+                                   ("drop_in", "dropAtSec", "text", "none"), ("max_dur", "maxDurationSec", "text", "60"),
                                    ("variation_in", "variation", "text", "Put the slow-motion clip third.")):
         inp(g, nid, name, typ, sample)
     if lyrical: inp(g, "lines_in", "lines", "text", "[]"); inp(g, "look_in", "lyricLook", "text", "0")
@@ -349,7 +468,7 @@ def style(kind):
     # planner
     prompt = PLAN_HEAD.format(style={"kill": "kill montage: a short intro flex (no kill), then back-to-back kills at normal speed and in slow motion",
                                      "lyrical": "lyrical kill montage: a very short intro flex, then back-to-back kills at normal speed and in slow motion, with the song's words on screen",
-                                     "ultra": "ultra edit: a very short intro flex, then back-to-back kills, each with its own slow motion, speed ramp and zoom-tilt transition, with the song's words on screen"}[kind],
+                                     "ultra": "ultra edit: a very short intro flex, then back-to-back kills, each with its own slow motion, speed ramp and pinch transition, with the song's words on screen"}[kind],
                               extra="", flex_len="1 to 1.5 s, ending on a beat" if lyrical else "2 to 4 s, ending on the drop if the drop comes within 4 s, otherwise on a beat around 3 s",
                               step6="", hook_key="", hook_zero="", starts=ULTRA_STARTS if ultra else MIXED_STARTS,
                               variation="" if ultra else MIXED_VARIATION, kill_rules=ULTRA_RULES if ultra else MIXED_RULES)
@@ -358,7 +477,7 @@ def style(kind):
     g.util("flex_text", "json-stringify", {"indent": 0}).edge("flex_list", "value", "flex_text", "value")
     g.util("cap", "math", {"op": "min"}).edge("song_dur", "value", "cap", "a").edge("max_dur", "value", "cap", "b")
     for port, (n, p) in {"a": ("kills_text", "value"), "f": ("game_dur", "value"), "m": ("flex_text", "value"), "k": ("starts_normal_alt", "value"),
-                         "l": ("starts_slow_alt", "value"), "g": ("song_dur", "value"), "h": ("loudness_in", "value"), "i": ("cap", "value"),
+                         "l": ("starts_slow_alt", "value"), "g": ("song_dur", "value"), "h": ("beats_in", "value"), "e": ("beat_sec_in", "value"), "d": ("drop_in", "value"), "i": ("cap", "value"),
                          "n": ("variation_in", "value")}.items():
         g.edge(n, p, "plan_prompt", port)
     g.edge("llm", "connection", "plan", "connection").edge("plan_prompt", "value", "plan", "prompt")
@@ -539,9 +658,10 @@ def style(kind):
     g.edge("make_montage", "file", "thumbnail", "input").edge("cover_args_list", "value", "thumbnail", "args")
     g.node("out", kind="output", fields=["montage", "plan", "thumbnail"])
     g.edge("final_cut", "file", "out", "montage").edge("plan", "json", "out", "plan").edge("thumbnail", "file", "out", "thumbnail")
+    code_plan(g)
     if ultra:
         return g.doc("style-ultra-edit", "Ultra edit (docs/edit-styles/ultra-edit.md) from a gameplay-index and a song-index: intro flex, then every kill as a fixed 6 s window "
-                     "time-warped (0.5x from K-2, 1x, 0.5x on the kill, 1x, then a 0.5x-to-3x ramp) with a zoom-tilt-slide transition out and a pinch in, "
+                     "time-warped (0.5x from K-2, 1x, 0.5x on the kill, 1x, then a 0.5x-to-3x ramp) with a pinch-out transition (blur and glitch at the cut) and a pinch in, "
                      "the game sound without voice chat mixed loud under the song, and the lyrics karaoke-style in a random spot per line and one of ten looks per job.")
     name = "style-lyrical-kill-montage" if lyrical else "style-kill-montage"
     return g.doc(name, ("Lyrical kill montage (docs/edit-styles/lyrical-kill-montage.md)" if lyrical else "Kill montage (docs/edit-styles/kill-montage.md)")

@@ -21,7 +21,7 @@ export type StageMapEntry = { match: string; label: string; itemSeconds?: number
  * A staged style (docs/edit-styles/README.md): the gameplay and the song are indexed by their own pipelines
  * (results cached in media_index), then `templateId` is the style pipeline that plans and renders.
  */
-export type IndexTemplates = { gameplay: string; gameplayUpload?: string | null; song: string };
+export type IndexTemplates = { gameplay: string; gameplayUpload?: string | null; song: string; songUpload?: string | null };
 export type CreditRange = { min: number; max: number };
 export type JobPhase = "index" | "render";
 
@@ -40,3 +40,8 @@ export type Seller = {
 export type Buyer = { email: string; legalName: string | null; gstin: string | null; stateCode: string };
 
 export type { RunStep };
+
+/** jobs.download: the video download's latest progress (whole percent and bytes; eta in seconds). */
+/** After the transfer Engine X joins picture and sound, then stores the file; rows saved before phases existed have none. */
+export type DownloadPhase = "downloading" | "joining" | "saving";
+export type DownloadProgress = { pct: number; bytes: number; totalBytes: number; etaSec: number | null; phase?: DownloadPhase };

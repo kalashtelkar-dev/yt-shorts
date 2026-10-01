@@ -1,4 +1,4 @@
-// pnpm worker:dev — BullMQ worker: starts jobs, polls Engine X, keeps a heartbeat (CLAUDE.md §7, §9).
+// npm run dev:worker — BullMQ worker: starts jobs, polls Engine X, keeps a heartbeat (CLAUDE.md §7, §9).
 import { Queue, Worker } from "bullmq";
 import { runHealthSweep } from "@/server/health";
 import { saveFilesFor, saveMissingFiles } from "@/server/jobs/files";

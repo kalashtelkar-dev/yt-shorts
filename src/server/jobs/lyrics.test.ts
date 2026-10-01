@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lyricItems } from "./lyrics";
+import { lyricEvents, lyricItems, type LyricItem } from "./lyrics";
 
 const seg = (words: [string, number | null, number | null][], start = words[0]?.[1] ?? 0, end = words.at(-1)?.[2] ?? 0) => ({
   start,
@@ -109,5 +109,65 @@ describe("lyricItems", () => {
     expect(lyricItems([])).toEqual([]);
     expect(lyricItems(undefined)).toEqual([]);
     expect(lyricItems([{ start: 1, end: 2 }])).toEqual([]);
+  });
+});
+
+describe("lyricEvents", () => {
+  // a one-row line at spot 0 (upper left): in from the left at 0.49, out downward after 1.21
+  const L = { r: 0, n: 11, p: 0, a: 0.49, b: 1.21, ix: -1, iy: 0, ox: 0, oy: 1 } as const;
+  const items: LyricItem[] = [
+    { s: 0.49, e: 0.69, t: "I’m", ...L },
+    { s: 0.69, e: 0.93, t: "I’m so", ...L },
+    { s: 0.93, e: 1.41, t: "I’m so cool", ...L },
+  ];
+  const events = lyricEvents(items).split("\n");
+  const at = (time: string) => events.find((e) => e.startsWith(`Dialogue: 0,${time},`))!;
+
+  it("starts with a comment, so the file's events are never empty", () => {
+    expect(lyricEvents([])).toBe("; lyrics");
+    expect(events[0]).toBe("; lyrics");
+  });
+
+  it("slides in from its side as three straight moves, fading in, then holds", () => {
+    expect(at("0:00:00.49")).toBe("Dialogue: 0,0:00:00.49,0:00:00.55,L,,0,0,0,,{@L\\an7\\move(-170,528,-37,528)\\alpha&HFF&\\t(\\alpha&HAA&)}I’m{\\alpha&HFF&} so cool");
+    expect(at("0:00:00.55")).toContain("\\move(-37,528,43,528)");
+    expect(at("0:00:00.61")).toContain("\\move(43,528,70,528)");
+    expect(at("0:00:00.67")).toBe("Dialogue: 0,0:00:00.67,0:00:00.69,L,,0,0,0,,{@L\\an7\\pos(70,528)}I’m{\\alpha&HFF&} so cool");
+  });
+
+  it("shows the whole row with the words not sung yet hidden, so the row never shifts", () => {
+    expect(at("0:00:00.69")).toMatch(/\\pos\(70,528\)}I’m so\{\\alpha&HFF&\} cool$/);
+    expect(at("0:00:00.93")).toMatch(/}I’m so cool$/);
+  });
+
+  it("slides out downward after its end, fading out, and stops when it's gone", () => {
+    const out = events.filter((e) => e.includes("\\move(70,"));
+    expect(out[0]).toContain(",0:00:01.21,0:00:01.28,");
+    expect(out.at(-1)).toMatch(/,0:00:01\.34,0:00:01\.41,.*\\move\(70,595,70,688\)\\alpha&HA6&\\t\(\\alpha&HFF&\)}I’m so cool$/);
+  });
+
+  it("places rows where drawtext did for the look: right edge, two rows 8 px either side of the lower third", () => {
+    const two = lyricEvents([
+      { s: 2, e: 3, t: "with my", r: 1, n: 7, p: 5, a: 1, b: 2.9, ix: 0, iy: 0, ox: 0, oy: 0 },
+      { s: 2, e: 3, t: "pink", r: 2, n: 4, p: 5, a: 1, b: 2.9, ix: 0, iy: 0, ox: 0, oy: 0 },
+    ]);
+    expect(two).toContain("{@L\\an9\\pos(1010,1023)}with my");
+    expect(two).toContain("{@L\\an9\\pos(1010,1184)}pink");
+  });
+
+  it("uses the look's line height: Bungee (look 2), and an unknown look as look 0", () => {
+    const one = [{ s: 2, e: 3, t: "run", r: 0, n: 3, p: 4, a: 1, b: 2.9, ix: 0, iy: 0, ox: 0, oy: 0 }] as LyricItem[];
+    expect(lyricEvents(one, 0, Infinity, "2")).toContain("{@L\\an8\\pos(540,1119)}run"); // 1229 - 91/2 - 65
+    expect(lyricEvents(one, 0, Infinity, "x")).toBe(lyricEvents(one));
+  });
+
+  it("leaves out steps from untilSec on (past the montage's length)", () => {
+    expect(lyricEvents(items, 0, 0.93)).not.toContain("}I’m so cool\n");
+    expect(lyricEvents(items, 0, 0.93)).toContain("}I’m so{\\alpha&HFF&} cool");
+  });
+
+  it("leaves out lines that start before fromSec (an intro without lyrics)", () => {
+    expect(lyricEvents(items, 0.5)).toBe("; lyrics");
+    expect(lyricEvents(items, 0.49).split("\n").length).toBeGreaterThan(1);
   });
 });

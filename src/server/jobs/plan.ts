@@ -14,7 +14,9 @@ export type Plan = { beatSec: number; dropAtSec: number; clips: Clip[]; totalKil
 
 const HOLD: Record<number, number> = { 15: 1, 30: 1.5, 60: 2, 90: 4 }; // seconds a kill stays on screen, by the length picked
 const DEFAULT_HOLD = 2;
-const LEAD_NORMAL = 2.5, LEAD_SLOW = 1.0, ULTRA_LEAD = 2.0; // prettier-ignore — the kill's place in its clip
+const LEAD_NORMAL = 2.5,
+  LEAD_SLOW = 1.0,
+  ULTRA_LEAD = 2.0; // prettier-ignore — the kill's place in its clip
 const MAX_LEN = 20; // the pipeline drops longer clips
 const ULTRA_CLIP_SEC = 6.669; // an Ultra kill clip's fixed warp (build.py ULTRA_CLIP_SEC)
 const ULTRA_WINDOW = [-2, 4]; // the recording an Ultra kill clip shows, around its kill
@@ -116,6 +118,26 @@ function slowIndex(p: PlanInput, from: number): number {
   return 0; // "first", and anything unrecognised
 }
 
+/** The style a catalog item plans as (its slug names it; anything else plans like a kill montage). */
+export const planStyle = (slug?: string): PlanStyle => (slug === "smart-edit" || slug?.includes("ultra") ? "ultra" : "kill"); // Smart Edit was "ultra-edit"
+
+/** How long a plan plays, in seconds: an Ultra kill clip is its fixed warp, whatever its len says. */
+export const planSec = (clips: Pick<Clip, "len" | "speed" | "role">[], style: PlanStyle) =>
+  clips.reduce((t, c) => t + (style === "ultra" && c.role === "kill" ? ULTRA_CLIP_SEC : c.len / c.speed), 0);
+
+/**
+ * Why a finished montage is shorter than the length picked, for the result page (null when it isn't, or we don't know).
+ * The planner stops at the song's end, or when the kills run out (plan.ts layout); a second either way is rounding.
+ */
+export function lengthNote(m: { pickedSec: number; lengthSec?: number | null; songSec?: number | null; kills?: number | null }): string | null {
+  const { pickedSec, lengthSec, songSec, kills } = m;
+  if (lengthSec == null || lengthSec >= pickedSec - 1) return null;
+  if (songSec && songSec < pickedSec - 1 && lengthSec >= songSec - 1)
+    return `Your song is ${Math.round(songSec)} s long, so your montage is too. Pick a longer song to fill all ${pickedSec} s.`;
+  const found = kills ? `We found ${kills} kill${kills === 1 ? "" : "s"}, enough for ${lengthSec} s.` : `Your kills filled ${lengthSec} s.`;
+  return `${found} A longer match with more kills fills all ${pickedSec} s.`;
+}
+
 export function planMontage(p: PlanInput): Plan {
   const clips: Clip[] = [];
   // the first intro moment with no death in it (a kill follows each, so there shouldn't be one; OCR can be off)
@@ -138,7 +160,14 @@ export function planMontage(p: PlanInput): Plan {
   } else {
     for (const c of layout(p, from, slowIndex(p, from))) {
       const slow = c.speed < 1;
-      clips.push({ id: clips.length + 1, start: startOf(c.entry.t, slow ? LEAD_SLOW : LEAD_NORMAL), len: c.len, speed: c.speed, role: "kill", kill: c.entry.t });
+      clips.push({
+        id: clips.length + 1,
+        start: startOf(c.entry.t, slow ? LEAD_SLOW : LEAD_NORMAL),
+        len: c.len,
+        speed: c.speed,
+        role: "kill",
+        kill: c.entry.t,
+      });
       // kills that happen on screen before the end: the entry's own, and a multi-kill's next ones inside a normal clip
       const lead = slow ? LEAD_SLOW / 0.5 : LEAD_NORMAL;
       for (const o of c.shown) if (c.at + lead + o < p.capSec && o <= c.len - LEAD_NORMAL) totalKills++;

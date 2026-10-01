@@ -16,7 +16,7 @@ import { getBillingProfile } from "@/server/payments";
 import { getViewer, viewerBalance } from "@/server/session";
 import { getSettings } from "@/server/settings";
 
-export const metadata: Metadata = { title: "Your account" };
+export const metadata: Metadata = { title: "Your account", robots: { index: false, follow: false } };
 
 // Accounts exist only with AUTH_MODE=full (CLAUDE.md §6). (Streamed under (user)/loading.tsx, so the
 // 404 / redirect arrive with status 200 and take effect in the browser, like every user page.)
@@ -46,7 +46,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const profileView = profile && { stateCode: profile.stateCode, legalName: profile.legalName, gstin: profile.gstin };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div data-backdrop="dim" className="flex flex-col gap-6">
       <BackLink href="/" className="-mb-3">
         Home
       </BackLink>
@@ -75,7 +75,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <div className="grid gap-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:items-start lg:gap-14">
           <section className="flex flex-col gap-4" aria-labelledby="buy-heading">
             <div className="flex items-baseline justify-between gap-4">
-              <h1 id="buy-heading" className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              <h1 id="buy-heading" className="font-display text-2xl sm:text-3xl">
                 Add credits
               </h1>
               <span className="text-sm text-muted-foreground lg:hidden">
@@ -88,7 +88,6 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 paisePerCredit={s.sellPaisePerCredit}
                 gstPercent={s.gstRateBps / 100}
                 styles={styles}
-                profile={profileView}
               />
             ) : (
               <p className="rounded-2xl border bg-panel p-5 text-muted-foreground">Buying credits opens soon. Until then, your free credits work as usual.</p>
@@ -125,7 +124,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       ) : (
         <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-14">
           <div className="flex flex-col gap-6">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Profile</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">Profile</h1>
             <dl className="flex flex-col divide-y rounded-xl border bg-panel">
               {[
                 ["Email", <span key="e" className="break-all">{viewer.email}</span>],

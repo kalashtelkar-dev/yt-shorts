@@ -2,6 +2,7 @@ import "server-only";
 import { db, type JobRow } from "@/db/client";
 import type { JobStatus } from "@/generated/prisma/client";
 import { mediaLinks } from "@/server/jobs/files";
+import { lengthNote } from "@/server/jobs/plan";
 import type { LibraryItem, PublicJob, PublicStatus } from "@/lib/jobs";
 import { youtubeId } from "@/lib/youtube";
 
@@ -46,7 +47,7 @@ export async function getPublicJob(jobId: string, userId: string): Promise<Publi
   const events = (
     await db.jobEvent.findMany({ where: { jobId }, select: { createdAt: true, message: true, level: true }, orderBy: { createdAt: "asc" }, take: 100 })
   ).map(({ createdAt, ...e }) => ({ at: createdAt, ...e }));
-  const meta = (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null };
+  const meta = (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null; lengthSec?: number | null; songSec?: number | null };
   // Waiting for one of the site's slots (settings.maxConcurrentJobsTotal): its place in line, oldest first.
   const ahead = job.status === "queued" ? await db.job.count({ where: { status: "queued", createdAt: { lt: job.createdAt } } }) : null;
   const status = toPublicStatus(job.status);
@@ -64,6 +65,9 @@ export async function getPublicJob(jobId: string, userId: string): Promise<Publi
     startedAt: job.startedAt?.toISOString() ?? null,
     finishedAt: job.finishedAt?.toISOString() ?? null,
     durationSec: job.durationSec,
+    lengthSec: meta.lengthSec ?? null,
+    lengthNote:
+      status === "succeeded" ? lengthNote({ pickedSec: job.durationSec, lengthSec: meta.lengthSec, songSec: meta.songSec, kills: meta.totalKills }) : null,
     credits: job.chargedCredits,
     kills: typeof meta.totalKills === "number" ? meta.totalKills : null,
     videoTitle: meta.title ?? null,
@@ -76,7 +80,7 @@ export async function listJobs(userId: string, limit = 50): Promise<LibraryItem[
   const rows = (
     await db.job.findMany({ where: { userId }, include: { catalogItem: { select: { title: true } } }, orderBy: { createdAt: "desc" }, take: limit })
   ).map(({ catalogItem, ...job }) => ({ job, title: catalogItem.title }));
-  const metaOf = (job: JobRow) => (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null };
+  const metaOf = (job: JobRow) => (job.outputMeta ?? {}) as { totalKills?: number; title?: string | null; lengthSec?: number | null; songSec?: number | null };
   // Covers for finished jobs; the library still renders if links fail.
   const links = await mediaLinks(rows.filter((r) => r.job.status === "succeeded").map((r) => r.job)).catch(() => new Map());
   return rows.map(({ job, title }) => {
@@ -87,7 +91,7 @@ export async function listJobs(userId: string, limit = 50): Promise<LibraryItem[
       title,
       status,
       createdAt: job.createdAt.toISOString(),
-      durationSec: job.durationSec,
+      durationSec: (status === "succeeded" && meta.lengthSec) || job.durationSec,
       kills: typeof meta.totalKills === "number" ? meta.totalKills : null,
       videoTitle: meta.title ?? null,
       progress: status === "succeeded" ? 1 : job.stepsTotal ? job.stepsDone / job.stepsTotal : 0,

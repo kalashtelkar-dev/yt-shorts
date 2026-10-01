@@ -10,6 +10,7 @@ import { redis } from "@/server/redis";
 import { getSettings, type Settings } from "@/server/settings";
 import { CANCELED_MESSAGE, isTransientFailure, noKillsMessage, publicErrorFor, TIMEOUT_MESSAGE } from "./errors";
 import { downloadProgress, syncDownload } from "./download";
+import { planSec, planStyle } from "./plan";
 import { advanceStaged, pollIndexes, startStaged } from "./staged";
 
 // Everything that moves a job through its life. Runs in the worker only (CLAUDE.md §7).
@@ -159,7 +160,13 @@ export async function pollJob(job: Job, settings: Settings, stageMap: { match: s
   await notify(job.id);
 }
 
-const elapsed = (job: Job, now: number) => (job.startedAt ? now - job.startedAt.getTime() : 0);
+const elapsed = (job: Job, now: number) => (job.startedAt ? Math.max(0, now - job.startedAt.getTime()) : 0);
+
+/** When Engine X finished the run's last step: our poll notices up to 10 s later, and that wait isn't editing. */
+export function lastStepEnd(run: Run, now: number) {
+  const ends = run.steps.map((s) => (s.finishedAt ? Date.parse(s.finishedAt) : NaN)).filter(Number.isFinite);
+  return ends.length ? Math.min(now, Math.max(...ends)) : now;
+}
 
 async function finishSucceeded(job: Job, run: Run, outputField: string, settings: Settings, now: number) {
   const output = run.output ?? {};
@@ -169,25 +176,40 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
   const killCount = Number(output.totalKills ?? plan.totalKills);
   const outputKey = typeof output[outputField] === "string" ? (output[outputField] as string) : null;
   const thumbnailKey = typeof output.thumbnail === "string" ? output.thumbnail : null; // the cover still (style pipelines)
-  // Staged jobs also ran their gameplay and song indexes, so they pay for the whole job, not just the render run.
-  const runMs = job.indexTemplates ? elapsed(job, now) : (run.runMs ?? elapsed(job, now));
+  // Staged jobs also ran their gameplay and song indexes, so they pay for the whole job, not just the render run:
+  // from taking a slot (waiting in line is free) to Engine X's last step.
+  const worked = elapsed(job, lastStepEnd(run, now));
+  const runMs = job.indexTemplates ? worked : (run.runMs ?? worked);
   if (!outputKey) {
     // The pipeline skips rendering when it finds no kills: tell the user that, not "something went wrong".
     const noKills = killCount === 0 || (clipList !== null && clipList.length === 0);
     const name = String((job.input as Record<string, unknown>).playerName ?? "your name");
     return finishFailed(
       job,
-      { errorRaw: noKills ? "no kills found" : `succeeded without output field "${outputField}"`, errorPublic: noKills ? noKillsMessage(name) : publicErrorFor(null), runMs },
+      {
+        errorRaw: noKills ? "no kills found" : `succeeded without output field "${outputField}"`,
+        errorPublic: noKills ? noKillsMessage(name) : publicErrorFor(null),
+        runMs,
+      },
       settings,
     );
   }
   const totalKills = killCount || 0;
   const clips = clipList ? clipList.length : null;
   let title = typeof output.title === "string" ? output.title : null;
+  const indexIds = [job.gameplayIndexId, job.songIndexId].filter((x): x is string => !!x);
+  const indexes = indexIds.length ? await db.mediaIndex.findMany({ where: { id: { in: indexIds } }, select: { id: true, output: true } }) : [];
   if (!title && job.gameplayIndexId) {
-    const g = await db.mediaIndex.findUnique({ where: { id: job.gameplayIndexId }, select: { output: true } });
+    const g = indexes.find((r) => r.id === job.gameplayIndexId);
     title = typeof g?.output?.title === "string" ? g.output.title : null;
   }
+  // The montage's real length and the song's (staged jobs): shorter than picked when the song is, or the kills ran out.
+  const songSec = Number(indexes.find((r) => r.id === job.songIndexId)?.output?.durationSec) || null;
+  const planned = (clipList ?? [])
+    .map((c) => c as Record<string, unknown>)
+    .map((c) => ({ len: Number(c.len), speed: Number(c.speed) || 1, role: c.role === "kill" ? ("kill" as const) : ("flex" as const) }));
+  const playSec = job.songIndexId && planned.length ? planSec(planned, planStyle(job.catalogSlug)) : NaN;
+  const lengthSec = Number.isFinite(playSec) ? Math.round(playSec) : null;
 
   const finished = await db.$transaction(async (tx) => {
     const { count } = await tx.job.updateMany({
@@ -195,7 +217,7 @@ async function finishSucceeded(job: Job, run: Run, outputField: string, settings
       data: {
         status: "succeeded",
         outputKey,
-        outputMeta: { totalKills, title, clips, thumbnailKey },
+        outputMeta: { totalKills, title, clips, thumbnailKey, lengthSec, songSec },
         runMs,
         computeCostPaise: costPaise(runMs, settings),
         stepsDone: job.stepsTotal || job.stepsDone,
@@ -236,7 +258,10 @@ async function stopRuns(job: Job, now = Date.now()) {
   const runIds = [job.runId, ...indexes.map((i) => i.runId)].filter((x): x is string => !!x);
   await Promise.all(runIds.map((id) => enginex().cancelRun(id).catch(logCancelError)));
   if (indexes.length) {
-    await db.mediaIndex.updateMany({ where: { id: { in: indexes.map((i) => i.id) }, status: "running" }, data: { status: "failed", error: "canceled", finishedAt: new Date(now) } });
+    await db.mediaIndex.updateMany({
+      where: { id: { in: indexes.map((i) => i.id) }, status: "running" },
+      data: { status: "failed", error: "canceled", finishedAt: new Date(now) },
+    });
   }
 }
 
@@ -288,9 +313,9 @@ export async function sweep(now = Date.now()) {
   const toStart = await db.job.findMany({ where: startable(now), orderBy: { createdAt: "asc" }, select: { id: true } });
   for (const { id } of toStart) await startJob(id, now);
 
-  const running = (
-    await db.job.findMany({ where: { status: "running" }, include: { catalogItem: { select: { stageMap: true, outputKey: true } } } })
-  ).map(({ catalogItem, ...job }) => ({ job, stageMap: catalogItem.stageMap, outputKey: catalogItem.outputKey }));
+  const running = (await db.job.findMany({ where: { status: "running" }, include: { catalogItem: { select: { stageMap: true, outputKey: true } } } })).map(
+    ({ catalogItem, ...job }) => ({ job, stageMap: catalogItem.stageMap, outputKey: catalogItem.outputKey }),
+  );
 
   const due = running.filter(({ job }) => {
     const slow = elapsed(job, now) > FAST_POLL_FOR_MS;

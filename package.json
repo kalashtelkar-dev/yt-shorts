@@ -3,23 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "dev": "prisma generate && (npm run dev:worker & npm run dev:web)",
+    "dev:web": "next dev --turbopack",
+    "build": "prisma generate && next build --turbopack && sh scripts/check-secrets.sh",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check:secrets": "sh scripts/check-secrets.sh",
     "postinstall": "prisma generate",
     "db:generate": "prisma migrate dev --create-only",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "tsx --conditions=react-server --env-file-if-exists=.env src/db/seed.mts",
     "enginex:smoke": "tsx --conditions=react-server --env-file-if-exists=.env scripts/enginex-smoke.mts",
-    "worker:dev": "tsx watch --conditions=react-server --env-file-if-exists=.env src/worker/index.mts",
+    "dev:worker": "tsx watch --conditions=react-server --env-file-if-exists=.env src/worker/index.mts",
     "worker": "tsx --conditions=react-server --env-file-if-exists=.env src/worker/index.mts",
     "admin:create": "tsx --conditions=react-server --env-file-if-exists=.env scripts/admin-create.mts",
-    "files:backfill": "tsx --conditions=react-server --env-file-if-exists=.env scripts/files-backfill.mts",
     "catalog:sync": "tsx --conditions=react-server --env-file-if-exists=.env scripts/catalog-sync.mts",
     "enginex:pipeline": "tsx --env-file-if-exists=.env scripts/enginex-pipeline.mts"
   },
@@ -49,7 +48,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
@@ -62,5 +61,12 @@
     "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.1"
+  },
+  "allowScripts": {
+    "prisma@7.10.0": true,
+    "unrs-resolver@1.12.2": true,
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.28.2": true,
+    "msgpackr-extract": false
   }
 }

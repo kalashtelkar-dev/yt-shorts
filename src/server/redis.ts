@@ -14,6 +14,11 @@ export async function underLimit(key: string, limit: number, windowSec: number):
   return count <= limit;
 }
 
+/** Seconds until a limiter's window resets (0 when it isn't counting). */
+export async function limitResetsIn(key: string): Promise<number> {
+  return Math.max(0, await redis.ttl(`rl:${key}`));
+}
+
 /**
  * Failure counters: check with `failuresUnder` before an attempt, `recordFailure` only when it fails,
  * so someone typing a victim's email can't lock them out while they keep signing in successfully.

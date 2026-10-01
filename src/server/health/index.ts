@@ -1,5 +1,4 @@
 import "server-only";
-import { env } from "@/config/env";
 import { db } from "@/db/client";
 import type { ProbeStatus } from "@/lib/uptime";
 import { incidentAction } from "./incidents";
@@ -9,23 +8,19 @@ import { engineProbe } from "./probes/engines";
 import { enginexProbe } from "./probes/enginex";
 import { postgresProbe } from "./probes/postgres";
 import { queueProbe } from "./probes/queue";
-import { razorpayProbe } from "./probes/razorpay";
 import { redisProbe } from "./probes/redis";
-import { storageProbe } from "./probes/storage";
 import { webProbe } from "./probes/web";
 import { workerProbe } from "./probes/worker";
 import type { Probe, ProbeResult, SweepContext } from "./types";
 
-// Only what the app actually uses: Razorpay only when checkout is on. (Email isn't probed: the user's call, 2026-09-30.)
+// Only what the app actually uses. (Email and payments aren't probed: the user's calls, 2026-09-30 and 2026-10-01.)
 const STATIC_PROBES: Probe[] = [
   webProbe,
   workerProbe,
   postgresProbe,
   redisProbe,
   queueProbe,
-  ...(env.PAYMENTS_ENABLED ? [razorpayProbe] : []),
   enginexProbe,
-  storageProbe,
 ];
 
 const TIMEOUT_MS = 5000;

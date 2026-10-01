@@ -31,8 +31,6 @@ export function CreateForm({
   available,
   intro,
   maxUploadMb,
-  needsAccount = false,
-  starterCredits = 0,
   canBuy = false,
 }: {
   items: CatalogOption[];
@@ -40,10 +38,6 @@ export function CreateForm({
   available: number;
   intro: React.ReactNode;
   maxUploadMb: number;
-  /** AUTH_MODE=full and nobody is signed in: the form shows the price, and the button goes to sign-up. */
-  needsAccount?: boolean;
-  /** Free credits a new account gets, shown to visitors who need to sign up. */
-  starterCredits?: number;
   /** Buying credits is open: a short balance links to the account page. */
   canBuy?: boolean;
 }) {
@@ -63,11 +57,10 @@ export function CreateForm({
   const confirmRef = useRef<HTMLDialogElement>(null);
   const confirmed = useRef(false);
 
-  // Uploads need a user to own the file, so visitors without an account see the link flow only.
-  const canUpload = item.uploads && !needsAccount;
+  const canUpload = item.uploads;
   const source = canUpload ? sourceChoice : "url";
   // The song can be a file too, where the style has a song-upload pipeline (SONG_FIELD in src/server/jobs/create.ts).
-  const canSongUpload = item.songUploads && !needsAccount;
+  const canSongUpload = item.songUploads;
   const songSource = canSongUpload ? songChoice : "url";
   const uploadBusy = (source === "upload" && upload.kind !== "done") || (songSource === "upload" && songUpload.kind !== "done");
   // Styles can offer different lengths; keep the pick when it exists, else the nearest one.
@@ -76,7 +69,7 @@ export function CreateForm({
     : item.durations.reduce((a, b) => (Math.abs(b - durationChoice) < Math.abs(a - durationChoice) ? b : a));
   const range = item.creditRanges[String(durationSec)] ?? { min: 0, max: 0 };
   // To start, the top of the range must be free; the montage then uses only the time it takes.
-  const short = needsAccount ? 0 : range.max - available;
+  const short = range.max - available;
   const playerName = fields.playerName?.trim();
   const visibleFields = item.fields.filter((f) => !f.advanced && f.type !== "range");
   const hint = PREVIEW[item.slug] ?? {};
@@ -91,10 +84,10 @@ export function CreateForm({
   return (
     // Phones: exactly one screen (below the header), no scrolling. The form keeps its size and the preview takes
     // whatever height is left; the page only grows past the screen if the form alone doesn't fit.
-    <div className="flex flex-col gap-3 max-lg:h-[calc(100dvh-6rem)] max-lg:min-h-fit lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start lg:gap-14">
+    <div data-backdrop="create" className="flex flex-col gap-3 max-lg:h-[calc(100dvh-6rem)] max-lg:min-h-fit lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start lg:gap-14">
       {/* The one memorable element: a 9:16 frame hinting at what this style makes. On phones only its top 3/4
           shows, fading into a blur at the bottom, so the form starts higher up. */}
-      <div className="flex min-h-36 flex-1 basis-0 justify-center lg:sticky lg:top-8 lg:block lg:min-h-0 lg:flex-none lg:basis-auto">
+      <div className="relative flex min-h-48 flex-1 basis-0 justify-center lg:sticky lg:top-8 lg:block lg:min-h-0 lg:flex-none lg:basis-auto">
         <div className="relative aspect-[9/12] h-full max-w-full lg:aspect-auto lg:h-auto lg:w-full lg:max-w-[340px]">
           <div className="size-full overflow-hidden [mask-image:linear-gradient(to_bottom,#000_82%,transparent)] lg:h-auto lg:overflow-visible lg:[mask-image:none]">
             <Frame className="@container lg:aspect-[3/4]">
@@ -103,7 +96,8 @@ export function CreateForm({
               <div className="absolute inset-x-0 top-0 h-3/4 lg:h-full">
                 <Image src={previewArt} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 340px, 16rem" className="object-cover" />
               </div>
-              <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 lg:top-4 lg:right-4">
+              {/* Kept inside the frame (left-3): in a small frame the rows shrink and names truncate instead of spilling out. */}
+              <div className="absolute inset-x-3 top-3 flex origin-top-right flex-col items-end gap-1.5 lg:inset-x-4 lg:top-4 @max-[12rem]:inset-x-2 @max-[12rem]:top-2 @max-[12rem]:scale-[0.85]">
                 <KillRow killer={playerName || "you"} victim="Reyna" you />
                 {/* A small preview (short phones) keeps one row and the length, so the art still shows. */}
                 <div className="@max-[12rem]:hidden">
@@ -131,6 +125,12 @@ export function CreateForm({
             className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 backdrop-blur-[3px] [mask-image:linear-gradient(to_top,#000,transparent)] lg:hidden"
           />
         </div>
+        {/* Phones: the heading floats over the blurred bottom of the preview on one centred line (the text is ~15.2em
+            wide, so it scales to the screen minus the page padding, up to 1.75rem); the description stays for screen
+            readers so it all fits one screen. */}
+        <div className="absolute inset-x-0 bottom-1 text-center lg:hidden [&_h1]:text-[length:min(1.75rem,calc((100vw-2rem)/15.5))] [&_h1]:leading-[1.1] [&_h1]:whitespace-nowrap [&_h1]:[text-shadow:0_2px_8px_rgb(0_0_0/0.9)] [&_p]:sr-only">
+          {intro}
+        </div>
       </div>
 
       <form
@@ -148,17 +148,19 @@ export function CreateForm({
         }}
         className="flex min-w-0 shrink-0 flex-col gap-3 lg:max-w-lg lg:gap-6"
       >
-        <div className="max-lg:sr-only">{intro}</div>
+        <div className="max-lg:hidden">{intro}</div>
 
         {items.length === 1 ? (
           <input type="hidden" name="style" value={item.slug} />
         ) : (
           <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="sr-only">Style</legend>
-            {/* Up to three styles share the row equally (names may wrap to two lines); more than that scroll sideways. */}
+            {/* Up to three styles split the row equally, two of them in halves (names may wrap to two lines); more than that scroll sideways. */}
             <div
               className={cn(
-                items.length <= 3 ? "grid grid-cols-3 gap-2" : "-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0",
+                items.length <= 3
+                  ? cn("grid gap-2", items.length === 2 ? "grid-cols-2" : "grid-cols-3")
+                  : "-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0",
               )}
             >
               {items.map((i) => (
@@ -288,7 +290,7 @@ export function CreateForm({
               </Row>
             ),
           )}
-          <CostRow range={range} available={available} short={short} needsAccount={needsAccount} starterCredits={starterCredits} />
+          <CostRow range={range} available={available} short={short} />
         </div>
 
         {(fieldError || general) && (
@@ -315,12 +317,8 @@ export function CreateForm({
                 </label>
               ))}
             </fieldset>
-            {needsAccount ? (
-              <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 rounded-xl")}>
-                Create a free account
-              </Link>
-            ) : short > 0 && canBuy ? (
-              <Link href="/account" className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 flex-col gap-0 rounded-xl leading-tight")}>
+            {short > 0 && canBuy ? (
+              <Link href="/account" className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 flex-col gap-0 leading-tight")}>
                 Add credits to start
                 <span className="font-mono text-xs font-normal opacity-85 tabular">
                   need {formatCredits(range.max)}, have {formatCredits(available)}
@@ -330,7 +328,7 @@ export function CreateForm({
               <button
                 type="submit"
                 disabled={pending || short > 0 || uploadBusy}
-                className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1 rounded-xl")}
+                className={cn(buttonVariants({ size: "lg" }), "h-14 min-w-0 flex-1")}
               >
                 {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
                 {pending
@@ -341,14 +339,6 @@ export function CreateForm({
               </button>
             )}
           </div>
-          {needsAccount && (
-            <Link
-              href="/sign-in"
-              className="self-center rounded px-2 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              I have an account
-            </Link>
-          )}
         </div>
       </form>
 
@@ -402,6 +392,17 @@ export function CreateForm({
               Make my montage
             </button>
           </div>
+          <p className="text-center text-xs text-muted-foreground">
+            By making a montage you agree to our{" "}
+            <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+              Privacy policy
+            </Link>
+            .
+          </p>
         </div>
       </dialog>
     </div>
@@ -430,19 +431,7 @@ function Row({ id, label, invalid, children }: { id: string; label: string; inva
 }
 
 /** The last line of the form card: what this edit usually costs; the i opens how it's worked out. */
-function CostRow({
-  range,
-  available,
-  short,
-  needsAccount,
-  starterCredits,
-}: {
-  range: { min: number; max: number };
-  available: number;
-  short: number;
-  needsAccount: boolean;
-  starterCredits: number;
-}) {
+function CostRow({ range, available, short }: { range: { min: number; max: number }; available: number; short: number }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
   return (
@@ -480,13 +469,9 @@ function CostRow({
           <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
             <li>You pay for editing time: 1 credit a second. Long matches and more kills take longer.</li>
             <li>Credits come off after it&apos;s made. A montage that fails costs nothing.</li>
-            {needsAccount ? (
-              <li>New accounts get {formatCredits(starterCredits)} free credits.</li>
-            ) : (
-              <li className={cn(short > 0 && "text-danger")}>
-                To start, you need {formatCredits(range.max)} free, enough for the longest this edit usually takes. You have {formatCredits(available)}.
-              </li>
-            )}
+            <li className={cn(short > 0 && "text-danger")}>
+              To start, you need {formatCredits(range.max)} free, enough for the longest this edit usually takes. You have {formatCredits(available)}.
+            </li>
           </ul>
           <button type="button" autoFocus onClick={() => dialog.current?.close()} className={cn(buttonVariants({ size: "lg" }), "w-full")}>
             Got it

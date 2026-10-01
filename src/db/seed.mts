@@ -1,4 +1,4 @@
-// pnpm db:seed — idempotent: inserts catalog items and the settings row if missing.
+// npm run db:seed — idempotent: inserts catalog items and the settings row if missing.
 import type { Prisma } from "@/generated/prisma/client";
 import { catalogSeed } from "./catalog-seed";
 import { db } from "./client";

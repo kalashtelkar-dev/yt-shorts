@@ -1,8 +1,0 @@
-allowBuilds:
-  unrs-resolver: true
-  esbuild: true
-  sharp: true
-  "@tailwindcss/oxide": true
-  msgpackr-extract: false
-  '@prisma/engines': true
-  prisma: true

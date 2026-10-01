@@ -11,13 +11,13 @@ import { listJobs } from "@/server/jobs/public";
 import { env } from "@/config/env";
 import { getViewer } from "@/server/session";
 
-export const metadata: Metadata = { title: "My videos" };
+export const metadata: Metadata = { title: "My videos", robots: { index: false, follow: false } };
 
 const STATUS: Record<PublicStatus, { label: string; className: string }> = {
-  queued: { label: "Waiting", className: "text-muted-foreground" },
-  running: { label: "Making", className: "text-danger" },
+  queued: { label: "Waiting", className: "text-warning" },
+  running: { label: "Making", className: "text-warning" },
   succeeded: { label: "Ready", className: "text-success" },
-  failed: { label: "Failed", className: "text-muted-foreground" },
+  failed: { label: "Failed", className: "text-danger" },
 };
 
 const FILTERS = [
@@ -40,9 +40,9 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
         Home
       </BackLink>
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">My videos</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">My videos</h1>
         {all.length > 0 && (
-          <Link href="/create" className={buttonVariants({ variant: "outline" })}>
+          <Link href="/create" className={buttonVariants()}>
             New montage
           </Link>
         )}
@@ -108,14 +108,14 @@ function Tile({ item, priority }: { item: LibraryItem; priority: boolean }) {
         ? `${item.durationSec} s, ${item.status === "queued" ? "waiting to start" : `${Math.round(item.progress * 100)}% done`}`
         : `${item.durationSec} s${item.kills !== null ? `, ${item.kills} kills` : ""}, ${formatWhen(item.createdAt)}`;
   return (
-    <Link href={`/jobs/${item.id}`} className="group flex flex-col gap-2 rounded-xl focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
-      <span className="relative block aspect-[9/16] overflow-hidden rounded-xl border bg-panel transition-colors group-hover:border-input">
+    <Link href={`/jobs/${item.id}`} className="group flex flex-col gap-2 rounded-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+      <span className="relative block aspect-[9/16] overflow-hidden rounded-md border bg-panel transition-colors group-hover:border-input">
         {item.poster ? (
           <Image src={item.poster} alt="" fill unoptimized priority={priority} sizes="(min-width: 1024px) 240px, (min-width: 640px) 30vw, 45vw" className="object-cover" />
         ) : (
           <TileFace item={item} />
         )}
-        <span className={cn("absolute top-2 left-2 rounded-md bg-black/75 px-2 py-1 text-xs font-medium", status.className)}>{status.label}</span>
+        <span className={cn("absolute top-2 left-2 rounded-md border border-current bg-black/60 px-2 py-0.5 font-display text-sm [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]", status.className)}>{status.label}</span>
         {making && (
           <span className="absolute inset-x-0 bottom-0 h-1 bg-border" aria-hidden>
             <span className="block h-full origin-left bg-danger" style={{ transform: `scaleX(${item.progress})` }} />

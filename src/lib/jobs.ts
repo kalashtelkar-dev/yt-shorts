@@ -19,7 +19,10 @@ export type PublicJob = {
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
-  durationSec: number;
+  durationSec: number; // the length picked
+  /** The finished montage's real length (null for older jobs), and why it's shorter than picked when it is. */
+  lengthSec: number | null;
+  lengthNote: string | null;
   credits: number;
   kills: number | null;
   videoTitle: string | null;
@@ -36,7 +39,7 @@ export type LibraryItem = {
   title: string;
   status: PublicStatus;
   createdAt: string;
-  durationSec: number;
+  durationSec: number; // the real length once finished (when known), else the length picked
   kills: number | null;
   videoTitle: string | null;
   progress: number; // 0..1

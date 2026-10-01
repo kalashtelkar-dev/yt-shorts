@@ -1,7 +1,11 @@
 import { CircleUser } from "lucide-react";
+import { cookies } from "next/headers";
 import Link from "next/link";
-import { LogoMark } from "@/components/logo";
-import { brand } from "@/config/brand";
+import { Backdrop } from "@/components/backdrop";
+import { CookieNotice } from "@/components/cookie-notice";
+import { COOKIE_CONSENT } from "@/lib/consent";
+import { Wordmark } from "@/components/logo";
+import { SiteHeader } from "@/components/site-header";
 import { env } from "@/config/env";
 import { formatCredits } from "@/lib/format";
 import { getViewer, viewerBalance } from "@/server/session";
@@ -10,7 +14,7 @@ const navLink = "rounded-md px-2 py-2 text-muted-foreground hover:text-foregroun
 
 export default async function UserLayout({ children }: { children: React.ReactNode }) {
   const viewer = await getViewer();
-  const balance = await viewerBalance(viewer);
+  const [balance, jar] = await Promise.all([viewerBalance(viewer), cookies()]);
   // Sign-in entry points exist only with AUTH_MODE=full (CLAUDE.md §6).
   const account = env.AUTH_MODE === "full" ? (viewer && !viewer.isAnonymous ? "signed-in" : "signed-out") : null;
   // With accounts, only signed-in users have credits; guests see "Sign in" instead of a balance.
@@ -18,10 +22,10 @@ export default async function UserLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
-      <header className="flex h-14 items-center justify-between gap-4 border-b print:hidden">
-        <Link href="/" className="-mx-1 flex items-center gap-2 rounded px-1 font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
-          <LogoMark />
-          {brand.name}
+      <Backdrop />
+      <SiteHeader>
+        <Link href="/" className="-mx-1 flex items-center rounded px-1 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+          <Wordmark />
         </Link>
         <nav className="flex items-center gap-1 text-sm sm:gap-4">
           <Link href="/library" className={navLink}>
@@ -53,8 +57,9 @@ export default async function UserLayout({ children }: { children: React.ReactNo
             </Link>
           )}
         </nav>
-      </header>
+      </SiteHeader>
       <main className="flex flex-1 flex-col py-5 sm:py-10">{children}</main>
+      {!jar.has(COOKIE_CONSENT) && <CookieNotice />}
     </div>
   );
 }

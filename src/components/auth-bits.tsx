@@ -5,7 +5,7 @@ import Link from "next/link";
 export function AuthHeading({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+      <h1 className="font-display text-2xl text-balance">{title}</h1>
       {children && <p className="text-muted-foreground">{children}</p>}
     </div>
   );
@@ -16,6 +16,16 @@ export function TextLink({ href, children }: { href: string; children: React.Rea
     <Link href={href} className="rounded text-foreground underline underline-offset-4 hover:text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
       {children}
     </Link>
+  );
+}
+
+/** The notice people agree to by creating an account (by email or Google): DPDP Act consent, terms. */
+export function ConsentNote() {
+  return (
+    <p className="text-center text-xs leading-relaxed text-muted-foreground">
+      By creating an account or continuing with Google, you agree to our <TextLink href="/terms">Terms</TextLink> and{" "}
+      <TextLink href="/privacy">Privacy policy</TextLink>.
+    </p>
   );
 }
 

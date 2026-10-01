@@ -1,9 +1,23 @@
+import Image from "next/image";
+import { brand } from "@/config/brand";
 import { cn } from "@/lib/utils";
+import markArt from "../../public/brand/mark.svg";
+import wordmarkArt from "../../public/brand/wordmark.svg";
+
+/** The MontageAI wordmark (brush lettering, transparent so it sits on any dark ground). Carries the name: alt text. */
+export function Wordmark({ className }: { className?: string }) {
+  return <Image src={wordmarkArt} alt={brand.name} priority sizes="120px" className={cn("h-10 w-auto shrink-0 object-contain sm:h-11", className)} />;
+}
+
+/** The square "MAI" mark (the favicon), for tight spots like the admin rail. Decorative next to a label. */
+export function LogoIcon({ className }: { className?: string }) {
+  return <Image src={markArt} alt="" sizes="48px" className={cn("size-8 shrink-0 rounded-md", className)} />;
+}
 
 const MARK =
   "M978.37,688.7l-295.24,283.23-515.45-5.67s142.5-166.75,279.31-225.4c3.57-1.54,10.68-3.91,10.68-3.91,93.38-34.63,197.2-37.74,297.49-7.94-34.94-94.22-44.76-190.96-28.69-287.39l-.1-.1c5.92-35.59,15.37-71.12,28.39-106.45-36.06,12.56-72.36,21.78-108.82,27.58l-.07-.06c-97.05,15.38-194.96,6.41-290.81-28.51,49.15,154.32,11.97,316.67-94.87,435.97l-164.31,162.48V395.9l-.1-.1L391.03,112.57l587.28,6.5.07,569.62Z";
 
-/** The Deepsoch mark. Decorative: the brand name next to it carries the meaning. */
+/** The Deepsoch company mark, for documents Deepsoch AI issues (tax invoices). Decorative. */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 1080 1080" aria-hidden className={cn("size-6 shrink-0", className)}>

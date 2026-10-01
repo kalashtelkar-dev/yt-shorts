@@ -73,6 +73,8 @@ export interface EngineXClient {
   retryRun(runId: string): Promise<void>;
   signOutput(keys: string[], expiresSec: number): Promise<Record<string, string>>;
   createUploadUrl(filename: string, expirySec?: number): Promise<UploadTarget>;
+  /** A link to an object in our long-term bucket (ENGINEX_STORE_*), readable by anyone holding it until it expires. Never store it. */
+  shareStored(key: string, expirySec: number): Promise<string>;
   getPipeline(templateId: string): Promise<Pipeline>;
   fleetStatus(): Promise<FleetStatus>;
 }

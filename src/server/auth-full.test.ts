@@ -125,6 +125,14 @@ describe("password reset", () => {
     expect(await sendCode(`nobody-${email}`, "forget-password", ip)).toMatchObject({ ok: true });
     expect(sent).toHaveLength(count);
   });
+
+  it("lets an account without a password (Google sign-in) set one with an emailed code", async () => {
+    await db.user.create({ data: { id: crypto.randomUUID(), name: "g", email, emailVerified: true, isAnonymous: false } });
+    await sendCode(email, "forget-password", ip);
+    expect(sent.at(-1)).toMatchObject({ to: email, purpose: "forget-password" });
+    await auth.api.resetPasswordEmailOTP({ body: { email, otp: lastCode(), password: "a new password" } });
+    expect(await errorCode(auth.api.signInEmail({ body: { email, password: "a new password" } }))).toBe("ok");
+  });
 });
 
 describe("change password", () => {

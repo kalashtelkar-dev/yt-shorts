@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { songBeats } from "./beats";
-import { planMontage, type PlanInput } from "./plan";
+import { lengthNote, planMontage, planSec, type PlanInput } from "./plan";
 
 const grid = (first: number, beat: number, cap: number) => Array.from({ length: Math.floor((cap - first) / beat) + 1 }, (_, k) => Math.round((first + k * beat) * 100) / 100);
 const KILLS = [640, 367, 185, 1024, 85, 391, 614, 702, 141, 120, 65, 542].map((t) => ({ t }));
@@ -156,5 +156,25 @@ describe("planMontage", () => {
 
   it("no kills: an empty plan", () => {
     expect(planMontage(base({ kills: [] }))).toMatchObject({ clips: [], totalKills: 0 });
+  });
+});
+
+describe("planSec and lengthNote", () => {
+  it("adds up how long the clips play: slow clips twice their recording, Ultra kill clips their fixed warp", () => {
+    const clips = [
+      { len: 3, speed: 1, role: "flex" as const },
+      { len: 2, speed: 0.5, role: "kill" as const },
+    ];
+    expect(planSec(clips, "kill")).toBe(7);
+    expect(planSec(clips, "ultra")).toBeCloseTo(3 + 6.669);
+  });
+
+  it("explains a montage shorter than picked: the song, else the kills", () => {
+    expect(lengthNote({ pickedSec: 30, lengthSec: 30, songSec: 200, kills: 9 })).toBeNull();
+    expect(lengthNote({ pickedSec: 30, lengthSec: 29, songSec: 200, kills: 9 })).toBeNull(); // rounding
+    expect(lengthNote({ pickedSec: 30, lengthSec: null, songSec: 12, kills: 2 })).toBeNull(); // older jobs
+    expect(lengthNote({ pickedSec: 30, lengthSec: 20, songSec: 20.4, kills: 6 })).toMatch(/^Your song is 20 s long.*all 30 s/);
+    expect(lengthNote({ pickedSec: 30, lengthSec: 14, songSec: 200, kills: 3 })).toMatch(/^We found 3 kills, enough for 14 s\..*all 30 s/);
+    expect(lengthNote({ pickedSec: 30, lengthSec: 8, songSec: 20, kills: 1 })).toMatch(/^We found 1 kill,/); // short song, but kills ran out first
   });
 });

@@ -54,6 +54,15 @@ describe("Engine X client", () => {
     const { client } = clientWith(json(202, { runId: "3f1c" }));
     expect(await client.runPipeline("tpl_x", {}, "job-2")).toEqual({ runId: "3f1c" });
   });
+
+  it("shares a stored object from our bucket, waiting for the job", async () => {
+    const { client, fetchImpl } = clientWith(json(200, { status: "succeeded", result: { url: "https://store.test/montages/j/video.mp4?sig" } }));
+    expect(await client.shareStored("montages/j/video.mp4", 7200)).toBe("https://store.test/montages/j/video.mp4?sig");
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(url.toString()).toBe("https://ex.test/v1/storage/object-share?wait=10");
+    // Bucket and connection from ENGINEX_STORE_* (vitest.config.ts); never longer than an hour.
+    expect(JSON.parse(init.body as string)).toEqual({ connection: { use: "test-store" }, bucket: "test-bucket", key: "montages/j/video.mp4", expirySec: 3600 });
+  });
 });
 
 describe("normalisers", () => {

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { billingTotals, creditFeed, type FeedFilter, type FeedRow } from "@/server/billing";
 import { getViewer, viewerBalance } from "@/server/session";
 
-export const metadata: Metadata = { title: "Billing" };
+export const metadata: Metadata = { title: "Billing", robots: { index: false, follow: false } };
 
 const FILTERS: { key: FeedFilter; label: string }[] = [
   { key: "all", label: "All" },
@@ -29,13 +29,13 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const [balance, totals, feed] = await Promise.all([viewerBalance(viewer), billingTotals(viewer.id), creditFeed(viewer.id, filter, page)]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div data-backdrop="credits" className="flex flex-col gap-6">
       <BackLink href="/account">Account</BackLink>
 
       <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-10">
         <aside className="flex flex-col gap-4 lg:sticky lg:top-8" aria-label="Summary">
           <div className="flex items-end justify-between gap-4 lg:flex-col lg:items-start">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Billing</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">Billing</h1>
             {env.PAYMENTS_ENABLED && (
               <Link href="/account" className={cn(buttonVariants(), "lg:hidden")}>
                 Add credits

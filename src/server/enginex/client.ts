@@ -95,6 +95,17 @@ export function createClient(
       return { url, key };
     },
 
+    async shareStored(key, expirySec) {
+      if (!env.ENGINEX_STORE_CONNECTION || !env.ENGINEX_STORE_BUCKET) throw new EngineXError("not_configured", "ENGINEX_STORE_* is not set", false);
+      // An Object Storage engine job; ?wait= returns it finished (about 0.3 s, measured 2026-10-01).
+      const data = await request("POST", "/v1/storage/object-share?wait=10", {
+        body: { connection: { use: env.ENGINEX_STORE_CONNECTION }, bucket: env.ENGINEX_STORE_BUCKET, key, expirySec: Math.min(expirySec, 3600) },
+      });
+      const url = str((data.result as Json | undefined)?.url);
+      if (!url) throw new EngineXError("bad_response", `Share link not ready (job ${str(data.status) ?? "unknown"})`, true);
+      return url;
+    },
+
     async getPipeline(templateId) {
       return normalisePipeline(templateId, await request("GET", `/v1/pipelines/${encodeURIComponent(templateId)}`));
     },

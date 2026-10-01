@@ -4,7 +4,7 @@ import { getBalance } from "@/server/credits";
 import { getSettings } from "@/server/settings";
 import { confirmPurchase, getInvoice, saveBillingProfile, startPurchase } from ".";
 
-// Checkout with the mock provider, which signs payments the way Razorpay does.
+// Checkout with the mock provider, which confirms payments with a signed proof.
 vi.mock("@/config/env", async (orig) => {
   const actual = (await orig()) as { env: Record<string, unknown> };
   return { ...actual, env: { ...actual.env, PAYMENTS_ENABLED: true, PAYMENTS_PROVIDER: "mock" } };
@@ -35,8 +35,7 @@ describe("buying credits", () => {
     expect(await startPurchase({ ...user, isAnonymous: true }, 100)).toMatchObject({ ok: false, error: { code: "sign_in" } });
   });
 
-  it("asks for the state before the first payment", async () => {
-    expect(await startPurchase(user, 100)).toMatchObject({ ok: false, error: { code: "profile_needed" } });
+  it("checks billing details when given", async () => {
     expect(await saveBillingProfile(user.id, { stateCode: "99" })).toMatchObject({ ok: false });
     expect(await saveBillingProfile(user.id, { stateCode: "27", gstin: "29AALCD7580N1ZQ" })).toMatchObject({ ok: false, error: { field: "gstin" } });
     expect(await saveBillingProfile(user.id, { stateCode: "29", gstin: "29aalcd7580n1zq", legalName: "Acme" })).toMatchObject({ ok: true });
@@ -63,6 +62,12 @@ describe("buying credits", () => {
     expect(await getInvoice(inv.id, crypto.randomUUID())).toBeNull(); // someone else's invoice looks missing
   });
 
+  it("pays without billing details: the invoice uses the seller's state", async () => {
+    await (await buy(100)).confirm();
+    const inv = await db.invoice.findFirstOrThrow({ where: { userId: user.id } });
+    expect(inv).toMatchObject({ credits: 500, cgstPaise: 762, sgstPaise: 763, igstPaise: 0, totalPaise: 10_000, buyer: { gstin: null } });
+  });
+
   it("charges IGST to buyers in another state", async () => {
     await saveBillingProfile(user.id, { stateCode: "27" });
     await (await buy(150)).confirm();
@@ -73,7 +78,7 @@ describe("buying credits", () => {
   it("refuses a forged signature and someone else's order", async () => {
     await saveBillingProfile(user.id, { stateCode: "29" });
     const { start } = await buy(100);
-    expect(await confirmPurchase(user.id, { orderId: start.orderId, paymentId: start.mock!.paymentId, signature: "0".repeat(64) })).toMatchObject({ ok: false, error: { code: "signature" } });
+    expect(await confirmPurchase(user.id, { orderId: start.orderId, paymentId: start.mock!.paymentId, signature: "0".repeat(64) })).toMatchObject({ ok: false, error: { code: "not_paid" } });
     expect(await confirmPurchase(crypto.randomUUID(), { orderId: start.orderId, paymentId: start.mock!.paymentId, signature: start.mock!.signature })).toMatchObject({ ok: false, error: { code: "not_found" } });
     expect(await getBalance(user.id)).toBe(0);
   });

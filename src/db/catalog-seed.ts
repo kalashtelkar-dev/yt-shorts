@@ -66,7 +66,7 @@ export const catalogSeed: CatalogSeedItem[] = [
     slug: "smart-edit",
     title: "Smart Edit",
     description: "Every kill slowed down, sped up and spun into the next, with loud gunshots and your song's words.",
-    templateId: "tpl_dxRIHs2Bd4VP", // style-ultra-edit
+    templateId: "tpl_lWBBGBXvtLpa", // style-ultra-edit (lyrics from a subtitle file, 2026-10-01)
     indexTemplates: INDEX,
     enabled: true,
     beta: true,

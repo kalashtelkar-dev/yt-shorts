@@ -8,30 +8,26 @@ import { MapInputError, mapInput } from "@/server/catalog";
 import { isAdmin } from "@/server/admin/guard";
 import { checkStartGate, InsufficientCreditsError } from "@/server/credits";
 import { enqueueStart } from "@/server/queue";
-import { underLimit } from "@/server/redis";
+import { limitResetsIn, underLimit } from "@/server/redis";
 import { getSettings } from "@/server/settings";
 import { cleanFileName, ownsUpload } from "@/server/uploads";
 import type { SessionUser } from "@/server/auth";
 import type { ActionResult } from "@/lib/jobs";
+import { youtubeLinkProblem } from "@/lib/youtube";
 
 // Starting a job (PLAN.md §5.1). Returns within the request: validate, check credits, insert, enqueue.
 // Nothing is charged here: the job holds the top of its range, and pays for the time it used when it succeeds.
 
-const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "music.youtube.com"]);
 const JOB_STARTS_PER_HOUR = 10;
 
 export const youtubeUrl = z
   .string()
   .trim()
   .max(500)
-  .refine((v) => {
-    try {
-      const u = new URL(v);
-      return u.protocol === "https:" && YOUTUBE_HOSTS.has(u.hostname.toLowerCase());
-    } catch {
-      return false;
-    }
-  }, "Paste a YouTube link that starts with https://");
+  .superRefine((v, ctx) => {
+    const problem = youtubeLinkProblem(v);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  });
 
 export const createJobInput = z.strictObject({
   catalogSlug: z.string().min(1).max(64),
@@ -63,7 +59,10 @@ function checkField(f: CatalogField, raw: unknown): { value?: unknown; error?: s
   const value = typeof raw === "string" ? raw.trim() : "";
   if (!value) return f.required ? { error: `Enter ${f.label.toLowerCase()}` } : {};
   if (f.max && value.length > f.max) return { error: `${f.label} can be at most ${f.max} characters` };
-  if (f.type === "url" && !youtubeUrl.safeParse(value).success) return { error: "Paste a YouTube link that starts with https://" };
+  if (f.type === "url") {
+    const u = youtubeUrl.safeParse(value);
+    if (!u.success) return { error: u.error.issues[0].message };
+  }
   return { value };
 }
 
@@ -144,12 +143,15 @@ export async function createJob(user: SessionUser, raw: unknown): Promise<Action
   }
 
   const settings = await getSettings();
+  const admin = !!fresh && isAdmin(fresh);
   // Admins may run more at once (both limits are set in the admin Billing settings).
-  const maxActive = fresh && isAdmin(fresh) ? settings.maxConcurrentJobsPerAdmin : settings.maxConcurrentJobsPerUser;
+  const maxActive = admin ? settings.maxConcurrentJobsPerAdmin : settings.maxConcurrentJobsPerUser;
   // A quick check before spending an hourly start; the one that counts runs under the balance lock below.
   if ((await activeJobs(db, user.id)) >= maxActive) return busy(maxActive);
-  if (!(await underLimit(`jobs:${user.id}`, JOB_STARTS_PER_HOUR, 3600))) {
-    return fail("rate_limited", "You've started a lot of montages this hour. Try again later.");
+  // Admins skip the hourly cap (they test a lot); the at-once limit above still applies.
+  if (!admin && !(await underLimit(`jobs:${user.id}`, JOB_STARTS_PER_HOUR, 3600))) {
+    const minutes = Math.max(1, Math.ceil((await limitResetsIn(`jobs:${user.id}`)) / 60));
+    return fail("rate_limited", `You've started a lot of montages this hour. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`);
   }
 
   let jobId: string;

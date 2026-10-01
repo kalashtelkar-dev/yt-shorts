@@ -102,9 +102,10 @@ describe("staged styles (mock Engine X)", () => {
     await saveFilesFor(job.id);
     // Just finished: still Engine X for the video (our copy as the fallback); the cover is ours at once.
     expect(await signedVideo(job.id, userId)).toEqual({ url: expect.stringContaining(".mp4"), poster: `/api/jobs/${job.id}/files/thumbnail`, fallback: `/api/jobs/${job.id}/files/video` });
-    // Each job pays for its whole run, indexes included: started at T0, finished at T0 + 30 s → 30 credits.
-    expect(row.chargedCredits).toBe(30);
-    expect(await getBalance(userId)).toBe(2000 - 60);
+    // Each job pays for its whole run, indexes included: from T0 to the render's last step at T0 + 26 s (the poll that
+    // noticed came at T0 + 30 s; that wait is free) → 26 credits.
+    expect(row.chargedCredits).toBe(26);
+    expect(await getBalance(userId)).toBe(2000 - 2 * 26); // both jobs
   });
 
   it("never reuses another job's finished index, and a restarted job keeps its own run", async () => {

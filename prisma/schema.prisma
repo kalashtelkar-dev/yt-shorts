@@ -1,5 +1,5 @@
 // The database schema. Tables and columns are snake_case in Postgres, camelCase in TypeScript (@map).
-// Every change is a migration: `pnpm db:migrate:dev --name <what>` (CLAUDE.md §7).
+// Every change is a migration: `npm run db:generate -- --name <what>` (CLAUDE.md §7).
 // Not expressible here, kept in migration SQL: the credit_ledger append-only trigger and the settings single-row check.
 
 generator client {
@@ -218,27 +218,10 @@ model Job {
 
   events JobEvent[]
   ledger CreditLedger[]
-  files  JobFile[]
 
   @@index([userId, createdAt(sort: Desc)], map: "jobs_user_id_created_at_index")
   @@index([status], map: "jobs_status_index")
   @@map("jobs")
-}
-
-/// Our own copy of a finished job's video and cover still: Engine X clears its storage, so the files live here.
-model JobFile {
-  jobId       String   @map("job_id") @db.Uuid
-  /// "video" | "thumbnail"
-  kind        String
-  contentType String   @map("content_type")
-  size        Int
-  /// Stored uncompressed (STORAGE EXTERNAL, see the migration) so a byte range reads only its own chunks.
-  data        Bytes
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "job_files_job_id_jobs_id_fk")
-
-  @@id([jobId, kind], map: "job_files_pkey")
-  @@map("job_files")
 }
 
 enum MediaIndexKind {
@@ -385,7 +368,7 @@ enum PaymentStatus {
 model Payment {
   id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId            String        @map("user_id")
-  /// 'razorpay' | 'mock'
+  /// 'cashfree' | 'mock'
   provider          String
   providerOrderId   String        @unique(map: "payments_providerOrderId_unique") @map("provider_order_id")
   providerPaymentId String?       @unique(map: "payments_providerPaymentId_unique") @map("provider_payment_id")

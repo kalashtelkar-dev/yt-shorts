@@ -4,7 +4,7 @@ import { getBalance, grant } from "@/server/credits";
 import { getSettings } from "@/server/settings";
 import { enginex } from "@/server/enginex/client";
 import { saveFilesFor } from "./files";
-import { cancelJob, pollJob, startJob, sweep } from "./lifecycle";
+import { cancelJob, lastStepEnd, pollJob, startJob, sweep } from "./lifecycle";
 import { getPublicJob } from "./public";
 
 const T0 = Date.UTC(2026, 8, 26, 10, 0, 0);
@@ -66,9 +66,9 @@ describe("job lifecycle (mock Engine X)", () => {
     expect(row.outputKey).toMatch(/montage\.mp4$/);
     expect(row.outputMeta).toMatchObject({ totalKills: 7 });
     // Done straight away (the video plays from Engine X); our long-term copy is the worker's background task.
-    expect(await db.jobFile.count({ where: { jobId: job.id } })).toBe(0);
+    expect(row.outputMeta).not.toHaveProperty("stored");
     await saveFilesFor(job.id);
-    expect(await db.jobFile.findMany({ where: { jobId: job.id }, select: { kind: true, size: true } })).toEqual([{ kind: "video", size: 10 }]);
+    expect((await load(job.id)).outputMeta).toMatchObject({ stored: { video: `montages/${job.id}/video.mp4` } });
     expect(row.chargedCredits).toBe(19); // mock runMs 19 000 → 19 credits, 1 a second
     expect(row.computeCostPaise).toBe(19 * settings.costPaisePerSecond);
     expect(await getBalance(userId)).toBe(600 - 19);
@@ -171,5 +171,17 @@ describe("job lifecycle (mock Engine X)", () => {
     await sweep(T0 + 60_000); // the finished run is never picked up again
     expect((await load(job.id)).status).toBe("canceled");
     cancelRun.mockRestore();
+  });
+});
+
+describe("lastStepEnd", () => {
+  const run = (finished: (string | null)[]) =>
+    ({ runId: "r", status: "succeeded", output: null, error: null, runMs: null, steps: finished.map((f) => ({ step: "s", engine: null, status: "succeeded", error: null, items: null, job: null, finishedAt: f })) }) as const;
+  it("bills up to Engine X's last step, not when our poll noticed", () => {
+    expect(lastStepEnd(run(["2026-10-01T10:00:05Z", "2026-10-01T10:00:09Z", null]), Date.parse("2026-10-01T10:00:20Z"))).toBe(Date.parse("2026-10-01T10:00:09Z"));
+  });
+  it("falls back to now without step times, and never goes past now (clock skew)", () => {
+    expect(lastStepEnd(run([null]), 1000)).toBe(1000);
+    expect(lastStepEnd(run(["2026-10-01T10:00:30Z"]), Date.parse("2026-10-01T10:00:20Z"))).toBe(Date.parse("2026-10-01T10:00:20Z"));
   });
 });

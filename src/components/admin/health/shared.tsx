@@ -21,7 +21,6 @@ export const TIER_LABEL: Record<string, string> = {
   email: "Email",
   payments: "Payments",
   engine: "Gateway",
-  storage: "Storage",
   workers: "Engine worker",
 };
 

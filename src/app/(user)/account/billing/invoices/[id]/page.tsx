@@ -6,7 +6,7 @@ import { env } from "@/config/env";
 import { getInvoice } from "@/server/payments";
 import { getViewer } from "@/server/session";
 
-export const metadata: Metadata = { title: "Tax invoice" };
+export const metadata: Metadata = { title: "Tax invoice", robots: { index: false, follow: false } };
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   if (env.AUTH_MODE !== "full") notFound();
@@ -15,7 +15,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const row = await getInvoice((await params).id, viewer.id); // someone else's invoice looks missing
   if (!row) notFound();
   return (
-    <div className="flex flex-col gap-4">
+    <div data-backdrop="dim" className="flex flex-col gap-4">
       <BackLink href="/account/billing">Billing</BackLink>
       <InvoiceDocument invoice={row.invoice} payment={row.payment} />
     </div>

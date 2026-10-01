@@ -1,4 +1,4 @@
-// pnpm catalog:sync — points existing catalog items at the pipeline ids in src/db/catalog-seed.ts (the ids in
+// npm run catalog:sync — points existing catalog items at the pipeline ids in src/db/catalog-seed.ts (the ids in
 // pipelines/README.md), and creates seed items that aren't in the catalog yet (a new style). Goes through the admin save,
 // so each change is validated against Engine X, keeps a revision and writes the audit log. For existing items only the
 // template ids and the stage labels (they name the pipelines' steps) change; prices, fields and the rest stay as admins
@@ -9,7 +9,7 @@ import { catalogInput, saveCatalogItem } from "@/server/admin/catalog";
 
 const admin = await db.user.findFirst({ where: { role: "admin", isAnonymous: false }, select: { id: true, email: true, name: true } });
 if (!admin) {
-  console.error("No admin account yet. Run pnpm admin:create first.");
+  console.error("No admin account yet. Run npm run admin:create first.");
   process.exit(1);
 }
 const keys = Object.keys(catalogInput.innerType?.().shape ?? catalogInput.shape);

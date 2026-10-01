@@ -1,4 +1,4 @@
-// pnpm admin:create <email> — creates an admin account (or resets an existing account's password and
+// npm run admin:create <email> — creates an admin account (or resets an existing account's password and
 // makes it admin). Prints a generated password once. Public sign-up is off until AUTH_MODE=full.
 import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
@@ -6,7 +6,7 @@ import { db } from "@/db/client";
 
 const email = process.argv[2]?.trim().toLowerCase();
 if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-  console.error("Usage: pnpm admin:create you@example.com");
+  console.error("Usage: npm run admin:create you@example.com");
   process.exit(1);
 }
 

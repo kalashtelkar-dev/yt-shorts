@@ -1,21 +1,21 @@
 // Dev tool for editing Engine X pipelines (run by a person, never by the app).
 // The app itself only reads pipelines (CLAUDE.md §4.9); edits go through this script so every change is deliberate.
 //
-//   pnpm enginex:pipeline get <templateId>             → .pipelines/<templateId>.json (graph + etag)
-//   pnpm enginex:pipeline nodes                        → .pipelines/nodes.json (the node palette)
-//   pnpm enginex:pipeline export <templateId>          → .pipelines/<templateId>.export.json (portable document)
-//   pnpm enginex:pipeline import <file>                → creates a NEW unpublished pipeline from a document
-//   pnpm enginex:pipeline validate <file>              → compile check, issues or plan
-//   pnpm enginex:pipeline save <templateId> <file>     → replace the draft (needs the etag from `get`; 409 if it moved)
-//   pnpm enginex:pipeline publish <templateId> [etag]  → make the draft the version /v1/run executes
-//   pnpm enginex:pipeline runs [templateId]            → .pipelines/runs.json (recent runs, read-only)
-//   pnpm enginex:pipeline run <runId>                  → .pipelines/run-<runId>.json (steps and outputs, read-only)
-//   pnpm enginex:pipeline job <jobId>                  → .pipelines/job-<jobId>.json (one step's engine job, read-only)
-//   pnpm enginex:pipeline job-events <jobId>           → .pipelines/job-events-<jobId>.json (its transition trail, read-only)
-//   pnpm enginex:pipeline start <templateId> '<json>'  → starts a run of a published pipeline (dev analysis only; uses compute)
-//   pnpm enginex:pipeline fetch <storageKey> <file>    → downloads a run's output file (via a 10-minute signed link)
-//   pnpm enginex:pipeline cancel <runId>               → cancels a run (stops its compute)
-//   pnpm enginex:pipeline list                         → .pipelines/all.zip (every non-archived pipeline, one document each)
+//   npm run enginex:pipeline get <templateId>             → .pipelines/<templateId>.json (graph + etag)
+//   npm run enginex:pipeline nodes                        → .pipelines/nodes.json (the node palette)
+//   npm run enginex:pipeline export <templateId>          → .pipelines/<templateId>.export.json (portable document)
+//   npm run enginex:pipeline import <file>                → creates a NEW unpublished pipeline from a document
+//   npm run enginex:pipeline validate <file>              → compile check, issues or plan
+//   npm run enginex:pipeline save <templateId> <file>     → replace the draft (needs the etag from `get`; 409 if it moved)
+//   npm run enginex:pipeline publish <templateId> [etag]  → make the draft the version /v1/run executes
+//   npm run enginex:pipeline runs [templateId]            → .pipelines/runs.json (recent runs, read-only)
+//   npm run enginex:pipeline run <runId>                  → .pipelines/run-<runId>.json (steps and outputs, read-only)
+//   npm run enginex:pipeline job <jobId>                  → .pipelines/job-<jobId>.json (one step's engine job, read-only)
+//   npm run enginex:pipeline job-events <jobId>           → .pipelines/job-events-<jobId>.json (its transition trail, read-only)
+//   npm run enginex:pipeline start <templateId> '<json>'  → starts a run of a published pipeline (dev analysis only; uses compute)
+//   npm run enginex:pipeline fetch <storageKey> <file>    → downloads a run's output file (via a 10-minute signed link)
+//   npm run enginex:pipeline cancel <runId>               → cancels a run (stops its compute)
+//   npm run enginex:pipeline list                         → .pipelines/all.zip (every non-archived pipeline, one document each)
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const base = process.env.ENGINEX_BASE_URL;
@@ -122,6 +122,6 @@ if (cmd === "get" && a) {
   writeFileSync(b, Buffer.from(await res.arrayBuffer()));
   console.log(`HTTP ${res.status}, saved ${b}`);
 } else {
-  console.error("Usage: pnpm enginex:pipeline get|validate|save|publish …  (see the top of scripts/enginex-pipeline.mts)");
+  console.error("Usage: npm run enginex:pipeline get|validate|save|publish …  (see the top of scripts/enginex-pipeline.mts)");
   process.exit(1);
 }

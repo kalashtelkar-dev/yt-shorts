@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { env } from "@/config/env";
 import { db } from "@/db/client";
 import { Prisma, type Payment } from "@/generated/prisma/client";
 import { creditsForPaise, financialYear, GST_STATES, GSTIN_RE, invoiceNumber, splitGst } from "@/lib/billing";
@@ -10,7 +11,7 @@ import { getSettings } from "@/server/settings";
 import { mockSignature, paymentsProvider, PaymentsError } from "./provider";
 
 // Buying credits: order → checkout → a verified payment adds credits and issues a tax invoice, once.
-// Both the browser (after checkout) and the Razorpay webhook can confirm; whichever comes first does the work.
+// Both the browser (after checkout) and the Cashfree webhook can confirm; whichever comes first does the work.
 
 const PURCHASE_STARTS_PER_HOUR = 20;
 const fail = (code: string, message: string, field?: string) => ({ ok: false as const, error: { code, message, field } });
@@ -50,8 +51,11 @@ export async function saveBillingProfile(userId: string, raw: unknown): Promise<
 
 export type CheckoutStart = {
   orderId: string;
-  provider: "razorpay" | "mock";
-  keyId: string | null;
+  provider: "cashfree" | "mock";
+  /** Cashfree's payment_session_id, which the browser checkout opens; null for the mock. */
+  sessionId: string | null;
+  /** Which Cashfree checkout to load. */
+  mode: "sandbox" | "production";
   amountPaise: number;
   credits: number;
   email: string;
@@ -69,16 +73,15 @@ export async function startPurchase(user: { id: string; email: string; isAnonymo
   }
   const fresh = await db.user.findUnique({ where: { id: user.id }, select: { suspendedAt: true } });
   if (fresh?.suspendedAt) return fail("suspended", "Your account is paused, so you can't buy credits. Contact support if this looks wrong.");
-  if (!(await getBillingProfile(user.id))) return fail("profile_needed", "Tell us your state first; it goes on your tax invoice.");
   if (!(await underLimit(`purchase:${user.id}`, PURCHASE_STARTS_PER_HOUR, 3600))) return fail("rate_limited", "Too many payment attempts. Try again in an hour.");
 
   const credits = creditsForPaise(amountPaise, s.sellPaisePerCredit);
   if (credits <= 0) return fail("unavailable", "Buying credits is paused right now. Try again later.");
   const provider = paymentsProvider();
   const id = crypto.randomUUID();
-  let orderId: string;
+  let orderId: string, sessionId: string | null;
   try {
-    ({ orderId } = await provider.createOrder({ amountPaise, receipt: id }));
+    ({ orderId, sessionId } = await provider.createOrder({ amountPaise, receipt: id, customer: { id: user.id, email: user.email } }));
   } catch (e) {
     console.error("[startPurchase]", e instanceof PaymentsError ? e.message : "order failed");
     return fail("provider", "We couldn't open the payment page. Try again in a minute.");
@@ -90,7 +93,8 @@ export async function startPurchase(user: { id: string; email: string; isAnonymo
     data: {
       orderId,
       provider: provider.name,
-      keyId: provider.keyId,
+      sessionId,
+      mode: env.CASHFREE_ENV,
       amountPaise,
       credits,
       email: user.email,
@@ -99,30 +103,36 @@ export async function startPurchase(user: { id: string; email: string; isAnonymo
   };
 }
 
-const confirmInput = z.strictObject({ orderId: z.string().min(1).max(100), paymentId: z.string().min(1).max(100), signature: z.string().min(1).max(200) });
+const confirmInput = z.strictObject({ orderId: z.string().min(1).max(100), paymentId: z.string().min(1).max(100).optional(), signature: z.string().min(1).max(200).optional() });
 
-/** The browser's confirmation after checkout. The signature proves the provider saw this payment for this order. */
+/** The browser's confirmation after checkout. The provider itself is asked whether the order is paid; the browser's word isn't enough. */
 export async function confirmPurchase(userId: string, raw: unknown): Promise<ActionResult<{ credits: number; invoiceId: string }>> {
   const parsed = confirmInput.safeParse(raw);
   if (!parsed.success) return fail("invalid", "That payment couldn't be checked. If money left your account, contact support.");
-  const { orderId, paymentId, signature } = parsed.data;
+  const { orderId, ...proof } = parsed.data;
   const p = await db.payment.findFirst({ where: { providerOrderId: orderId, userId } });
   if (!p) return fail("not_found", "We couldn't find that payment. If money left your account, contact support.");
-  if (!paymentsProvider().verifyPayment({ orderId, paymentId, signature })) {
-    return fail("signature", "That payment couldn't be verified. If money left your account, contact support with the payment id.");
+  let paid;
+  try {
+    paid = await paymentsProvider().paidPayment(orderId, proof);
+  } catch (e) {
+    console.error("[confirmPurchase]", e instanceof PaymentsError ? e.message : "lookup failed");
+    return fail("provider", "We couldn't check your payment just now. If money left your account, your credits will show up in a few minutes.");
   }
-  const r = await markPaid(orderId, paymentId, null, null);
+  if (!paid) return fail("not_paid", "That payment didn't go through. Nothing was charged; try again or use another method.");
+  const r = await markPaid(orderId, paid.paymentId, paid.method, null);
   return r ? { ok: true, data: { credits: p.credits, invoiceId: r.invoiceId } } : fail("not_found", "We couldn't find that payment.");
 }
 
-/** Razorpay webhook: payment.captured / order.paid. Returns false when the signature is wrong. */
-export async function handleWebhook(rawBody: string, signature: string): Promise<boolean> {
+/** Cashfree webhook: PAYMENT_SUCCESS_WEBHOOK. Returns false when the signature is wrong. */
+export async function handleWebhook(rawBody: string, signature: string, timestamp: string): Promise<boolean> {
   const provider = paymentsProvider();
-  if (!provider.verifyWebhook(rawBody, signature)) return false;
-  const body = JSON.parse(rawBody) as { event?: string; payload?: { payment?: { entity?: { id?: string; order_id?: string; method?: string; status?: string } } } };
-  const entity = body.payload?.payment?.entity;
-  if ((body.event === "payment.captured" || body.event === "order.paid") && entity?.order_id && entity.id) {
-    await markPaid(entity.order_id, entity.id, entity.method ?? null, { event: body.event, status: entity.status ?? null });
+  if (!provider.verifyWebhook(rawBody, signature, timestamp)) return false;
+  const body = JSON.parse(rawBody) as { type?: string; data?: { order?: { order_id?: string }; payment?: { cf_payment_id?: string | number; payment_status?: string; payment_group?: string } } };
+  const orderId = body.data?.order?.order_id;
+  const payment = body.data?.payment;
+  if (body.type === "PAYMENT_SUCCESS_WEBHOOK" && payment?.payment_status === "SUCCESS" && orderId && payment.cf_payment_id != null) {
+    await markPaid(orderId, String(payment.cf_payment_id), payment.payment_group ?? null, { type: body.type, status: payment.payment_status });
   }
   return true;
 }

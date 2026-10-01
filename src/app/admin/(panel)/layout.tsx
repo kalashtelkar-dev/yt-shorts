@@ -1,7 +1,7 @@
 import { LogOut } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LogoMark } from "@/components/logo";
+import { LogoIcon, Wordmark } from "@/components/logo";
 import { signOutAction } from "@/app/admin/actions";
 import { AdminNav } from "@/components/admin/nav";
 import { brand } from "@/config/brand";
@@ -19,10 +19,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="border-b bg-background print:hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0 lg:py-4">
         <div className="flex h-14 items-center justify-between gap-4 px-4 lg:mb-4 lg:h-auto lg:justify-center lg:px-0">
           <Link href="/admin/health" className="flex items-center gap-2 rounded font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none" title={`${brand.name} admin`} aria-label={`${brand.name} admin home`}>
-            <LogoMark className="lg:size-8" />
-            <span className="lg:hidden">
-              {brand.name} <span className="font-normal text-muted-foreground">Admin</span>
-            </span>
+            <LogoIcon className="max-lg:hidden" />
+            <Wordmark className="h-8 lg:hidden" />
+            <span className="font-normal text-muted-foreground lg:hidden">Admin</span>
           </Link>
           <form action={signOutAction} className="flex items-center gap-3 lg:hidden">
             <span className="hidden text-sm text-muted-foreground sm:inline">{admin.email}</span>

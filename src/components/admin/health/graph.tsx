@@ -137,7 +137,7 @@ export default function HealthGraph({
     const engines = probes.filter((p) => p.tier === "workers");
     // Four columns, left to right: the app → what it talks to → the Engine X gateway → what's behind it.
     const col = { a: 0, b: 224, c: 448, d: 672 };
-    const behind = [by.get("storage"), ...engines].filter((p): p is ProbeView => !!p);
+    const behind = engines;
     const gatewayY = 300;
     const behindTop = gatewayY - ((behind.length - 1) * 72) / 2;
     const place: [string, number, number, boolean?][] = [

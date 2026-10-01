@@ -8,8 +8,9 @@ import { EngineXError, type EngineXClient, type Run, type RunStep } from "./type
 // gameplay index finishes but finds no kills by that player.
 
 // Step names and outputs mirror the real pipelines. The run id also says which pipeline kind ran:
-// "single" (the one-run Kill Montage), or the staged ones: "gameplay" (gameplay-index), "song" (song-index), "style".
-type MockKind = "single" | "gameplay" | "song" | "style";
+// "single" (the one-run Kill Montage), or the staged ones: "gameplay" (gameplay-index), "song" (song-index), "style";
+// "store" is store-file (ENGINEX_STORE_PIPELINE), which keeps a finished file for the long term.
+type MockKind = "single" | "gameplay" | "song" | "style" | "store";
 type MockStep = { step: string; engine: string; ms: number; items?: number };
 const STEPS: Record<MockKind, MockStep[]> = {
   single: [
@@ -37,6 +38,7 @@ const STEPS: Record<MockKind, MockStep[]> = {
     { step: "plan", engine: "llm", ms: 2000 },
     { step: "make_montage", engine: "video", ms: 4000 },
   ],
+  store: [{ step: "put", engine: "storage", ms: 0 }], // done at once (some tests freeze the clock)
 };
 const ALL_STEPS = Object.values(STEPS).flat();
 
@@ -50,6 +52,7 @@ function outputFor(kind: MockKind, runId: string): Record<string, unknown> {
       segments: [{ start: 1.0, end: 1.9, text: "so cool", words: [{ word: "so", start: 1.0, end: 1.3, score: 0.9 }, { word: "cool", start: 1.4, end: 1.9, score: 0.9 }] }],
       voice: [{ start: 1.0, end: 1.9 }] };
   }
+  if (kind === "store") return { key: "stored", bytes: 1 };
   if (kind === "style") {
     return { montage: `mock/${runId}/montage.mp4`, thumbnail: `mock/${runId}/thumbnail.jpg`, plan: { totalKills: 5, clips: [{ id: 1, start: 20, len: 3, speed: 1, role: "flex" }] } };
   }
@@ -59,7 +62,7 @@ function outputFor(kind: MockKind, runId: string): Record<string, unknown> {
 type Scenario = "ok" | "fail" | "timeout" | "nokills";
 
 export function mockRunAt(runId: string, now: number): Run {
-  const m = /^mock-(\d+)-(ok|fail|timeout|nokills)-(?:(single|gameplay|song|style)-)?/.exec(runId);
+  const m = /^mock-(\d+)-(ok|fail|timeout|nokills)-(?:(single|gameplay|song|style|store)-)?/.exec(runId);
   if (!m) throw new EngineXError("not_found", "Run not found", false, 404);
   const started = Number(m[1]);
   const scenario = m[2] as Scenario;
@@ -114,7 +117,7 @@ const STAGED: Record<string, "gameplay" | "gameplay-upload" | "song" | "song-upl
   tpl_O0HL8QeDezDF: "gameplay", tpl_PL4pQSmiOqiJ: "gameplay-upload", // 2026-09-30: the player's deaths too
   tpl_1UTbGuvdDoh1: "song-upload", // 2026-09-30: a song from an uploaded file
   tpl_v6kGXcY1_I82: "gameplay", tpl_6V6yanSolGTE: "gameplay-upload", tpl_gLc9bMedBz16: "song", tpl_sVzbs9FDpeFW: "song-upload", // 2026-09-30: clean editor layout
-  tpl_A_MNb8DRHume: "style", tpl_dxRIHs2Bd4VP: "style-lyrics",
+  tpl_A_MNb8DRHume: "style", tpl_dxRIHs2Bd4VP: "style-lyrics", tpl_lWBBGBXvtLpa: "style-lyrics",
   tpl_P0krMNymIjdb: "style", tpl_9nMrXrS54mk3: "style-lyrics",
 };
 const STYLE_INPUTS = ["video", "kills", "flex", "gameDurationSec", "audio", "songDurationSec", "loudness", "maxDurationSec", "variation", "plan"];
@@ -134,6 +137,7 @@ function mockInputs(templateId: string): string[] {
 
 /** Which pipeline ran, from its template id (the staged ones are listed above); anything else is the one-run style. */
 function kindOf(templateId: string): MockKind {
+  if (templateId === env.ENGINEX_STORE_PIPELINE) return "store";
   const k = STAGED[templateId];
   return k === "gameplay" || k === "gameplay-upload" ? "gameplay" : k === "song" || k === "song-upload" ? "song" : k ? "style" : "single";
 }
@@ -166,6 +170,9 @@ export const mockClient: EngineXClient = {
     // A public sample clip so the result page has something to play in dev; a plain 9:16 image for a cover still.
     const still = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 16"><rect width="9" height="16" fill="#1f1f1f"/></svg>');
     return Object.fromEntries(keys.map((k) => [k, k.endsWith(".jpg") ? still : "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"]));
+  },
+  async shareStored(key) {
+    return (await mockClient.signOutput([key], 0))[key];
   },
   async createUploadUrl(filename) {
     // Accepted and discarded by /api/mock-upload (mock mode only).

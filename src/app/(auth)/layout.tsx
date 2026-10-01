@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { CookieNotice } from "@/components/cookie-notice";
+import { COOKIE_CONSENT } from "@/lib/consent";
 import { BackLink } from "@/components/back-link";
-import { LogoMark } from "@/components/logo";
+import { Wordmark } from "@/components/logo";
 import { notFound, redirect } from "next/navigation";
-import { brand } from "@/config/brand";
 import { env } from "@/config/env";
 import { getViewer } from "@/server/session";
 
@@ -20,9 +22,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
       <header className="flex h-14 items-center border-b">
-        <Link href="/" className="-mx-1 flex items-center gap-2 rounded px-1 font-semibold tracking-tight focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
-          <LogoMark />
-          {brand.name}
+        <Link href="/" className="-mx-1 flex items-center rounded px-1 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+          <Wordmark />
         </Link>
       </header>
       <main className="flex flex-1 justify-center py-10 sm:py-16">
@@ -33,6 +34,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
           {children}
         </div>
       </main>
+      {!(await cookies()).has(COOKIE_CONSENT) && <CookieNotice />}
     </div>
   );
 }

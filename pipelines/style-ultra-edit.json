@@ -19,7 +19,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 450
+          "y": 600
         }
       },
       {
@@ -43,7 +43,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 1050
+          "y": 900
         }
       },
       {
@@ -83,15 +83,15 @@
         }
       },
       {
-        "id": "lines_in",
+        "id": "subs_in",
         "kind": "input",
-        "name": "lines",
+        "name": "subs",
         "type": "text",
-        "sample": "[]",
+        "sample": "; lyrics",
         "required": true,
         "position": {
           "x": 0,
-          "y": 750
+          "y": 450
         }
       },
       {
@@ -103,7 +103,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 600
+          "y": 750
         }
       },
       {
@@ -131,7 +131,7 @@
         },
         "position": {
           "x": 1520,
-          "y": 825
+          "y": 900
         }
       },
       {
@@ -144,7 +144,7 @@
         },
         "position": {
           "x": 1520,
-          "y": 525
+          "y": 600
         }
       },
       {
@@ -157,7 +157,7 @@
         },
         "position": {
           "x": 1520,
-          "y": 975
+          "y": 1050
         }
       },
       {
@@ -170,7 +170,7 @@
         },
         "position": {
           "x": 1900,
-          "y": 825
+          "y": 900
         }
       },
       {
@@ -183,7 +183,7 @@
         },
         "position": {
           "x": 1900,
-          "y": 525
+          "y": 600
         }
       },
       {
@@ -196,7 +196,7 @@
         },
         "position": {
           "x": 1900,
-          "y": 975
+          "y": 1050
         }
       },
       {
@@ -235,7 +235,7 @@
         },
         "position": {
           "x": 2660,
-          "y": 450
+          "y": 525
         }
       },
       {
@@ -248,7 +248,7 @@
         },
         "position": {
           "x": 2660,
-          "y": 600
+          "y": 675
         }
       },
       {
@@ -261,7 +261,7 @@
         },
         "position": {
           "x": 380,
-          "y": 750
+          "y": 825
         }
       },
       {
@@ -275,7 +275,7 @@
         },
         "position": {
           "x": 2660,
-          "y": 300
+          "y": 225
         }
       },
       {
@@ -388,7 +388,7 @@
         },
         "position": {
           "x": 6840,
-          "y": 600
+          "y": 525
         }
       },
       {
@@ -403,7 +403,7 @@
         },
         "position": {
           "x": 7220,
-          "y": 525
+          "y": 450
         }
       },
       {
@@ -500,7 +500,7 @@
         },
         "position": {
           "x": 6460,
-          "y": 375
+          "y": 825
         }
       },
       {
@@ -513,7 +513,7 @@
         },
         "position": {
           "x": 6840,
-          "y": 450
+          "y": 675
         }
       },
       {
@@ -522,11 +522,11 @@
         "engine": "util",
         "operation": "template",
         "params": {
-          "template": "[\"-y\", \"-filter_complex\", \"{{a}}{{b}}concat=n={{c}}:v=1:a=1[vc][ga];color=c=black@0:s=1080x1920:r=60,format=rgba,{{g}}split=2[t1][t2];[t1]gblur=sigma=14,colorchannelmixer=aa=1.6[glow];[vc][glow]overlay=0:0:shortest=1:format=auto[vg];[vg][t2]overlay=0:0:shortest=1:format=auto,fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];[ga]anull[a]\", \"-map\", \"[v]\", \"-map\", \"[a]\", \"-c:v\", \"{enc:h264}\", \"-preset\", \"p5\", \"-tune\", \"hq\", \"-rc\", \"vbr\", \"-cq\", \"20\", \"-b:v\", \"0\", \"-maxrate\", \"20M\", \"-bufsize\", \"40M\", \"-profile:v\", \"high\", \"-pix_fmt\", \"yuv420p\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{d}}\", \"cut.mp4\"]"
+          "template": "[\"-y\", \"-filter_complex\", \"{{a}}{{b}}concat=n={{c}}:v=1:a=1[vc][ga];color=c=black@0:s=1080x1920:r=60,format=rgba,subtitles=filename='{in2}':alpha=1,split=2[t1][t2];[t1]gblur=sigma=14,colorchannelmixer=aa=1.6[glow];[vc][glow]overlay=0:0:shortest=1:format=auto[vg];[vg][t2]overlay=0:0:shortest=1:format=auto,fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];[ga]anull[a]\", \"-map\", \"[v]\", \"-map\", \"[a]\", \"-c:v\", \"{enc:h264}\", \"-preset\", \"p5\", \"-tune\", \"hq\", \"-rc\", \"vbr\", \"-cq\", \"20\", \"-b:v\", \"0\", \"-maxrate\", \"20M\", \"-bufsize\", \"40M\", \"-profile:v\", \"high\", \"-pix_fmt\", \"yuv420p\", \"-c:a\", \"aac\", \"-b:a\", \"192k\", \"-movflags\", \"+faststart\", \"-t\", \"{{d}}\", \"cut.mp4\"]"
         },
         "position": {
-          "x": 14440,
-          "y": 600
+          "x": 7600,
+          "y": 450
         }
       },
       {
@@ -538,8 +538,8 @@
         },
         "operation": "json-parse",
         "position": {
-          "x": 14820,
-          "y": 600
+          "x": 7980,
+          "y": 450
         }
       },
       {
@@ -549,8 +549,8 @@
         "params": {},
         "operation": "merge",
         "position": {
-          "x": 15200,
-          "y": 600
+          "x": 8360,
+          "y": 525
         }
       },
       {
@@ -586,7 +586,7 @@
         "params": {},
         "operation": "gate",
         "position": {
-          "x": 15580,
+          "x": 8740,
           "y": 600
         }
       },
@@ -600,7 +600,7 @@
         },
         "operation": "custom",
         "position": {
-          "x": 15960,
+          "x": 9120,
           "y": 600
         }
       },
@@ -632,22 +632,7 @@
         },
         "position": {
           "x": 2280,
-          "y": 300
-        }
-      },
-      {
-        "id": "caption_keep",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "[^\u00a7]*(?:\u00a7([^\u00a7]*)\u00a7)?",
-          "replace": "$1"
-        },
-        "position": {
-          "x": 13680,
-          "y": 600
+          "y": 450
         }
       },
       {
@@ -662,7 +647,7 @@
         },
         "position": {
           "x": 380,
-          "y": 1050
+          "y": 975
         }
       },
       {
@@ -690,7 +675,7 @@
         },
         "position": {
           "x": 380,
-          "y": 900
+          "y": 675
         }
       },
       {
@@ -703,7 +688,7 @@
         },
         "position": {
           "x": 760,
-          "y": 675
+          "y": 525
         }
       },
       {
@@ -717,7 +702,7 @@
         },
         "position": {
           "x": 1140,
-          "y": 600
+          "y": 450
         }
       },
       {
@@ -731,7 +716,7 @@
         },
         "position": {
           "x": 1520,
-          "y": 375
+          "y": 300
         }
       },
       {
@@ -744,7 +729,7 @@
         },
         "position": {
           "x": 1900,
-          "y": 375
+          "y": 300
         }
       },
       {
@@ -770,7 +755,7 @@
         },
         "position": {
           "x": 380,
-          "y": 150
+          "y": 225
         }
       },
       {
@@ -785,7 +770,7 @@
         },
         "position": {
           "x": 6460,
-          "y": 825
+          "y": 375
         }
       },
       {
@@ -870,7 +855,7 @@
         },
         "position": {
           "x": 1520,
-          "y": 675
+          "y": 750
         }
       },
       {
@@ -885,7 +870,7 @@
         },
         "position": {
           "x": 1900,
-          "y": 675
+          "y": 750
         }
       },
       {
@@ -898,7 +883,7 @@
         },
         "position": {
           "x": 2280,
-          "y": 450
+          "y": 300
         }
       },
       {
@@ -907,11 +892,11 @@
         "engine": "util",
         "operation": "text",
         "params": {
-          "value": "\n0;{in0};fontsize=96:fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85;42.9\n1;{in1};fontsize=61:fontcolor=white:borderw=5:bordercolor=black:shadowx=0:shadowy=8:shadowcolor=black@0.75;37.7\n2;{in2};fontsize=69:fontcolor=0xFFD83D:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black;46.4\n3;{in3};fontsize=78:fontcolor=white:borderw=6:bordercolor=0x141414:shadowx=6:shadowy=6:shadowcolor=0xE5484D;43.8\n4;{in4};fontsize=67:fontcolor=white:borderw=5:bordercolor=0x5B21B6:shadowx=6:shadowy=6:shadowcolor=black@0.8;40.3\n5;{in5};fontsize=68:fontcolor=0xF4F4F4:borderw=4:bordercolor=black:shadowx=7:shadowy=7:shadowcolor=black@0.7;41.1\n6;{in6};fontsize=67:fontcolor=0x3DE8FF:borderw=4:bordercolor=0x03141A:shadowx=6:shadowy=6:shadowcolor=black@0.85;38.6\n7;{in7};fontsize=61:fontcolor=white:borderw=5:bordercolor=black:shadowx=4:shadowy=7:shadowcolor=0xFF3B30;41.7\n8;{in8};fontsize=53:fontcolor=white:borderw=4:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.8;47.3\n9;{in9};fontsize=80:fontcolor=0xFFE14D:borderw=5:bordercolor=0x1A1200:shadowx=6:shadowy=6:shadowcolor=black@0.85;39.5\ndefault;{in0};fontsize=96:fontcolor=white:borderw=5:bordercolor=black:shadowx=6:shadowy=6:shadowcolor=black@0.85;42.9"
+          "value": "\n0;{in0};Style: L,Anton,168,&H00FFFFFF,&H00FFFFFF,&H00000000,&H26000000,0,0,0,0,100,100,0,0,1,5,6,5,0,0,0,1;\\xshad6\\yshad6\n1;{in1};Style: L,Archivo Black,83,&H00FFFFFF,&H00FFFFFF,&H00000000,&H40000000,0,0,0,0,100,100,0,0,1,5,8,5,0,0,0,1;\\xshad0\\yshad8\n2;{in2};Style: L,Bungee,182,&H003DD8FF,&H003DD8FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,4,6,5,0,0,0,1;\\xshad6\\yshad6\n3;{in3};Style: L,Luckiest Guy,95,&H00FFFFFF,&H00FFFFFF,&H00141414,&H004D48E5,0,0,0,0,100,100,0,0,1,6,6,5,0,0,0,1;\\xshad6\\yshad6\n4;{in4};Style: L,Titan One,78,&H00FFFFFF,&H00FFFFFF,&H00B6215B,&H33000000,0,0,0,0,100,100,0,0,1,5,6,5,0,0,0,1;\\xshad6\\yshad6\n5;{in5};Style: L,Black Ops One,98,&H00F4F4F4,&H00F4F4F4,&H00000000,&H4D000000,0,0,0,0,100,100,0,0,1,4,7,5,0,0,0,1;\\xshad7\\yshad7\n6;{in6};Style: L,Russo One,80,&H00FFE83D,&H00FFE83D,&H001A1403,&H26000000,0,0,0,0,100,100,0,0,1,4,6,5,0,0,0,1;\\xshad6\\yshad6\n7;{in7};Style: L,Bowlby One,94,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00303BFF,0,0,0,0,100,100,0,0,1,5,7,5,0,0,0,1;\\xshad4\\yshad7\n8;{in8};Style: L,Rubik Mono One,65.5,&H00FFFFFF,&H00FFFFFF,&H00000000,&H33000000,0,0,0,0,100,100,0,0,1,4,6,5,0,0,0,1;\\xshad6\\yshad6\n9;{in9};Style: L,Passion One Black,88,&H004DE1FF,&H004DE1FF,&H0000121A,&H26000000,0,0,0,0,100,100,0,0,1,5,6,5,0,0,0,1;\\xshad6\\yshad6\ndefault;{in0};Style: L,Anton,168,&H00FFFFFF,&H00FFFFFF,&H00000000,&H26000000,0,0,0,0,100,100,0,0,1,5,6,5,0,0,0,1;\\xshad6\\yshad6"
         },
         "position": {
           "x": 380,
-          "y": 450
+          "y": 525
         }
       },
       {
@@ -924,7 +909,7 @@
         },
         "position": {
           "x": 380,
-          "y": 300
+          "y": 375
         }
       },
       {
@@ -937,7 +922,7 @@
         },
         "position": {
           "x": 760,
-          "y": 525
+          "y": 675
         }
       },
       {
@@ -950,11 +935,11 @@
         },
         "position": {
           "x": 760,
-          "y": 375
+          "y": 225
         }
       },
       {
-        "id": "look_cw",
+        "id": "look_tags",
         "kind": "engine",
         "engine": "util",
         "operation": "regex",
@@ -963,7 +948,7 @@
         },
         "position": {
           "x": 760,
-          "y": 225
+          "y": 375
         }
       },
       {
@@ -976,7 +961,7 @@
         },
         "position": {
           "x": 1140,
-          "y": 450
+          "y": 600
         }
       },
       {
@@ -989,7 +974,7 @@
         },
         "position": {
           "x": 1520,
-          "y": 225
+          "y": 450
         }
       },
       {
@@ -1000,290 +985,17 @@
         "params": {},
         "position": {
           "x": 1900,
-          "y": 225
+          "y": 450
         }
       },
       {
-        "id": "end_text",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "template",
-        "params": {
-          "template": "{{a}}"
-        },
-        "position": {
-          "x": 6840,
-          "y": 750
-        }
-      },
-      {
-        "id": "lines_json",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "json-parse",
-        "params": {
-          "fenced": false
-        },
-        "position": {
-          "x": 380,
-          "y": 600
-        }
-      },
-      {
-        "id": "lines_before",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "json-filter",
-        "params": {
-          "path": "s",
-          "op": "less-or-equal"
-        },
-        "position": {
-          "x": 7220,
-          "y": 675
-        }
-      },
-      {
-        "id": "lines_after_intro",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "json-filter",
-        "params": {
-          "path": "a",
-          "op": "greater-or-equal"
-        },
-        "position": {
-          "x": 7600,
-          "y": 600
-        }
-      },
-      {
-        "id": "line_item",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "json-stringify",
-        "params": {
-          "indent": 0
-        },
-        "position": {
-          "x": 7980,
-          "y": 600
-        }
-      },
-      {
-        "id": "lines_joined",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "join",
-        "params": {
-          "separator": ""
-        },
-        "position": {
-          "x": 8360,
-          "y": 525
-        }
-      },
-      {
-        "id": "spot_0",
+        "id": "look_events",
         "kind": "engine",
         "engine": "util",
         "operation": "regex",
         "params": {
           "flags": "g",
-          "pattern": "\"p\":\"?0\"?(?=[,}])",
-          "replace": "\"x0\":\"70\",\"k\":\"0\",\"y\":\"h*0.34\""
-        },
-        "position": {
-          "x": 8740,
-          "y": 600
-        }
-      },
-      {
-        "id": "spot_1",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\"p\":\"?1\"?(?=[,}])",
-          "replace": "\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.34\""
-        },
-        "position": {
-          "x": 9120,
-          "y": 600
-        }
-      },
-      {
-        "id": "spot_2",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\"p\":\"?2\"?(?=[,}])",
-          "replace": "\"x0\":\"w-70\",\"k\":\"1\",\"y\":\"h*0.34\""
-        },
-        "position": {
-          "x": 9500,
-          "y": 600
-        }
-      },
-      {
-        "id": "spot_3",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\"p\":\"?3\"?(?=[,}])",
-          "replace": "\"x0\":\"70\",\"k\":\"0\",\"y\":\"h*0.64\""
-        },
-        "position": {
-          "x": 9880,
-          "y": 600
-        }
-      },
-      {
-        "id": "spot_4",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\"p\":\"?4\"?(?=[,}])",
-          "replace": "\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.64\""
-        },
-        "position": {
-          "x": 10260,
-          "y": 600
-        }
-      },
-      {
-        "id": "spot_5",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\"p\":\"?5\"?(?=[,}])",
-          "replace": "\"x0\":\"w-70\",\"k\":\"1\",\"y\":\"h*0.64\""
-        },
-        "position": {
-          "x": 10640,
-          "y": 600
-        }
-      },
-      {
-        "id": "spot_default",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\\{(?![^}]*\"x0\":)",
-          "replace": "{\"x0\":\"w/2\",\"k\":\"0.5\",\"y\":\"h*0.64\","
-        },
-        "position": {
-          "x": 11020,
-          "y": 600
-        }
-      },
-      {
-        "id": "row_0",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\"r\":\"?0\"?(?=[,}])",
-          "replace": "\"dy\":\"-lh/2\""
-        },
-        "position": {
-          "x": 11400,
-          "y": 600
-        }
-      },
-      {
-        "id": "row_1",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\"r\":\"?1\"?(?=[,}])",
-          "replace": "\"dy\":\"-lh-8\""
-        },
-        "position": {
-          "x": 11780,
-          "y": 600
-        }
-      },
-      {
-        "id": "row_2",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\"r\":\"?2\"?(?=[,}])",
-          "replace": "\"dy\":\"+8\""
-        },
-        "position": {
-          "x": 12160,
-          "y": 600
-        }
-      },
-      {
-        "id": "row_default",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\\{(?![^}]*\"dy\":)",
-          "replace": "{\"dy\":\"-lh/2\","
-        },
-        "position": {
-          "x": 12540,
-          "y": 600
-        }
-      },
-      {
-        "id": "line_default",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\\{(?![^}]*\"a\":)(?=[^}]*\"s\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"e\":\"?(\\d+(?:\\.\\d+)?)\"?)",
-          "replace": "{\"a\":$1,\"b\":$2,\"ix\":0,\"iy\":0,\"ox\":0,\"oy\":0,"
-        },
-        "position": {
-          "x": 12920,
-          "y": 600
-        }
-      },
-      {
-        "id": "draw_items",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "regex",
-        "params": {
-          "flags": "g",
-          "pattern": "\\{(?=[^}]*\"s\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"e\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"t\":\"([^\"]+)\")(?=[^}]*\"x0\":\"([^\"]+)\")(?=[^}]*\"k\":\"([^\"]+)\")(?=[^}]*\"n\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"y\":\"([^\"]+)\")(?=[^}]*\"dy\":\"([^\"]+)\")(?=[^}]*\"a\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"b\":\"?(\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"ix\":\"?(-?\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"iy\":\"?(-?\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"ox\":\"?(-?\\d+(?:\\.\\d+)?)\"?)(?=[^}]*\"oy\":\"?(-?\\d+(?:\\.\\d+)?)\"?)[^}]*\\}"
-        },
-        "position": {
-          "x": 13300,
-          "y": 600
-        }
-      },
-      {
-        "id": "draw_item",
-        "kind": "engine",
-        "engine": "util",
-        "operation": "template",
-        "params": {
-          "template": "\u00a7drawtext=fontfile='{in2}':text='$3':{{a}}:x='$4-$5*$6*@cw+$11*240*pow(max(0,1-(t-$9)/0.18),2)+$13*240*pow(max(0,(t-$10)/0.2),2)':y='$7$8+$12*160*pow(max(0,1-(t-$9)/0.18),2)+$14*160*pow(max(0,(t-$10)/0.2),2)':alpha='min(1,(t-$9)/0.18)*(1-min(1,max(0,(t-$10)/0.2)))':enable='gte(t,$1)*lt(t,$2)',\u00a7"
+          "pattern": "@L"
         },
         "position": {
           "x": 1140,
@@ -1291,17 +1003,59 @@
         }
       },
       {
-        "id": "cw_fill",
+        "id": "ass_doc",
         "kind": "engine",
         "engine": "util",
-        "operation": "regex",
+        "operation": "template",
         "params": {
-          "flags": "g",
-          "pattern": "@cw"
+          "template": "[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 2\nScaledBorderAndShadow: yes\nYCbCr Matrix: None\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n{{a}}\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n{{b}}\n"
         },
         "position": {
-          "x": 14060,
-          "y": 600
+          "x": 1520,
+          "y": 150
+        }
+      },
+      {
+        "id": "ass_file",
+        "kind": "engine",
+        "engine": "file",
+        "operation": "write",
+        "params": {
+          "tier": "cpu",
+          "filename": "lyrics.ass",
+          "contentType": "text/x-ssa"
+        },
+        "position": {
+          "x": 1900,
+          "y": 150
+        }
+      },
+      {
+        "id": "subs",
+        "kind": "engine",
+        "engine": "video",
+        "operation": "custom",
+        "params": {
+          "tier": "cpu",
+          "output": "subs.mkv",
+          "args": [
+            "-y",
+            "-i",
+            "{in0}",
+            "-attach",
+            "{in1}",
+            "-metadata:s:t",
+            "mimetype=application/x-truetype-font",
+            "-map",
+            "0",
+            "-c",
+            "copy",
+            "{out}"
+          ]
+        },
+        "position": {
+          "x": 2660,
+          "y": 375
         }
       },
       {
@@ -1317,7 +1071,7 @@
           "format": "wav"
         },
         "position": {
-          "x": 16340,
+          "x": 9500,
           "y": 525
         }
       },
@@ -1331,7 +1085,7 @@
         },
         "position": {
           "x": 7220,
-          "y": 375
+          "y": 600
         }
       },
       {
@@ -1344,7 +1098,7 @@
         },
         "position": {
           "x": 7600,
-          "y": 450
+          "y": 600
         }
       },
       {
@@ -1355,7 +1109,7 @@
         "params": {},
         "position": {
           "x": 7980,
-          "y": 450
+          "y": 600
         }
       },
       {
@@ -1368,7 +1122,7 @@
           "output": "montage.mp4"
         },
         "position": {
-          "x": 16720,
+          "x": 9880,
           "y": 600
         }
       },
@@ -1397,7 +1151,7 @@
         },
         "position": {
           "x": 2660,
-          "y": 750
+          "y": 825
         }
       },
       {
@@ -1410,7 +1164,7 @@
         },
         "position": {
           "x": 2660,
-          "y": 900
+          "y": 975
         }
       },
       {
@@ -1436,7 +1190,7 @@
         },
         "position": {
           "x": 7220,
-          "y": 825
+          "y": 750
         }
       },
       {
@@ -1491,7 +1245,7 @@
           ]
         },
         "position": {
-          "x": 16340,
+          "x": 9500,
           "y": 675
         }
       },
@@ -1504,7 +1258,7 @@
           "thumbnail"
         ],
         "position": {
-          "x": 17480,
+          "x": 10640,
           "y": 600
         }
       },
@@ -1517,7 +1271,7 @@
         "required": true,
         "position": {
           "x": 0,
-          "y": 900
+          "y": 1050
         }
       }
     ],
@@ -2271,17 +2025,6 @@
         }
       },
       {
-        "id": "caption_font.file->make_montage.input",
-        "from": {
-          "node": "caption_font",
-          "port": "file"
-        },
-        "to": {
-          "node": "make_montage",
-          "port": "input"
-        }
-      },
-      {
         "id": "look_in.value->look_pattern.a",
         "from": {
           "node": "look_in",
@@ -2337,24 +2080,24 @@
         }
       },
       {
-        "id": "look_table.value->look_cw.text",
+        "id": "look_table.value->look_tags.text",
         "from": {
           "node": "look_table",
           "port": "value"
         },
         "to": {
-          "node": "look_cw",
+          "node": "look_tags",
           "port": "text"
         }
       },
       {
-        "id": "look_pattern.value->look_cw.pattern",
+        "id": "look_pattern.value->look_tags.pattern",
         "from": {
           "node": "look_pattern",
           "port": "value"
         },
         "to": {
-          "node": "look_cw",
+          "node": "look_tags",
           "port": "pattern"
         }
       },
@@ -2403,300 +2146,91 @@
         }
       },
       {
-        "id": "end_time.value->end_text.a",
+        "id": "subs_in.value->look_events.text",
         "from": {
-          "node": "end_time",
+          "node": "subs_in",
           "port": "value"
         },
         "to": {
-          "node": "end_text",
-          "port": "a"
-        }
-      },
-      {
-        "id": "lines_in.value->lines_json.text",
-        "from": {
-          "node": "lines_in",
-          "port": "value"
-        },
-        "to": {
-          "node": "lines_json",
+          "node": "look_events",
           "port": "text"
         }
       },
       {
-        "id": "lines_json.value->lines_before.value",
+        "id": "look_tags.text->look_events.replace",
         "from": {
-          "node": "lines_json",
-          "port": "value"
-        },
-        "to": {
-          "node": "lines_before",
-          "port": "value"
-        }
-      },
-      {
-        "id": "end_text.value->lines_before.compareTo",
-        "from": {
-          "node": "end_text",
-          "port": "value"
-        },
-        "to": {
-          "node": "lines_before",
-          "port": "compareTo"
-        }
-      },
-      {
-        "id": "lines_before.items->lines_after_intro.value",
-        "from": {
-          "node": "lines_before",
-          "port": "items"
-        },
-        "to": {
-          "node": "lines_after_intro",
-          "port": "value"
-        }
-      },
-      {
-        "id": "intro_len.text->lines_after_intro.compareTo",
-        "from": {
-          "node": "intro_len",
+          "node": "look_tags",
           "port": "text"
         },
         "to": {
-          "node": "lines_after_intro",
-          "port": "compareTo"
+          "node": "look_events",
+          "port": "replace"
         }
       },
       {
-        "id": "lines_after_intro.items->line_item.value",
-        "from": {
-          "node": "lines_after_intro",
-          "port": "items"
-        },
-        "to": {
-          "node": "line_item",
-          "port": "value"
-        }
-      },
-      {
-        "id": "line_item.value->lines_joined.value",
-        "from": {
-          "node": "line_item",
-          "port": "value"
-        },
-        "to": {
-          "node": "lines_joined",
-          "port": "value"
-        }
-      },
-      {
-        "id": "lines_joined.value->spot_0.text",
-        "from": {
-          "node": "lines_joined",
-          "port": "value"
-        },
-        "to": {
-          "node": "spot_0",
-          "port": "text"
-        }
-      },
-      {
-        "id": "spot_0.text->spot_1.text",
-        "from": {
-          "node": "spot_0",
-          "port": "text"
-        },
-        "to": {
-          "node": "spot_1",
-          "port": "text"
-        }
-      },
-      {
-        "id": "spot_1.text->spot_2.text",
-        "from": {
-          "node": "spot_1",
-          "port": "text"
-        },
-        "to": {
-          "node": "spot_2",
-          "port": "text"
-        }
-      },
-      {
-        "id": "spot_2.text->spot_3.text",
-        "from": {
-          "node": "spot_2",
-          "port": "text"
-        },
-        "to": {
-          "node": "spot_3",
-          "port": "text"
-        }
-      },
-      {
-        "id": "spot_3.text->spot_4.text",
-        "from": {
-          "node": "spot_3",
-          "port": "text"
-        },
-        "to": {
-          "node": "spot_4",
-          "port": "text"
-        }
-      },
-      {
-        "id": "spot_4.text->spot_5.text",
-        "from": {
-          "node": "spot_4",
-          "port": "text"
-        },
-        "to": {
-          "node": "spot_5",
-          "port": "text"
-        }
-      },
-      {
-        "id": "spot_5.text->spot_default.text",
-        "from": {
-          "node": "spot_5",
-          "port": "text"
-        },
-        "to": {
-          "node": "spot_default",
-          "port": "text"
-        }
-      },
-      {
-        "id": "spot_default.text->row_0.text",
-        "from": {
-          "node": "spot_default",
-          "port": "text"
-        },
-        "to": {
-          "node": "row_0",
-          "port": "text"
-        }
-      },
-      {
-        "id": "row_0.text->row_1.text",
-        "from": {
-          "node": "row_0",
-          "port": "text"
-        },
-        "to": {
-          "node": "row_1",
-          "port": "text"
-        }
-      },
-      {
-        "id": "row_1.text->row_2.text",
-        "from": {
-          "node": "row_1",
-          "port": "text"
-        },
-        "to": {
-          "node": "row_2",
-          "port": "text"
-        }
-      },
-      {
-        "id": "row_2.text->row_default.text",
-        "from": {
-          "node": "row_2",
-          "port": "text"
-        },
-        "to": {
-          "node": "row_default",
-          "port": "text"
-        }
-      },
-      {
-        "id": "row_default.text->line_default.text",
-        "from": {
-          "node": "row_default",
-          "port": "text"
-        },
-        "to": {
-          "node": "line_default",
-          "port": "text"
-        }
-      },
-      {
-        "id": "line_default.text->draw_items.text",
-        "from": {
-          "node": "line_default",
-          "port": "text"
-        },
-        "to": {
-          "node": "draw_items",
-          "port": "text"
-        }
-      },
-      {
-        "id": "look_style.text->draw_item.a",
+        "id": "look_style.text->ass_doc.a",
         "from": {
           "node": "look_style",
           "port": "text"
         },
         "to": {
-          "node": "draw_item",
+          "node": "ass_doc",
           "port": "a"
         }
       },
       {
-        "id": "draw_item.value->draw_items.replace",
+        "id": "look_events.text->ass_doc.b",
         "from": {
-          "node": "draw_item",
+          "node": "look_events",
+          "port": "text"
+        },
+        "to": {
+          "node": "ass_doc",
+          "port": "b"
+        }
+      },
+      {
+        "id": "ass_doc.value->ass_file.value",
+        "from": {
+          "node": "ass_doc",
           "port": "value"
         },
         "to": {
-          "node": "draw_items",
-          "port": "replace"
+          "node": "ass_file",
+          "port": "value"
         }
       },
       {
-        "id": "draw_items.text->caption_keep.text",
+        "id": "ass_file.file->subs.input",
         "from": {
-          "node": "draw_items",
-          "port": "text"
+          "node": "ass_file",
+          "port": "file"
         },
         "to": {
-          "node": "caption_keep",
-          "port": "text"
+          "node": "subs",
+          "port": "input"
         }
       },
       {
-        "id": "caption_keep.text->cw_fill.text",
+        "id": "caption_font.file->subs.input",
         "from": {
-          "node": "caption_keep",
-          "port": "text"
+          "node": "caption_font",
+          "port": "file"
         },
         "to": {
-          "node": "cw_fill",
-          "port": "text"
+          "node": "subs",
+          "port": "input"
         }
       },
       {
-        "id": "look_cw.text->cw_fill.replace",
+        "id": "subs.file->make_montage.input",
         "from": {
-          "node": "look_cw",
-          "port": "text"
+          "node": "subs",
+          "port": "file"
         },
         "to": {
-          "node": "cw_fill",
-          "port": "replace"
-        }
-      },
-      {
-        "id": "cw_fill.text->ffmpeg_args.g",
-        "from": {
-          "node": "cw_fill",
-          "port": "text"
-        },
-        "to": {
-          "node": "ffmpeg_args",
-          "port": "g"
+          "node": "make_montage",
+          "port": "input"
         }
       },
       {

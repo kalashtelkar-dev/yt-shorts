@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { env } from "@/config/env";
-import { auth } from "@/server/auth";
+import { auth, googleEnabled } from "@/server/auth";
 import { clientIp } from "@/server/ip";
 import { db } from "@/db/client";
 import { applyHeldPassword, clearPendingEmail, codeErrorMessage, holdPassword, markCodeSent, pendingEmail, pendingSignupNonce, sendCode, setPendingEmail } from "@/server/otp";
@@ -164,6 +164,35 @@ export async function changePasswordAction(_prev: AuthState, form: FormData): Pr
   return { ok: true, message: "Password changed. Your other devices will be signed out within 5 minutes." };
 }
 
+/** Account page, "Forgot your current password?": emails a reset code to the signed-in account's own address. */
+export async function sendAccountResetCodeAction(): Promise<AuthState> {
+  if (env.AUTH_MODE !== "full") return closed;
+  const viewer = await getViewer();
+  if (!viewer || viewer.isAnonymous) return { ok: false, message: "Your session has ended. Sign in again." };
+  const r = await sendCode(viewer.email, "forget-password", await ip());
+  return r.ok ? { ok: true, message: `We sent a 6-digit code to ${viewer.email}. It works for 10 minutes.` } : { ok: false, message: r.error.message };
+}
+
+/** Account page: the emailed code proves it's them, instead of the current password. Keeps this browser signed in. */
+export async function accountResetPasswordAction(_prev: AuthState, form: FormData): Promise<AuthState> {
+  if (env.AUTH_MODE !== "full") return closed;
+  const viewer = await getViewer();
+  if (!viewer || viewer.isAnonymous) return { ok: false, message: "Your session has ended. Sign in again." };
+  const parsed = z.object({ otp, password }).safeParse({ otp: form.get("otp"), password: form.get("password") });
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message, field: String(parsed.error.issues[0].path[0]) };
+  if (!(await underLimit(`password-change:${viewer.id}`, 10, 900))) return { ok: false, message: "Too many attempts. Wait 15 minutes, then try again." };
+  try {
+    // Signs out every session of the account, this one too (revokeSessionsOnPasswordReset)…
+    await auth.api.resetPasswordEmailOTP({ body: { email: viewer.email, otp: parsed.data.otp, password: parsed.data.password } });
+  } catch (e) {
+    if (e instanceof APIError) return { ok: false, message: codeErrorMessage(errorCode(e)), field: "otp" };
+    throw e;
+  }
+  // …so sign this browser back in with the new password.
+  await auth.api.signInEmail({ body: { email: viewer.email, password: parsed.data.password }, headers: await headers() }).catch(() => redirect("/sign-in?reset=1"));
+  return { ok: true, message: "Password changed. Your other devices are signed out." };
+}
+
 /** Ends every session of this account, including this one. */
 export async function signOutEverywhereAction() {
   await auth.api.revokeSessions({ headers: await headers() }).catch(() => {});
@@ -174,4 +203,15 @@ export async function signOutEverywhereAction() {
 export async function signOutAction() {
   await auth.api.signOut({ headers: await headers() }).catch(() => {});
   redirect("/");
+}
+
+/** "Continue with Google": asks Better Auth for Google's sign-in page and sends the browser there. */
+export async function googleSignInAction(): Promise<void> {
+  if (!googleEnabled) redirect("/sign-in");
+  if (!(await underLimit(`google:ip:${await ip()}`, 30, 900))) redirect("/sign-in?google=busy");
+  const { url } = await auth.api.signInSocial({
+    body: { provider: "google", callbackURL: "/auth/google/done", errorCallbackURL: "/sign-in?google=failed" },
+    headers: await headers(),
+  });
+  redirect(url ?? "/sign-in?google=failed");
 }

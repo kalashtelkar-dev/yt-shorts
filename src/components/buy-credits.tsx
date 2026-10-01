@@ -16,31 +16,25 @@ type Style = { title: string; min: number; max: number; durationSec: number };
 
 const ROW = 52; // px per wheel row
 
-/** Pick an amount on a scroll wheel, see the credits it buys, pay. Asks for GST details once, before the first payment. */
-export function BuyCredits({ amounts, paisePerCredit, gstPercent, styles, profile }: { amounts: number[]; paisePerCredit: number; gstPercent: number; styles: Style[]; profile: Profile }) {
+/** Pick an amount on a scroll wheel, see the credits it buys, pay. GST details are optional (Profile tab). */
+export function BuyCredits({ amounts, paisePerCredit, gstPercent, styles }: { amounts: number[]; paisePerCredit: number; gstPercent: number; styles: Style[] }) {
   const [idx, setIdx] = useState(0);
-  const [step, setStep] = useState<"pick" | "details" | "paying" | "done">("pick");
+  const [step, setStep] = useState<"pick" | "paying" | "done">("pick");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ credits: number; invoiceId: string } | null>(null);
   const [mock, setMock] = useState<{ amountPaise: number; credits: number; confirm: () => void; cancel: () => void } | null>(null);
   const [busy, start] = useTransition();
   const router = useRouter();
-  // Details saved in this visit count before the page's profile prop refreshes.
-  const hasProfile = useRef(!!profile);
   const amount = amounts[idx];
   const credits = Math.floor((amount * 100) / paisePerCredit);
 
   function pay() {
     setError(null);
-    if (!profile && !hasProfile.current) return setStep("details");
     start(async () => {
       const r = await startPurchaseAction(amount);
-      if (!r.ok) {
-        if (r.error.code === "profile_needed") return setStep("details");
-        return setError(r.error.message);
-      }
+      if (!r.ok) return setError(r.error.message);
       const o = r.data;
-      const finish = async (resp: { orderId: string; paymentId: string; signature: string }) => {
+      const finish = async (resp: { orderId: string; paymentId?: string; signature?: string }) => {
         setStep("paying");
         const c = await confirmPurchaseAction(resp);
         if (!c.ok) {
@@ -65,21 +59,11 @@ export function BuyCredits({ amounts, paisePerCredit, gstPercent, styles, profil
         return;
       }
       try {
-        await loadRazorpay();
-        const rzp = new window.Razorpay({
-          key: o.keyId,
-          order_id: o.orderId,
-          amount: o.amountPaise,
-          currency: "INR",
-          name: "MontageAI",
-          description: `${formatCredits(o.credits)} credits`,
-          prefill: { email: o.email },
-          theme: { color: "#d13438" },
-          handler: (res: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
-            void finish({ orderId: res.razorpay_order_id, paymentId: res.razorpay_payment_id, signature: res.razorpay_signature }),
-        });
-        rzp.on("payment.failed", () => setError("The payment didn't go through. Nothing was charged; try again or use another method."));
-        rzp.open();
+        await loadCashfree();
+        const res = await window.Cashfree({ mode: o.mode }).checkout({ paymentSessionId: o.sessionId, redirectTarget: "_modal" });
+        // Closed or failed: nothing to confirm. Otherwise the server asks Cashfree whether it's paid.
+        if (res.error) return setError("The payment didn't finish. Nothing was charged; try again or use another method.");
+        await finish({ orderId: o.orderId });
       } catch {
         setError("We couldn't open the payment page. Check your connection and try again.");
       }
@@ -93,7 +77,7 @@ export function BuyCredits({ amounts, paisePerCredit, gstPercent, styles, profil
           <Check className="size-5" aria-hidden />
         </span>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">Added {formatCredits(done.credits)} credits</h2>
+          <h2 className="font-display text-2xl">Added {formatCredits(done.credits)} credits</h2>
           <p className="text-sm text-muted-foreground">Your tax invoice is ready.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -106,16 +90,6 @@ export function BuyCredits({ amounts, paisePerCredit, gstPercent, styles, profil
         </div>
       </div>
     );
-  }
-
-  if (step === "details") {
-    const saved = () => {
-      hasProfile.current = true;
-      setStep("pick");
-      router.refresh();
-      pay(); // "Save and continue": straight on to paying
-    };
-    return <BillingDetailsForm initial={profile} submitLabel="Save and continue" onSaved={saved} onCancel={() => setStep("pick")} />;
   }
 
   return (
@@ -157,12 +131,20 @@ export function BuyCredits({ amounts, paisePerCredit, gstPercent, styles, profil
       )}
 
       <div className="sticky bottom-0 -mx-4 flex flex-col gap-1.5 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
-        <button type="button" onClick={pay} disabled={busy || step === "paying"} className={cn(buttonVariants({ size: "lg" }), "h-13 w-full rounded-xl text-base")}>
+        <button type="button" onClick={pay} disabled={busy || step === "paying"} className={cn(buttonVariants({ size: "lg" }), "h-13 w-full text-base")}>
           {(busy || step === "paying") && <Loader2 className="animate-spin" aria-hidden />}
           {step === "paying" ? "Confirming your payment…" : `Pay ${rupees(amount * 100)}`}
         </button>
         <span className="text-center text-xs text-muted-foreground">
-          Includes {gstPercent}% GST. UPI, cards or netbanking through Razorpay. You get a tax invoice.
+          Includes {gstPercent}% GST. UPI, cards or netbanking through Cashfree. You get a tax invoice. By paying you agree to our{" "}
+          <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/refunds" className="underline underline-offset-4 hover:text-foreground">
+            Refund policy
+          </Link>
+          .
         </span>
       </div>
 
@@ -250,7 +232,7 @@ export function BillingDetailsForm({
   submitLabel: string;
   onSaved?: () => void;
   onCancel?: () => void;
-  /** Folded behind a summary line (the Profile tab); open by default only while nothing is saved yet. */
+  /** Folded behind a summary line (the Profile tab), closed by default. */
   collapsible?: boolean;
 }) {
   const [error, setError] = useState<{ field?: string; message: string } | null>(null);
@@ -344,7 +326,7 @@ function Fold({ collapsible, initial, children }: { collapsible: boolean; initia
   if (!collapsible) return <>{children}</>;
   const summary = initial ? [stateName(initial.stateCode), initial.legalName, initial.gstin && `GSTIN ${initial.gstin}`].filter(Boolean).join(", ") : "Not set yet";
   return (
-    <details className="group rounded-2xl border bg-panel" open={!initial}>
+    <details className="group rounded-2xl border bg-panel">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl p-5 select-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="font-semibold">Details for your tax invoice</span>
@@ -357,7 +339,7 @@ function Fold({ collapsible, initial, children }: { collapsible: boolean; initia
   );
 }
 
-/** Stands in for Razorpay's sheet when PAYMENTS_PROVIDER=mock (local testing only). */
+/** Stands in for Cashfree's checkout when PAYMENTS_PROVIDER=mock (local testing only). */
 function MockCheckout({ amountPaise, credits, confirm, cancel }: { amountPaise: number; credits: number; confirm: () => void; cancel: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -386,23 +368,24 @@ function MockCheckout({ amountPaise, credits, confirm, cancel }: { amountPaise: 
 
 declare global {
   interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Razorpay: new (options: Record<string, unknown>) => { open(): void; on(event: string, cb: (...args: any[]) => void): void };
+    Cashfree: (o: { mode: "sandbox" | "production" }) => {
+      checkout(o: { paymentSessionId: string | null; redirectTarget: "_modal" }): Promise<{ error?: { message?: string }; paymentDetails?: unknown }>;
+    };
   }
 }
 
-let razorpayScript: Promise<void> | null = null;
-/** Razorpay's checkout script, loaded only when someone pays. */
-function loadRazorpay(): Promise<void> {
-  if (typeof window.Razorpay === "function") return Promise.resolve();
-  razorpayScript ??= new Promise((resolve, reject) => {
-    const s = Object.assign(document.createElement("script"), { src: "https://checkout.razorpay.com/v1/checkout.js", async: true });
+let cashfreeScript: Promise<void> | null = null;
+/** Cashfree's checkout script, loaded only when someone pays. */
+function loadCashfree(): Promise<void> {
+  if (typeof window.Cashfree === "function") return Promise.resolve();
+  cashfreeScript ??= new Promise((resolve, reject) => {
+    const s = Object.assign(document.createElement("script"), { src: "https://sdk.cashfree.com/js/v3/cashfree.js", async: true });
     s.onload = () => resolve();
     s.onerror = () => {
-      razorpayScript = null;
+      cashfreeScript = null;
       reject(new Error("checkout script failed"));
     };
     document.head.append(s);
   });
-  return razorpayScript;
+  return cashfreeScript;
 }

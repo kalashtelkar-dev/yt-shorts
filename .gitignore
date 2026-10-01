@@ -28,7 +28,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -47,5 +46,8 @@ next-env.d.ts
 .pipelines/
 .claude/scheduled_tasks.lock
 
-# prisma client (pnpm install runs prisma generate)
+# prisma client (npm install runs prisma generate)
 /src/generated/
+
+# Google OAuth client files (downloaded from Cloud Console); never commit
+client_secret*.json

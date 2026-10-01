@@ -1,4 +1,4 @@
-// pnpm enginex:smoke — checks Engine X connectivity and prints each catalog pipeline's inputs.
+// npm run enginex:smoke — checks Engine X connectivity and prints each catalog pipeline's inputs.
 // Prints response shapes, never the key or signed URLs. Full pipeline JSON goes to .smoke/<slug>.json.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { catalogSeed } from "@/db/catalog-seed";

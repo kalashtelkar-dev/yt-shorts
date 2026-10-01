@@ -278,7 +278,7 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 
 ## 26. style-ultra-edit (2026-09-29): the third style
 
-**Status:** imported as `tpl_9thVZeh4zYVB`, waiting to be published. It's a new pipeline and a new catalog item, "Ultra Edit"; `pnpm catalog:sync` creates it. The other pipelines are unchanged: Kill Montage and Lyrical rebuild byte-for-byte.
+**Status:** imported as `tpl_9thVZeh4zYVB`, waiting to be published. It's a new pipeline and a new catalog item, "Ultra Edit"; `npm run catalog:sync` creates it. The other pipelines are unchanged: Kill Montage and Lyrical rebuild byte-for-byte.
 
 - **Per kill:** a fixed 6 s window from K-2, time-warped with one `setpts` expression. K-2..K-1.75 at 0.5×, then 1×, K..K+1 at 0.5×, then 1×, then K+2..K+4 ramping from 0.5× to 3×. That's 6.68 s on screen.
 - **Transitions:** a zoom-tilt-slide out over the ramp and a pinch in over the next clip's first 0.35 s, with `rotate` and `zoompan` on clip time.
@@ -406,3 +406,23 @@ Specs: `docs/edit-styles/`. New over v8: intro-flex candidates from the vision m
 - **The player's deaths (imported, waiting for publish):** `gameplay-index` `tpl_O0HL8QeDezDF`, `gameplay-index-upload` `tpl_PL4pQSmiOqiJ`. The kill finder now lists the player's kills AND deaths; the pipeline splits them with the same mark/drop/tidy steps (victim = the player's OCR-tolerant name) into a new `deaths` output. Kills are filtered exactly as before. The app keeps every clip clear of a death (`src/server/jobs/plan.ts`).
 - **Song from an uploaded file (imported, waiting for publish):** `song-index-upload` `tpl_1UTbGuvdDoh1`: the song reader's steps (loudness every 0.05 s, vocals, lyrics, word timing, voice) fed from an uploaded audio file (`audio` input, `file:audio`) instead of a YouTube download, its length from a `video-info` step; no title (the app shows the file's name). Catalog items point at it as `indexTemplates.songUpload`.
 - **Clean editor layout (imported, waiting for publish):** the same six pipelines with only their node positions changed (checked: identical apart from `position`), laid out left to right in the order data flows: inputs first, each step one column right of what it needs, constants next to their consumer, the output last, rows ordered to keep wires short. Crossing wires: gameplay-index 98 → 40, gameplay-index-upload 97 → 32, style-kill-montage 541 → 120, style-ultra-edit (Smart Edit) 763 → 150; no wire runs backwards any more (was 15–38 per pipeline). New ids: gameplay-index `tpl_v6kGXcY1_I82`, gameplay-index-upload `tpl_6V6yanSolGTE`, song-index `tpl_gLc9bMedBz16`, song-index-upload `tpl_sVzbs9FDpeFW`, style-kill-montage `tpl_A_MNb8DRHume`, style-ultra-edit `tpl_dxRIHs2Bd4VP`. The retired Lyrical pipeline was left as it was.
+
+## Long-term storage for finished montages: store-file (2026-10-01)
+
+**Status:** `store-file` imported as `tpl_58P5rbAu2j3C`, waiting to be published (the run key can't publish). New pipeline; no existing pipeline changed.
+
+- **Why:** Engine X clears its own storage within hours, so finished videos and covers were copied into Postgres (`job_files`), which grows the main database with every job. The user asked to keep them in object storage through an Engine X pipeline instead.
+- **Bucket:** `montageai-media` (private, no versioning) created on the `Demo-Minio` Object Storage connection (endpoint `enginex-demo-minio.minio.run`, a different MinIO from Engine X's own store, so files are uploaded, not copied server-side).
+- **Graph:** inputs `file` (any), `key` (text), `contentType` (text) → `storage/connection` (`Demo-Minio`) → `storage/object-put` (bucket fixed in the node, cpu) → output `key`, `bytes`. Validates (compiles, no errors).
+- **App:** the worker runs it once per file after a job succeeds (keys `montages/<jobId>/video.mp4` and `thumbnail.jpg`); playback asks `POST /v1/storage/object-share?wait=10` for a link of at most 1 h (about 0.3 s, measured) and redirects to it.
+- **Also removed (same day):** the object-storage health probe and `ENGINEX_STORAGE_URL` (it only checked Engine X's MinIO answered; nothing else read it).
+
+## Smart Edit lyrics from a subtitle file, not one drawtext per word (2026-10-01)
+
+**Status:** `style-ultra-edit` imported as `tpl_lWBBGBXvtLpa`, waiting to be published. It replaces `tpl_dxRIHs2Bd4VP`. style-kill-montage is unchanged; style-lyrical-kill-montage (retired) is rebuilt in the repo but not imported.
+
+- **Why:** two 90 s Smart Edit jobs failed at `make_montage` with `spawn E2BIG`. Its `-filter_complex` was one 122.5 KB argument (219 `drawtext` filters, one per lyric step, each ~420 characters with the font path); with Engine X's paths filled in it passed Linux's 128 KiB limit on a single argument. 60 s jobs were at 80–87 KB, so any wordy song would hit it.
+- **Now:** the app sends a new `subs` input (subtitle events, `lyricEvents` in `src/server/jobs/lyrics.ts`) instead of `lines`. The pipeline puts the look's style line in front (`ass_doc`), `file/write` makes `lyrics.ass`, a `video/custom` step (`subs`, cpu) packs it with the look's font into `subs.mkv` (`-attach`, mimetype `application/x-truetype-font`), and the render's text layer is `subtitles=filename='{in2}':alpha=1` on the transparent canvas, so the glow and overlay are unchanged. The filter no longer grows with the lyrics: the failed job's goes from 122.5 KB to about 5.5 KB.
+- **Tested on Engine X first:** two throwaway pipelines (`tpl_z-tQPeApvJW7`, `tpl_nHGHSDThKr_V`, both can be deleted): Video Studio's ffmpeg is 9.0.1 with libass; a font attached in the mkv is used; `alpha=1` on the transparent layer with the production glow works.
+- **Found locally:** ffmpeg 7.1 ignores an attachment marked `font/ttf` (so the classic mimetype); Passion One's Black file is found only by its full name "Passion One Black".
+- **Checked:** `check.py` (92 checks: the text layer is the subtitle file, the filter's length doesn't change with 2000× the events, the subtitle file per look, the packing step's inputs); 198 app tests; a side-by-side render of the failed job's lyrics, old `drawtext` against the new file.

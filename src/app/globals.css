@@ -24,6 +24,7 @@
   --success: #2f9e44;
   --warning: #f5a524;
   --brand-logo: #4f6bfe; /* Deepsoch mark */
+  --metal: #3a3a3a; /* furniture lines in the landing page story */
 
   /* Admin job timeline: one hue per engine kind (validated for colour-blind separation on --panel). */
   --series-fetch: #3987e5;
@@ -99,6 +100,15 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+/* The display face: headlines, button labels and celebratory moments only, never text people need to read (forms, prices,
+   numbers, errors, legal). It has one weight, so no bold classes with it (they'd be faked). */
+@utility font-display {
+  font-family: var(--font-castle), var(--font-inter), system-ui, sans-serif;
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0.01em;
 }
 
 @layer base {
@@ -205,6 +215,271 @@
 @keyframes bar-glint {
   to {
     transform: translateX(340%);
+  }
+}
+
+/* Landing page "How it works" (components/how-it-works.tsx). The player's joints carry one transform per step as
+   --p0…--p4; data-step picks one, and the transition turns him from pose to pose. Each step's screens show only on
+   that step, so their animations restart. Screen animations run only while the story plays (data-playing). */
+.hiw [data-j] {
+  transform: var(--p0);
+  transition:
+    transform 0.7s cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 0.25s;
+}
+.hiw[data-step="1"] [data-j] {
+  transform: var(--p1);
+}
+.hiw[data-step="2"] [data-j] {
+  transform: var(--p2);
+}
+.hiw[data-step="3"] [data-j] {
+  transform: var(--p3);
+}
+.hiw[data-step="4"] [data-j] {
+  transform: var(--p4);
+}
+.hiw .hiw-mug {
+  opacity: 0;
+}
+.hiw[data-step="3"] .hiw-mug {
+  opacity: 1;
+}
+.hiw [data-scene] {
+  display: none;
+}
+.hiw[data-step="0"] [data-scene="0"],
+.hiw[data-step="1"] [data-scene="1"],
+.hiw[data-step="2"] [data-scene="2"],
+.hiw[data-step="3"] [data-scene="3"],
+.hiw[data-step="4"] [data-scene="4"] {
+  display: inline;
+}
+.hiw:not([data-playing]) * {
+  animation: none !important;
+}
+
+.hiw-feed-row {
+  animation: hiw-slide-in 0.3s ease-out both;
+}
+.hiw-typed {
+  transform-box: fill-box;
+  transform-origin: right;
+  animation: hiw-type 0.7s steps(14) both;
+}
+.hiw-press {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hiw-press 2.6s ease both;
+}
+.hiw-scan {
+  transform: translateY(150px);
+  animation: hiw-scan 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.hiw-fill {
+  transform-box: fill-box;
+  transform-origin: left;
+  animation: hiw-fill 3.4s linear both;
+}
+.hiw-live {
+  animation: hiw-blink 1s steps(2) infinite;
+}
+.hiw-appear {
+  animation: hiw-fade-in 0.4s ease-out both;
+}
+.hiw-steam {
+  animation: hiw-steam 1.6s ease-out infinite both;
+}
+.hiw-rgb {
+  animation: hiw-glow 2.4s ease-in-out infinite;
+}
+.hiw[data-step="0"] .hiw-tap {
+  animation: hiw-tap 0.22s ease-in-out infinite;
+}
+.hiw[data-step="0"] .hiw-tap-far {
+  animation: hiw-tap 0.22s ease-in-out 0.11s infinite;
+}
+.hiw[data-step="4"] .hiw-jump {
+  animation: hiw-jump 0.7s ease-in-out infinite;
+}
+
+@keyframes hiw-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+@keyframes hiw-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes hiw-type {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@keyframes hiw-press {
+  0%,
+  70%,
+  100% {
+    transform: scale(1);
+  }
+  80% {
+    transform: scale(0.94);
+  }
+}
+@keyframes hiw-scan {
+  from {
+    transform: translateY(-120px);
+  }
+  to {
+    transform: translateY(330px);
+  }
+}
+@keyframes hiw-fill {
+  from {
+    transform: scaleX(0.35);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes hiw-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+@keyframes hiw-steam {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  50% {
+    opacity: 0.8;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-9px);
+  }
+}
+@keyframes hiw-glow {
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes hiw-tap {
+  50% {
+    transform: translateY(2px);
+  }
+}
+@keyframes hiw-jump {
+  40% {
+    transform: translateY(-14px);
+  }
+}
+
+/* The ambient artwork behind user pages (Backdrop): fixed, under a near-black veil. Pages pick the veil with
+   data-backdrop: the landing shows the most, Create less, everything else (My videos, the job page) little,
+   Billing adds a faint red glow, Account and legal pages barely show it. Content always sits on the veil. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--background);
+}
+.backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(5 5 5 / var(--veil, 0.9));
+}
+/* The landing: 0.58 around the hero, darkening to 0.88 over the first screen of scrolling so the sections below
+   read on a dark ground (opacity of a 0.88 veil: 0.66 x 0.88 = 0.58). Without scroll timelines it stays 0.88. */
+body:has([data-backdrop="bright"]) .backdrop {
+  --veil: 0.88;
+}
+@supports (animation-timeline: scroll()) {
+  body:has([data-backdrop="bright"]) .backdrop::after {
+    animation: veil-in linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 60vh;
+  }
+}
+@keyframes veil-in {
+  from {
+    opacity: 0.66;
+  }
+}
+body:has([data-backdrop="create"]) .backdrop {
+  --veil: 0.85;
+}
+body:has([data-backdrop="credits"]) .backdrop::after {
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 35%, rgb(229 72 77 / 0.08), transparent 70%),
+    rgb(5 5 5 / 0.92);
+}
+body:has([data-backdrop="dim"]) .backdrop {
+  --veil: 0.95;
+}
+
+/* Site header: a bottom rule at the top of the page; once scrolled, the rule fades out and a floating
+   translucent panel fades in behind the links (opacity only, CLAUDE.md §8). */
+.site-header {
+  isolation: isolate;
+}
+.site-header::before,
+.site-header::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+.site-header::after {
+  inset: auto 0 0;
+  border-bottom: 1px solid var(--border);
+}
+.site-header::before {
+  inset: 6px -12px;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: color-mix(in oklab, var(--panel) 72%, transparent);
+  backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: 0 10px 30px -8px rgb(0 0 0 / 0.7);
+  opacity: 0;
+}
+.site-header[data-scrolled]::before {
+  opacity: 1;
+}
+.site-header[data-scrolled]::after {
+  opacity: 0;
+}
+
+/* Landing sections fade up as they scroll into view. Scroll-driven, so no JS; browsers without
+   animation-timeline (Firefox today) and reduced-motion users just see them in place. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 220px;
+    }
+  }
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
   }
 }
 

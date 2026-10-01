@@ -37,8 +37,8 @@ export function JobLive({ initial, initialVideo }: { initial: PublicJob; initial
     videoUrlAction(job.id).then((r) => (r.ok ? setVideo(r.data) : setVideoError(r.error.message)));
   }, [job.status, job.id, video]);
 
-  const started = Date.parse(job.startedAt ?? job.createdAt);
-  const elapsed = (job.finishedAt ? Date.parse(job.finishedAt) : now) - started;
+  // The clock starts when editing does: waiting in line isn't editing time, and isn't charged.
+  const elapsed = job.startedAt ? Math.max(0, (job.finishedAt ? Date.parse(job.finishedAt) : now) - Date.parse(job.startedAt)) : 0;
   const pct = Math.round(job.progress * 100);
   const done = job.status === "succeeded";
   const working = job.status === "queued" || job.status === "running";
@@ -84,7 +84,7 @@ export function JobLive({ initial, initialVideo }: { initial: PublicJob; initial
 
       <div className="flex min-w-0 flex-col gap-5 md:gap-6">
         <div className="flex flex-col gap-2">
-          <h1 className={cn("text-2xl font-semibold tracking-tight text-balance sm:text-3xl", done && "max-md:sr-only")}>
+          <h1 className={cn("font-display text-2xl text-balance sm:text-3xl", done && "max-md:sr-only", job.status === "failed" && "text-danger")}>
             {done ? "Your montage is ready" : job.status === "failed" ? "We couldn't finish this montage" : "Making your montage"}
           </h1>
           <p className="sr-only" aria-live="polite">
@@ -96,21 +96,31 @@ export function JobLive({ initial, initialVideo }: { initial: PublicJob; initial
           {job.status === "failed" ? (
             <p className="max-w-prose text-muted-foreground">{job.error}</p>
           ) : done ? (
-            <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground max-md:justify-center">
-              {job.kills !== null && <Stat value={job.kills} unit="kills" />}
-              <Stat value={job.durationSec} unit="s" />
-              <Stat value={formatCredits(job.credits)} unit="credits" />
-              <span className="max-md:hidden">
-                made in <span className="font-mono text-foreground tabular">{formatClock(elapsed)}</span>
-              </span>
-            </p>
+            <>
+              <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground max-md:justify-center">
+                {job.kills !== null && <Stat value={job.kills} unit="kills" />}
+                <Stat value={job.lengthSec ?? job.durationSec} unit="s" />
+                <Stat value={formatCredits(job.credits)} unit="credits" />
+                <span className="max-md:hidden">
+                  made in <span className="font-mono text-foreground tabular">{formatClock(elapsed)}</span>
+                </span>
+              </p>
+              {job.lengthNote && <p className="max-w-prose text-sm text-muted-foreground max-md:text-center">{job.lengthNote}</p>}
+            </>
           ) : (
             <p className="text-muted-foreground">
-              {/* A live clock: the server's render is a second behind the browser's, by design. */}
-              <span className="font-mono text-foreground tabular" suppressHydrationWarning>
-                {formatClock(elapsed)}
-              </span>{" "}
-              elapsed. You can close this tab; your montage will be in{" "}
+              {job.startedAt ? (
+                <>
+                  {/* A live clock: the server's render is a second behind the browser's, by design. */}
+                  <span className="font-mono text-foreground tabular" suppressHydrationWarning>
+                    {formatClock(elapsed)}
+                  </span>{" "}
+                  elapsed.
+                </>
+              ) : (
+                "Waiting in line is free: you're only charged for editing time."
+              )}{" "}
+              You can close this tab; your montage will be in{" "}
               <Link href="/library" className="text-foreground underline underline-offset-4">
                 My videos
               </Link>
@@ -306,7 +316,7 @@ function ResultActions({ jobId, poster, onError }: { jobId: string; poster: stri
 
   return (
     <div className="flex flex-col gap-2.5 md:max-w-sm">
-      <Button size="lg" onClick={download} disabled={downloading} className="h-13 w-full rounded-xl text-base">
+      <Button size="lg" onClick={download} disabled={downloading} className="h-13 w-full text-base">
         {downloading ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />}
         Download
       </Button>

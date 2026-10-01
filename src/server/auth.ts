@@ -9,10 +9,13 @@ import { mergeGuest } from "./account";
 import { sendOtpEmail } from "./email";
 
 // AUTH_MODE=anonymous: every visitor is a guest (anonymous user); only admins have passwords.
-// AUTH_MODE=full: email + password sign-up verified by an emailed code, and password reset codes.
+// AUTH_MODE=full: email + password sign-up verified by an emailed code, and password reset codes; Google when configured.
 // Every flow runs through server actions (src/app/(auth)/actions.ts), which add our rate limits;
-// the HTTP endpoints stay closed except sign-out (api/auth/[...all]).
+// the HTTP endpoints stay closed except sign-out (api/auth/[...all]). Google's callback is a GET, which stays open.
 const full = env.AUTH_MODE === "full";
+
+/** "Continue with Google" shows only with accounts open and a Google client configured. */
+export const googleEnabled = full && !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
 
 export const auth = betterAuth({
   appName: "MontageAI",
@@ -32,9 +35,11 @@ export const auth = betterAuth({
     cookieCache: { enabled: true, maxAge: 5 * 60 },
   },
   advanced: { database: { generateId: () => crypto.randomUUID() } },
-  // In anonymous mode admin accounts come from `pnpm admin:create` (already verified).
+  // In anonymous mode admin accounts come from `npm run admin:create` (already verified).
   emailAndPassword: { enabled: true, disableSignUp: !full, requireEmailVerification: true, minPasswordLength: 8, revokeSessionsOnPasswordReset: true },
   emailVerification: { autoSignInAfterVerification: true },
+  // Google's callback lands on /auth/google/callback (the URI registered with Google), which forwards to /api/auth/callback/google.
+  socialProviders: googleEnabled ? { google: { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET!, redirectURI: `${env.APP_URL}/auth/google/callback`, prompt: "select_account" } } : {},
   databaseHooks: {
     session: {
       create: {

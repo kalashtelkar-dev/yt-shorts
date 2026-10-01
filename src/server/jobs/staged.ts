@@ -12,8 +12,8 @@ import { seeded } from "@/lib/seeded";
 import { downloadProgress, syncDownload } from "./download";
 import { event, finishFailed, notify } from "./lifecycle";
 import { songBeats } from "./beats";
-import { planMontage, type KillEntry, type PlanStyle } from "./plan";
-import { lyricItems } from "./lyrics";
+import { planMontage, planStyle, type KillEntry } from "./plan";
+import { lyricEvents, lyricItems } from "./lyrics";
 
 // Staged styles (docs/edit-styles/README.md): the gameplay and the song are indexed by their own pipelines,
 // in parallel, and the results are shared through media_index; then the style pipeline plans and renders.
@@ -195,6 +195,7 @@ export const STYLE_INPUTS = [
   "variation",
   "lyricLook",
   "lines",
+  "subs",
   "beatSec",
   "beats",
   "dropAtSec",
@@ -259,9 +260,6 @@ export function introMoments(kills: unknown, seed: string | undefined): { flex: 
 const NO_TEXT = { s: 0, e: 0, t: "", r: 0, n: 0, p: 0, a: 9999 };
 
 /** The style pipeline's inputs, from the two indexes. Only inputs the pipeline declares are sent. */
-/** The style a catalog item plans as (its slug names it; anything else plans like a kill montage). */
-const planStyle = (slug?: string): PlanStyle => (slug === "smart-edit" || slug?.includes("ultra") ? "ultra" : "kill"); // Smart Edit was "ultra-edit"
-
 export function styleInput(
   job: Pick<Job, "input" | "durationSec"> & { catalogSlug?: string },
   g: Record<string, unknown>,
@@ -288,6 +286,10 @@ export function styleInput(
     capSec: cap,
     variation: i.variation ?? "",
   });
+  // aligned segments from song-index; an older cached result has only words, read as one segment
+  const lyrics = lyricItems(s.segments ?? (Array.isArray(s.words) ? [{ words: s.words }] : []), i.killSeed ?? "1", s.voice);
+  // Smart Edit's intro runs without lyrics: only lines that start once the kills do
+  const intro = plan.clips[0]?.role === "flex" ? plan.clips[0].len : 0;
   const all: Record<string, string> = {
     video: String(g.video ?? ""),
     kills: JSON.stringify(kills),
@@ -300,8 +302,8 @@ export function styleInput(
     maxDurationSec: String(job.durationSec),
     variation: i.variation ?? "",
     lyricLook: i.lyricLook ?? "0",
-    // aligned segments from song-index; an older cached result has only words, read as one segment
-    lines: JSON.stringify([...lyricItems(s.segments ?? (Array.isArray(s.words) ? [{ words: s.words }] : []), i.killSeed ?? "1", s.voice), NO_TEXT]),
+    lines: JSON.stringify([...lyrics, NO_TEXT]), // pipelines from before the subtitle file (2026-10-01)
+    subs: lyricEvents(lyrics, planStyle(job.catalogSlug) === "ultra" ? intro : 0, cap, i.lyricLook ?? "0"),
     beatSec: song ? String(song.beatSec) : "0.5",
     beats: song ? song.beats.join(", ") : "",
     dropAtSec: song?.dropAtSec != null ? String(song.dropAtSec) : "none",

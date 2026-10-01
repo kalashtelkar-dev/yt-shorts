@@ -104,7 +104,7 @@ export async function startPurchaseAction(amountRupees: number): Promise<ActionR
   }
 }
 
-export async function confirmPurchaseAction(input: { orderId: string; paymentId: string; signature: string }): Promise<ActionResult<{ credits: number; invoiceId: string }>> {
+export async function confirmPurchaseAction(input: { orderId: string; paymentId?: string; signature?: string }): Promise<ActionResult<{ credits: number; invoiceId: string }>> {
   try {
     if (!env.PAYMENTS_ENABLED) return { ok: false, error: { code: "unavailable", message: "Buying credits isn't open yet." } };
     const user = await payingUser();

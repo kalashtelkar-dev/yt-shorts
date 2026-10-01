@@ -1,0 +1,158 @@
+{
+  "kind": "editor-api/pipeline",
+  "formatVersion": 1,
+  "source": {
+    "id": "tpl_x4p9irJIKNb-",
+    "version": 1
+  },
+  "name": "store-file",
+  "description": "One Engine X file -> the montageai-media bucket on Demo-Minio, at the given key and content type. The app keeps finished montages (video and cover) there; Engine X's own storage is cleared within hours.",
+  "graph": {
+    "version": 1,
+    "nodes": [
+      {
+        "id": "file_in",
+        "kind": "input",
+        "name": "file",
+        "type": "any",
+        "sample": "",
+        "required": true,
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "key_in",
+        "kind": "input",
+        "name": "key",
+        "type": "text",
+        "sample": "montages/00000000-0000-0000-0000-000000000000/video.mp4",
+        "required": true,
+        "position": {
+          "x": 0,
+          "y": 150
+        }
+      },
+      {
+        "id": "type_in",
+        "kind": "input",
+        "name": "contentType",
+        "type": "text",
+        "sample": "video/mp4",
+        "required": true,
+        "position": {
+          "x": 0,
+          "y": 300
+        }
+      },
+      {
+        "id": "store",
+        "kind": "engine",
+        "engine": "storage",
+        "operation": "connection",
+        "params": {
+          "use": "Demo-Minio"
+        },
+        "position": {
+          "x": 380,
+          "y": 150
+        }
+      },
+      {
+        "id": "put",
+        "kind": "engine",
+        "engine": "storage",
+        "operation": "object-put",
+        "params": {
+          "tier": "cpu",
+          "bucket": "montageai-media"
+        },
+        "position": {
+          "x": 760,
+          "y": 150
+        }
+      },
+      {
+        "id": "out",
+        "kind": "output",
+        "fields": [
+          "key",
+          "bytes"
+        ],
+        "position": {
+          "x": 1520,
+          "y": 150
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "store.connection->put.connection",
+        "from": {
+          "node": "store",
+          "port": "connection"
+        },
+        "to": {
+          "node": "put",
+          "port": "connection"
+        }
+      },
+      {
+        "id": "file_in.value->put.input",
+        "from": {
+          "node": "file_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "put",
+          "port": "input"
+        }
+      },
+      {
+        "id": "key_in.value->put.key",
+        "from": {
+          "node": "key_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "put",
+          "port": "key"
+        }
+      },
+      {
+        "id": "type_in.value->put.contentType",
+        "from": {
+          "node": "type_in",
+          "port": "value"
+        },
+        "to": {
+          "node": "put",
+          "port": "contentType"
+        }
+      },
+      {
+        "id": "put.key->out.key",
+        "from": {
+          "node": "put",
+          "port": "key"
+        },
+        "to": {
+          "node": "out",
+          "port": "key"
+        }
+      },
+      {
+        "id": "put.bytes->out.bytes",
+        "from": {
+          "node": "put",
+          "port": "bytes"
+        },
+        "to": {
+          "node": "out",
+          "port": "bytes"
+        }
+      }
+    ]
+  }
+}

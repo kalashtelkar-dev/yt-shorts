@@ -6,7 +6,7 @@ const live = { ENGINEX_BASE_URL: "https://enginex.example.com", ENGINEX_API_KEY:
 describe("parseEnv", () => {
   it("applies defaults", () => {
     const e = parseEnv(live);
-    expect(e.AUTH_MODE).toBe("anonymous");
+    expect(e.AUTH_MODE).toBe("full");
     expect(e.ENGINEX_MODE).toBe("live");
     expect(e.PAYMENTS_ENABLED).toBe(false);
     expect(e.ADMIN_EMAILS).toEqual([]);

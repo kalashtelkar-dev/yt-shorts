@@ -11,36 +11,35 @@ You are building a Next.js web app that turns gameplay videos into edited vertic
 
 ## 2. Stack (don't swap without asking)
 
-Next.js 15 App Router · TypeScript `strict` · Tailwind v4 · shadcn/ui · Prisma 7 (`@prisma/adapter-pg`) + PostgreSQL · Better Auth (anonymous, email+password, email OTP) · BullMQ + Redis · Nodemailer (SMTP) + React Email · zod · @xyflow/react · Vitest · pnpm. (No automated e2e; the user tests flows manually.)
+Next.js 15 App Router · TypeScript `strict` · Tailwind v4 · shadcn/ui · Prisma 7 (`@prisma/adapter-pg`) + PostgreSQL · Better Auth (anonymous, email+password, email OTP) · BullMQ + Redis · Nodemailer (SMTP) + React Email · zod · @xyflow/react · Vitest · npm. (No automated e2e; the user tests flows manually.)
 
 ## 3. Commands
 
 ```bash
-pnpm dev            # web
-pnpm worker:dev     # worker (BullMQ processors + health sweep)
-pnpm db:generate    # new migration from prisma/schema.prisma changes (prisma migrate dev --create-only --name <what>)
-pnpm db:migrate     # apply migrations (prisma migrate deploy)
-pnpm db:studio      # browse the tables
-pnpm db:seed        # catalog items + settings defaults
-pnpm lint && pnpm typecheck && pnpm test   # must pass before you say a task is done
-pnpm enginex:smoke  # checks Engine X connectivity and prints pipeline inputs
-pnpm admin:create you@example.com   # create/reset an admin account (prints a generated password once)
-pnpm catalog:sync   # point catalog items at the pipeline ids in src/db/catalog-seed.ts, creating new styles (validated, audited); run after every publish
+npm run dev            # web + worker together (dev:web / dev:worker run one; production runs `npm run start` and `npm run worker` as separate processes)
+npm run db:generate    # new migration from prisma/schema.prisma changes (prisma migrate dev --create-only --name <what>)
+npm run db:migrate     # apply migrations (prisma migrate deploy)
+npm run db:studio      # browse the tables
+npm run db:seed        # catalog items + settings defaults
+npm run lint && npm run typecheck && npm test   # must pass before you say a task is done
+npm run enginex:smoke  # checks Engine X connectivity and prints pipeline inputs
+npm run admin:create you@example.com   # create/reset an admin account (prints a generated password once)
+npm run catalog:sync   # point catalog items at the pipeline ids in src/db/catalog-seed.ts, creating new styles (validated, audited); run after every publish
 ```
 
-Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, and fix the failures you caused before moving on.
+Run `npm run lint && npm run typecheck && npm test` after every meaningful change, and fix the failures you caused before moving on.
 
 ## 4. Secrets and Engine X (hard rules)
 
 1. `ENGINEX_API_KEY` (an `ek_live_…` production key) and `ENGINEX_BASE_URL` are **server-only**. Read them only in `src/config/env.ts` (zod-parsed) and use them only in `src/server/enginex/client.ts`.
 2. Never import `src/server/**` from a client component. Put `import 'server-only'` at the top of every file in `src/server/`.
 3. Never log secrets, full signed URLs, or request headers. Redact before logging.
-4. **All Engine X calls go through `src/server/enginex/client.ts`**, with typed methods only: `runPipeline`, `getRun`, `getJobEvents`, `cancelRun`, `retryRun`, `signOutput`, `createUploadUrl`, `getPipeline`, `fleetStatus`. (A step's download progress is only in its engine job's trail, `GET /v1/jobs/:id/events`: `downloading` events with `data.fraction`; the job's own `progress` jumps 0 → 100.) No `fetch` to Engine X anywhere else. The API is REST at `ENGINEX_BASE_URL` (`https://enginex.run`; the reference is `/v1/api.md`, and `/v1/openapi.json` needs no auth). `enginex-minio.minio.run` is its MinIO object store, not the API (it moved from `enginex.fapi.run` on 2026-09-30; if the storage probe 404s, check the host in a signed upload link). `runPipeline` sends the job id as `Idempotency-Key`, and timeouts and cancels call `cancelRun` so compute stops.
+4. **All Engine X calls go through `src/server/enginex/client.ts`**, with typed methods only: `runPipeline`, `getRun`, `getJobEvents`, `cancelRun`, `retryRun`, `signOutput`, `createUploadUrl`, `shareStored`, `getPipeline`, `fleetStatus`. (A step's download progress is only in its engine job's trail, `GET /v1/jobs/:id/events`: `downloading` events with `data.fraction`; the job's own `progress` jumps 0 → 100.) No `fetch` to Engine X anywhere else. The API is REST at `ENGINEX_BASE_URL` (`https://enginex.run`; the reference is `/v1/api.md`, and `/v1/openapi.json` needs no auth). `enginex-minio.minio.run` is its MinIO object store, not the API (it moved from `enginex.fapi.run` on 2026-09-30). The app never talks to it directly, only through signed links from `createUploadUrl` and `signOutput`, and it isn't probed (the user's call, 2026-10-01). `runPipeline` sends the job id as `Idempotency-Key`, and timeouts and cancels call `cancelRun` so compute stops.
 5. The client wraps every call with a timeout (default 30 s), up to 3 retries with exponential backoff on network or 5xx errors (the client never retries `runPipeline`), and typed errors (`EngineXError { code, message, retryable }`). Only the worker may re-send `runPipeline`, only after a network/5xx error, and only with the same `Idempotency-Key` (the job id), so Engine X returns the existing run instead of starting a second one.
 6. **Never hardcode template IDs** in app code. They live in `catalog_items.templateId` (seeded in `src/db/seed.ts`). The app resolves the template ID from the catalog **at job start** and snapshots it on the job row.
-7. Never store signed URLs. Call `signOutput` whenever a download or preview is requested (expiry ≤ 1 h). Engine X clears its output storage within hours, so while a montage is being made everything stays in Engine X storage; once it succeeds it plays from Engine X at once, and the worker copies the video and cover into Postgres (`job_files`, `src/server/jobs/files.ts`) in the background (`save-files` task, 3 attempts, plus a once-a-minute safety net). The video plays from Engine X for the first hour after the job finished (`ENGINEX_SERVE_MS`, the user's call), with our copy as the player's fallback; after that from `/api/jobs/:id/files/:kind` (owner or admin, Range support). Covers come from our copy as soon as it's saved. Link to files only through `mediaLinks()`.
+7. Never store signed URLs. Call `signOutput` (Engine X files) or `shareStored` (our bucket) whenever a download or preview is requested (expiry ≤ 1 h). Engine X clears its output storage within hours, so while a montage is being made everything stays in Engine X storage; once it succeeds it plays from Engine X at once, and the worker runs the `store-file` pipeline (`ENGINEX_STORE_PIPELINE`) once for the video and once for the cover, copying each into our private bucket (`ENGINEX_STORE_BUCKET` on the Engine X Object Storage connection `ENGINEX_STORE_CONNECTION`, the user's call on 2026-10-01) and recording its key in `outputMeta.stored` (`src/server/jobs/files.ts`; `save-files` task, 3 attempts, plus a once-a-minute safety net; a repeated store run just rewrites the same object). The video plays from Engine X for the first hour after the job finished (`ENGINEX_SERVE_MS`, the user's call), with our copy as the player's fallback; after that from `/api/jobs/:id/files/:kind` (owner or admin), which redirects to a fresh share link. Covers come from our copy as soon as it's stored. (Postgres held the copies until 2026-10-01; `job_files` was moved to the bucket and dropped.) Link to files only through `mediaLinks()`.
 8. Engine X step names, raw errors and pipeline internals are **admin-only**. Users see friendly stage labels from `stageMap` and a friendly error.
-9. The app never modifies Engine X pipelines. Pipeline edits go through the dev tool `pnpm enginex:pipeline` (get → edit the JSON in `.pipelines/` → validate → save → publish), run deliberately with the user's approval of each change; record what changed in `docs/enginex-requests.md`. This script is the only code outside `client.ts` that calls Engine X. It can also read runs and jobs, start a run of a published pipeline (`start`, for analysis such as edit-analyzer on a reference edit) and download an output (`fetch`, never printing the signed URL). Edit styles are specified in `docs/edit-styles/` (read those before building or changing a style pipeline). Pipeline definitions live in `pipelines/` (built by `pipelines/build.py`, checked by `pipelines/check.py`); change them there, never by hand-editing a copy.
+9. The app never modifies Engine X pipelines. Pipeline edits go through the dev tool `npm run enginex:pipeline` (get → edit the JSON in `.pipelines/` → validate → save → publish), run deliberately with the user's approval of each change; record what changed in `docs/enginex-requests.md`. This script is the only code outside `client.ts` that calls Engine X. It can also read runs and jobs, start a run of a published pipeline (`start`, for analysis such as edit-analyzer on a reference edit) and download an output (`fetch`, never printing the signed URL). Edit styles are specified in `docs/edit-styles/` (read those before building or changing a style pipeline). Keep a render's command short: Linux refuses any single argument over 128 KiB (`spawn E2BIG`), so anything that grows with the content (lyrics: a subtitle file the app writes, drawn by libass) goes into a file, never into `-filter_complex`. Pipeline definitions live in `pipelines/` (built by `pipelines/build.py`, checked by `pipelines/check.py`); change them there, never by hand-editing a copy.
 
 ## 5. Money, credits and time
 
@@ -49,22 +48,22 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - `credit_ledger` is **append-only**. Never `UPDATE` or `DELETE` ledger rows. Corrections are new rows.
 - Change balances only through `src/server/credits/*`, which, in **one DB transaction**, locks the user's balance row (`SELECT … FOR UPDATE`), inserts the ledger row, and updates `user_balances`.
 - The job lifecycle (usage pricing, the user's call on 2026-09-29): **nothing is charged at creation.** The start gate needs `balance − the maxCredits held by the user's unfinished jobs ≥ range.max` (checked under the balance lock in the job-insert transaction; the job stores `maxCredits`). **On success**, charge `ceil(runMs/1000)` credits (staged jobs: the whole job, index runs included), capped at the balance so it never goes negative, and at the job's `maxCredits` (the top of the range the user was shown; the user's call on 2026-09-30). **Failure, cancel or timeout costs nothing.** Each step is idempotent: one `charge` row per job (unique `jobId + kind`). Jobs from before this change (`maxCredits = 0`) were charged at start and are refunded on failure.
-- **Buying credits:** price per credit is GST-inclusive (`settings.sellPaisePerCredit`, default 20 = ₹0.20), minimum top-up `settings.minPurchasePaise` (₹100). Checkout goes through `src/server/payments/*` (provider interface: Razorpay, or the mock that's refused in production). A verified payment adds one `purchase` ledger row (unique `paymentId`) and issues a GST tax invoice (CGST+SGST for the seller's state, IGST otherwise; seller and buyer snapshotted; numbers `INV-<FY>-<n>` from `invoice_counters`) in one transaction. The browser confirmation and the webhook can both arrive; the first does the work.
+- **Buying credits:** price per credit is GST-inclusive (`settings.sellPaisePerCredit`, default 20 = ₹0.20), minimum top-up `settings.minPurchasePaise` (₹100). Checkout goes through `src/server/payments/*` (provider interface: Cashfree, or the mock that's refused in production; Razorpay was replaced by Cashfree on 2026-10-01, the user's call). Confirmation asks Cashfree for the order's payments (`GET /pg/orders/:id/payments`), never trusting the browser; webhooks at `/api/webhooks/cashfree` are signed with the secret key (base64 HMAC-SHA256 of timestamp + raw body). A verified payment adds one `purchase` ledger row (unique `paymentId`) and issues a GST tax invoice (CGST+SGST for the seller's state, IGST otherwise; seller and buyer snapshotted; numbers `INV-<FY>-<n>` from `invoice_counters`) in one transaction. The browser confirmation and the webhook can both arrive; the first does the work.
 - Every job stores `computeCostPaise = ceil(runMs/1000) × settings.costPaisePerSecond` (default 20 = ₹0.20/s), even when it fails.
 - Unit tests for credits are required: the start gate with holds, parallel starts, charging after success (once, capped at the balance), failures costing nothing, purchases added once, and the GST split adding up exactly.
 
 ## 6. Auth and access
 
-- `AUTH_MODE` env: `anonymous` (default now) or `full`. Build every auth page, email template and server path now. When `anonymous`, **hide** the sign-in and sign-up entry points, but keep the routes working behind the flag in tests.
+- `AUTH_MODE` env: `full` (default; no guests, the user's call on 2026-10-01) or `anonymous` (legacy). In `full`, `/create` sends anyone without a real account to `/sign-in` (`CreatePage`), and `ensureUser` never creates guests. When `anonymous`, **hide** the sign-in and sign-up entry points, but keep the routes working behind the flag in tests.
 - Anonymous users are real Better Auth users (`isAnonymous = true`). On later sign-up or sign-in, **link** the account so jobs and credits move over.
 - Email OTP rules: 6 digits, 10-minute expiry, a maximum of 5 attempts, a 60 s resend cooldown, hashed at rest, and single use.
 - Passwords follow Better Auth defaults (hashed, minimum 8 characters). Never write your own crypto.
 - **Every `/admin` route and admin server action calls `requireAdmin()`**, in both auth modes. Admin means a real, non-anonymous user with `role = 'admin'`. Bootstrap admins with `ADMIN_EMAILS`.
 - Every admin mutation writes `admin_audit_log` (who, what, target, before, after).
 - Suspended users can't start jobs; show a friendly message.
-- Montages running at once: 1 per user, 3 per admin by default (`settings.maxConcurrentJobsPerUser` / `maxConcurrentJobsPerAdmin`, edited in admin Billing → Limits). The limit is checked under the balance lock in the job-insert transaction, so parallel starts can't slip past it. Across the whole site at most `settings.maxConcurrentJobsTotal` (default 2) run at once; the rest stay `queued` and start oldest first as slots free up (`claimSlot` in `src/server/jobs/lifecycle.ts`, under a Postgres advisory lock so two workers can't take the last slot; the job page shows its place in line). Waiting isn't billed: `startedAt` is set when the slot is taken.
-- Rate-limit through Redis: anonymous user creation per IP, job starts per user, OTP sends per email and IP, and admin login attempts.
-- Every auth flow is a server action (`src/app/(auth)/actions.ts`, admin sign-in in `src/app/admin/actions.ts`) that applies these limits, then calls `auth.api.*`. The Better Auth HTTP endpoints stay closed except `POST /sign-out`; don't open more. (Google sign-in was dropped by the user on 2026-09-26: email + password only.)
+- Montages running at once: 1 per user, 3 per admin by default (`settings.maxConcurrentJobsPerUser` / `maxConcurrentJobsPerAdmin`, edited in admin Billing → Limits). The limit is checked under the balance lock in the job-insert transaction, so parallel starts can't slip past it. Across the whole site at most `settings.maxConcurrentJobsTotal` (default 2) run at once; the rest stay `queued` and start oldest first as slots free up (`claimSlot` in `src/server/jobs/lifecycle.ts`, under a Postgres advisory lock so two workers can't take the last slot; the job page shows its place in line). Waiting isn't billed: `startedAt` is set when the slot is taken, billed time runs from there to Engine X's last finished step (`lastStepEnd`, not when our poll noticed), and the job page's clock stays at rest until `startedAt`.
+- Rate-limit through Redis: anonymous user creation per IP, job starts per user (10 an hour, admins exempt; the message says how many minutes are left), OTP sends per email and IP, and admin login attempts.
+- Every auth flow is a server action (`src/app/(auth)/actions.ts`, admin sign-in in `src/app/admin/actions.ts`) that applies these limits, then calls `auth.api.*`. The Better Auth HTTP endpoints stay closed except `POST /sign-out`; don't open more. Google sign-in (back on 2026-10-01, the user's call) runs `auth.api.signInSocial` from `googleSignInAction`; its callback is a Better Auth GET, registered with Google as `<APP_URL>/auth/google/callback` (forwards to `/api/auth/callback/google`), and ends at `/auth/google/done`, which grants starter credits. It shows only when `AUTH_MODE=full` and `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set.
 - The worker runs under `tsx`, which compiles JSX the classic way; keep `.tsx` files (e.g. email templates) off its import path, or load them with `await import()` only where they're used.
 
 ## 7. Server code conventions
@@ -75,14 +74,15 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - The worker is restart-safe. Write `runId` to the job row immediately after `runPipeline`, never start a second run for a job that already has one, and on boot resume polling all `running` jobs.
 - Poll Engine X every 5 s, backing off to 10 s after 5 min. Write `job_events` only on stage changes or milestones, not every poll.
 - Validate uploads by MIME type and extension (gameplay: mp4/mov/mkv/webm; song: mp3/m4a/wav/aac/ogg/flac, `src/server/uploads.ts`), with the size limit taken from `settings.maxUploadMb`.
-- Validate URLs with zod: `https` only, and an allowlist of hosts (YouTube by default). Never fetch user-supplied URLs from the web server.
+- Validate URLs with zod: `https` only, YouTube video links only (`youtubeLinkProblem` in `src/lib/youtube.ts`: a real video id, no Shorts links; the user's call, 2026-10-01). Never fetch user-supplied URLs from the web server.
 - Catalog `inputMap` supports only `$source.url`, `$fields.<name>[.<sub>]`, `$durationSec`, and literals. **Never use `eval`, `new Function`, or template-string code execution.**
-- Use `snake_case` in the DB and `camelCase` in TypeScript (`@map`/`@@map` in `prisma/schema.prisma`). Every schema change is a migration. Import the client as `db` from `src/db/client.ts` (JSON columns come back typed, shapes in `src/db/types.ts`; the typing is types-only, so never apply a Prisma `$extends` result extension at runtime: extended rows carry a symbol and React refuses to pass them to Client Components); the generated client lives in `src/generated/prisma` (git-ignored, made by `pnpm install`).
+- Use `snake_case` in the DB and `camelCase` in TypeScript (`@map`/`@@map` in `prisma/schema.prisma`). Every schema change is a migration. Import the client as `db` from `src/db/client.ts` (JSON columns come back typed, shapes in `src/db/types.ts`; the typing is types-only, so never apply a Prisma `$extends` result extension at runtime: extended rows carry a symbol and React refuses to pass them to Client Components); the generated client lives in `src/generated/prisma` (git-ignored, made by `npm install`).
 - Raw SQL only where Prisma can't express it (row locks `FOR UPDATE`, `ON CONFLICT … DO UPDATE` expressions, date bucketing), always as tagged templates (`$queryRaw\`…${value}\``), never the `Unsafe` variants. Cast counts and sums to `::int` (Postgres returns bigint). Guarded updates (`where status = …`) use `updateMany` and check `count`: Prisma's `update()` throws when no row matches. The ledger trigger and the settings check live in migration SQL.
 
 ## 8. UI rules
 
-- **Look:** match the reference health screenshot. A near-black background (`#0a0a0a`), panels one step lighter (`#111`), 1px borders `#1f1f1f`, white primary text, grey secondary text `#8a8a8a`, **red accent** for primary actions and "down" (`#e5484d`), green for "up" (`#2f9e44`), amber for "degraded" (`#f5a524`). Use Inter for UI text and a monospace font for numbers and latencies. Define these as CSS variables in `globals.css` and use the tokens, never raw hex, in components.
+- **Look:** match the reference health screenshot. A near-black background (`#0a0a0a`), panels one step lighter (`#111`), 1px borders `#1f1f1f`, white primary text, grey secondary text `#8a8a8a`, **red accent** for primary actions and "down" (`#e5484d`), green for "up" (`#2f9e44`), amber for "degraded" (`#f5a524`). Use Inter for UI text and a monospace font for numbers and latencies. Castle Chunk (`font-display`, `src/fonts/`, free commercial licence) is for display only: the landing hero and section titles, page titles, celebratory moments, the share image, and button labels (set once in `ui/button.tsx`, where buttons are also pill-shaped, `rounded-full`; the user's call, 2026-10-01: don't override either per button). Never for text people need to read: forms, labels, body, prices, numbers, errors, legal pages, invoices (the user's call, 2026-10-01). One exception: the status word on My videos tiles (Ready green, Making/Waiting amber, Failed red, in a rounded-rectangle border of the same colour over a dark backing, with a text shadow for legibility; the user's call, 2026-10-01). It has one weight: no bold classes with it. Define these as CSS variables in `globals.css` and use the tokens, never raw hex, in components.
+- **Backdrop** (design B, the user's call on 2026-10-01): the red-cast geometric artwork (`public/images/montage-bg*.jpg`) sits fixed behind every user page (`Backdrop` in the user layout, lazy, low priority, portrait crop on phones) under a near-black veil that each page sets with `data-backdrop`: `bright` (landing, 0.58 around the hero, darkening to 0.88 as you scroll), `create` (0.85), none (0.9: My videos, the job page), `credits` (0.92 plus a faint red glow), `dim` (0.95: Account, invoices, legal). Text never sits on a lighter veil than these; panels stay solid.
 - Dark theme by default. Keep contrast at WCAG AA or better.
 - Use shadcn/ui components before building custom ones.
 - Mobile-first: the Create, Progress and Result pages must work at 360 px wide with no horizontal scroll.
@@ -92,13 +92,13 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - A scrolling pane (`overflow-y-auto`) that holds `sr-only` text needs `relative`: otherwise the hidden, absolutely positioned text escapes the pane and adds empty scroll space to the page.
 - Accessibility: labels on every input, visible focus rings, keyboard-reachable controls, and `aria-live` for progress updates.
 - **Premium comes from restraint:** one memorable element per screen (on the user side, the 9:16 preview frame and the live stage readout), with everything around it quiet. No gradient washes, no identical card grids, no entrance animation on every section, and no all-caps eyebrow labels. Sentence-case copy, and buttons named for what they do ("Make my montage", then "Download").
-- **Motion:** only in response to the user or to show progress changing. Use CSS transitions on `transform`/`opacity` only (the progress bar uses `scaleX`, not `width`), 150–250 ms, and turn it off under `prefers-reduced-motion`. No animation library.
+- **Motion:** only in response to the user or to show progress changing (one exception, the user's call on 2026-10-01: the landing page "How it works" story loops on its own while it's on screen, with a pause icon, no announcements while looping, and still frames under reduced motion; and, the user's call on 2026-10-01, the landing sections below the hero fade up as they scroll in (`.reveal`, scroll-driven CSS, no JS, off under reduced motion), and the sticky user header (`SiteHeader`) fades from a bottom rule into a floating translucent panel once scrolled). Use CSS transitions on `transform`/`opacity` only (the progress bar uses `scaleX`, not `width`), 150–250 ms, and turn it off under `prefers-reduced-motion`. No animation library.
 
 ### 8.1 Speed budgets (checked with `next build` output and Lighthouse mobile)
 
 - User routes (`/`, `/jobs/[id]`, `/library`): first-load JS ≤ 135 KB gzip (React 19 + Next 15 baseline is ~115 KB), LCP < 2.0 s, CLS < 0.05, INP < 200 ms on a mid-range phone over 4G.
 - Server Components by default. Put `'use client'` only on interactive leaves (the create form, progress stream, video player). Never make a whole page a client component.
-- Load fonts with `next/font` (self-hosted, `display: swap`, subset). No font or CSS requests to third parties. The one third-party script is Razorpay's checkout, loaded only when someone presses Pay.
+- Load fonts with `next/font` (self-hosted, `display: swap`, subset). No font or CSS requests to third parties. The one third-party script is Cashfree's checkout (`sdk.cashfree.com/js/v3`), loaded only when someone presses Pay.
 - React Flow and admin charts load through `next/dynamic`, only on `/admin` routes. They must never appear in a user-route bundle.
 - Every route segment gets a `loading.tsx` skeleton with the same dimensions as the final layout, so there's no layout shift.
 - The Generate button responds instantly: a React form action (`useActionState` + server action) shows the pending state, works before hydration, and redirects to `/jobs/:id`, which renders its first frame on the server from the DB (no client fetch waterfall).
@@ -110,7 +110,7 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - Put each probe in its own file in `src/server/health/probes/`, exporting `{ id, name, tier, critical, run(): Promise<ProbeResult> }`.
 - A probe must finish within 5 s (a timeout means `down`) and must not send real emails, create real payments or start pipelines.
 - A missing configuration returns `not_configured`, not `down`. Fleet uptime is worst-of across `critical` probes only.
-- Only probe what the app uses. Engine worker probes come from the engines in enabled catalog pipelines (read from their graphs). Razorpay is probed when checkout is on; email (SMTP) isn't probed (the user's call, 2026-09-30).
+- Only probe what the app uses. Engine worker probes come from the engines in enabled catalog pipelines (read from their graphs). Email (SMTP) and payments (Cashfree) aren't probed (the user's calls, 2026-09-30 and 2026-10-01).
 - The worker runs the sweep every 30 s and keeps a heartbeat key in Redis (`worker:heartbeat`, 60 s TTL).
 
 ## 10. Testing
@@ -118,13 +118,13 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 - **Unit (Vitest):** credits, catalog `mapInput`, `stageFor`, progress math, uptime bucketing, OTP rules, and the zod schemas.
 - **Integration:** a mock Engine X adapter (`src/server/enginex/mock.ts`, selected by `ENGINEX_MODE=mock`) that simulates run progress, success, failure and timeout. CI never calls the real Engine X.
 - **E2E:** none automated. The user tests flows manually. At the end of each milestone, list the manual checks in `docs/progress.md`: the happy path in anonymous mode (mock Engine X), a failed job with refund, an admin credit adjustment, a catalog template swap, and full-auth sign-up with OTP.
-- Add a build check that fails if `ENGINEX_API_KEY`, `ek_live` or `RAZORPAY_KEY_SECRET` appears in `.next/static`.
+- Add a build check that fails if `ENGINEX_API_KEY`, `ek_live`, `CASHFREE_SECRET_KEY` or `cfsk_ma_` appears in `.next/static`.
 
 ## 11. Working style
 
 - Work milestone by milestone as ordered in `PLAN.md` §8. At the end of each one, update `docs/progress.md`: what was done, how to demo it, and open issues.
 - Keep changes small and focused, and don't mix refactors with features.
-- If something in `PLAN.md` is unclear or seems wrong (for example, an Engine X API path you can't confirm), **stop and ask** instead of guessing. Never invent Engine X endpoints, and confirm them with `pnpm enginex:smoke` or the docs.
+- If something in `PLAN.md` is unclear or seems wrong (for example, an Engine X API path you can't confirm), **stop and ask** instead of guessing. Never invent Engine X endpoints, and confirm them with `npm run enginex:smoke` or the docs.
 - Don't add dependencies beyond the stack without saying why in the PR or commit message.
 - Never commit `.env*` files except `.env.example`, which must list every variable with a comment.
 
@@ -146,7 +146,7 @@ Run `pnpm lint && pnpm typecheck && pnpm test` after every meaningful change, an
 ```bash
 # App
 APP_URL=http://localhost:3000
-AUTH_MODE=anonymous            # anonymous | full
+AUTH_MODE=full                 # full (accounts only, no guests) | anonymous
 ADMIN_EMAILS=you@example.com
 BETTER_AUTH_SECRET=
 DATABASE_URL=postgres://...
@@ -157,7 +157,9 @@ TRUSTED_PROXY_HOPS=1           # proxies in front of the app; client IP = Nth en
 ENGINEX_MODE=live              # live | mock
 ENGINEX_BASE_URL=https://enginex.run
 ENGINEX_API_KEY=               # ek_live_... never expose to the client
-ENGINEX_STORAGE_URL=           # Engine X object store (MinIO), used by the health check
+ENGINEX_STORE_PIPELINE=        # store-file pipeline id; with the two below keeps finished montages (all three or none)
+ENGINEX_STORE_CONNECTION=      # Engine X Object Storage connection name (Demo-Minio)
+ENGINEX_STORE_BUCKET=          # private bucket on it (montageai-media); must match pipelines/build.py
 
 # SMTP (OTP + notifications)
 SMTP_HOST=
@@ -166,10 +168,14 @@ SMTP_USER=
 SMTP_PASS=                     # SMTP_PASSWORD also accepted
 SMTP_FROM="MontageAI <no-reply@example.com>"
 
+# Google sign-in (AUTH_MODE=full; redirect URI <APP_URL>/auth/google/callback)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
 # Payments
 PAYMENTS_ENABLED=false         # true opens "Add credits" and checkout
-PAYMENTS_PROVIDER=mock         # mock (local only, refused in production) | razorpay
-RAZORPAY_KEY_ID=
-RAZORPAY_KEY_SECRET=
-RAZORPAY_WEBHOOK_SECRET=
+PAYMENTS_PROVIDER=mock         # mock (local only, refused in production) | cashfree
+CASHFREE_ENV=sandbox           # sandbox | production
+CASHFREE_APP_ID=               # x-client-id
+CASHFREE_SECRET_KEY=           # x-client-secret; also verifies webhooks. Server-only
 ```

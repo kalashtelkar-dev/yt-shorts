@@ -15,7 +15,7 @@ export default function Loading() {
       <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="flex flex-col gap-2">
-            <div className="aspect-[9/16] rounded-xl bg-panel" />
+            <div className="aspect-[9/16] rounded-md bg-panel" />
             <div className="h-4 w-3/4 rounded bg-panel" />
             <div className="h-4 w-1/2 rounded bg-panel" />
           </div>

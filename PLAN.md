@@ -64,7 +64,7 @@ These Engine X operations are used, all server-side:
 | **Overview** | Jobs today, success rate, average generation time, credits used, estimated compute cost (₹), health summary. |
 | **Users** | Search and list users; view a user's jobs, credit ledger and balance; suspend or unsuspend; change role. |
 | **Credits** | Add or remove credits for a user with a required reason. It writes a ledger entry and never edits a balance directly. |
-| **Billing** | Pricing settings (cost per second, sell price per credit, free starter credits); transactions list (Razorpay later); a cost report comparing compute seconds × ₹0.30 against credits charged. |
+| **Billing** | Pricing settings (cost per second, sell price per credit, free starter credits); transactions list (Cashfree); a cost report comparing compute seconds × ₹0.30 against credits charged. |
 | **Jobs** | All jobs, filterable by status or catalog item; the raw Engine X steps and errors; actions: refund, retry (creates a new job). |
 | **Catalog** | CRUD for catalog items: slug, title, description, template ID, enabled, beta, sort order, allowed durations, `fields`, `inputMap`, `stageMap`. There's a **Validate** button that calls `get_pipeline` and shows the pipeline's inputs and whether it compiles. The change history is kept. |
 | **Service health** | A node graph like the reference screenshot (see §6). |
@@ -88,7 +88,7 @@ Payments checkout, teams, custom branding per user, and editing pipelines from t
 | Storage | Engine X object store (`create_upload_url`, `sign_output`) | Nothing needs to be stored in this app. |
 | Node graph | **@xyflow/react (React Flow)** | Good fit for the health topology. |
 | Validation | **zod** | Every server input. |
-| Payments (later) | **Razorpay** | Already in the health screenshot. Integrate behind a `PaymentsProvider` interface. |
+| Payments | **Cashfree** (replaced Razorpay, 2026-10-01) | Integrated behind a `PaymentsProvider` interface. |
 | Tests | **Vitest** (unit); e2e is manual | |
 | Deploy | Docker images, one for `web` and one for `worker`, on the existing cluster | Long polling doesn't suit serverless hosting. |
 
@@ -166,7 +166,7 @@ settings                     -- single row or key/value
   starterCredits int     default 1000 (one 30 s montage of any style)
   maxUploadMb int, maxConcurrentJobsPerUser int
 
-payments (later)             -- id, userId, provider 'razorpay', providerOrderId, amountPaise, credits, status, raw jsonb
+payments (later)             -- id, userId, provider 'cashfree', providerOrderId, amountPaise, credits, status, raw jsonb
 probes / probe_results       -- see §6
 admin_audit_log              -- every admin mutation: adminId, action, target, before, after, createdAt
 ```
@@ -270,7 +270,7 @@ A copy of the reference screenshot: a header with the fleet uptime %, a 24 h / 7
 | Mail | SMTP | `transporter.verify()` (no email sent) |
 | Engine | Engine X gateway | `fleet_status()` latency and success |
 | Engine workers | ytdlp, ffmpeg, OCR, WhisperX, vLLM | from `fleet_status()`: a worker present per engine and tier = up; missing = down |
-| Payments | Razorpay | API auth check; **"Not configured"** when keys are absent, and it doesn't count as down |
+| Payments | Cashfree | API auth check; **"Not configured"** when keys are absent, and it doesn't count as down |
 
 **Sweep:** every 30 s in the worker. Store `probe_results(probeId, status 'up'|'degraded'|'down'|'not_configured', latencyMs, message, checkedAt)`. Latency above a per-probe threshold counts as `degraded`.
 
@@ -304,7 +304,7 @@ src/
       jobs/[id]/route.ts       # GET status
       jobs/[id]/events/route.ts # SSE
       health/route.ts          # self-check
-      webhooks/razorpay/route.ts   # stub, returns 501 until enabled
+      webhooks/cashfree/route.ts   # payment webhook
   server/
     enginex/client.ts          # the only place that talks to Engine X
     enginex/types.ts
@@ -312,7 +312,7 @@ src/
     credits/                   # charge, refund, grant, adjust (all transactional)
     jobs/                      # create, cancel, refund, retry
     health/probes/*.ts         # one file per probe
-    auth.ts, email/, payments/ (interface + razorpay stub)
+    auth.ts, email/, payments/ (interface + cashfree)
   db/ schema.ts, migrations/, seed.ts
   worker/ index.ts, queues.ts, processors/*.ts
   components/ ui/ (shadcn), job/, admin/, health/
@@ -326,7 +326,7 @@ src/
 Each milestone ends with passing tests and a short demo note in `docs/progress.md`.
 
 1. **Scaffold:** Next.js, Tailwind, shadcn, Drizzle, env parsing, Docker Compose (Postgres, Redis), lint, typecheck, Vitest. Add the dark theme tokens that match the screenshot.
-2. **Engine X adapter:** typed client with the six operations, retries with backoff, and timeouts. Include a script (`pnpm enginex:smoke`) that calls `fleet_status` and `get_pipeline` for both template IDs and prints their inputs.
+2. **Engine X adapter:** typed client with the six operations, retries with backoff, and timeouts. Include a script (`npm run enginex:smoke`) that calls `fleet_status` and `get_pipeline` for both template IDs and prints their inputs.
 3. **DB and seed:** schema, migrations, seed both catalog items with the template IDs from §0, settings defaults.
 4. **Auth (anonymous mode) and credits core:** anonymous sessions, starter grant, ledger functions with unit tests (charge/refund, concurrency with `SELECT … FOR UPDATE`).
 5. **Worker:** start and poll processors, stage mapping, events, timeouts, resume after restart.
@@ -336,7 +336,7 @@ Each milestone ends with passing tests and a short demo note in `docs/progress.m
 9. **Service health:** probes, sweep, uptime aggregation, the React Flow page.
 10. **Full auth ready:** email+password, email OTP, reset, account linking. Tested manually with `AUTH_MODE=full` and shipped with `AUTH_MODE=anonymous`.
 11. **Hardening:** rate limits, error pages, empty states, mobile layout, basic analytics events, backup notes.
-12. **Payments hook (later):** Razorpay order, webhook and credit purchase behind `PAYMENTS_ENABLED`.
+12. **Payments hook (later):** Cashfree order, webhook and credit purchase behind `PAYMENTS_ENABLED`.
 
 ---
 
@@ -348,7 +348,7 @@ Each milestone ends with passing tests and a short demo note in `docs/progress.m
 - [ ] Changing a catalog item's template ID in the admin makes the next job use the new pipeline with no deploy. A job already running keeps its old ID.
 - [ ] Validate rejects an unknown or unpublished template ID and warns about unmapped inputs.
 - [ ] An admin can add or remove credits with a reason, and it shows up in the ledger and audit log.
-- [ ] The health page shows every probe with status and latency, and 24 h / 7 d / 90 d uptime. A missing Razorpay key shows "Not configured", not Down.
+- [ ] The health page shows every probe with status and latency, and 24 h / 7 d / 90 d uptime. A missing Cashfree key shows "Not configured", not Down.
 - [ ] `ENGINEX_API_KEY` never appears in client bundles, logs or API responses (checked by a test that greps the build output).
 - [ ] With `AUTH_MODE=full`, email+password and OTP sign-up all work (manual test), and an anonymous user's jobs and credits move to the new account.
 

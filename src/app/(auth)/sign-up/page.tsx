@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { AuthHeading, AuthTabs } from "@/components/auth-bits";
-import { SignUpForm } from "@/components/auth-forms";
+import { AuthHeading, AuthTabs, ConsentNote } from "@/components/auth-bits";
+import { GoogleSignIn, SignUpForm } from "@/components/auth-forms";
+import { googleEnabled } from "@/server/auth";
 import { getSettings } from "@/server/settings";
 
 export const metadata: Metadata = { title: "Create your account" };
@@ -13,7 +14,9 @@ export default async function SignUpPage() {
       <AuthHeading title="Create your account">
         Your videos stay in your account, on any device. New accounts start with {starterCredits.toLocaleString("en-IN")} free credits.
       </AuthHeading>
+      {googleEnabled && <GoogleSignIn />}
       <SignUpForm />
+      <ConsentNote />
     </>
   );
 }

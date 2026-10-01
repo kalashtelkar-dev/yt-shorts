@@ -50,6 +50,6 @@ describe("health view", () => {
     expect(pg.buckets.at(-2)).toBe("up");
     expect(pg.uptime).toBeCloseTo(59 / 60);
     expect(pg.recent).toHaveLength(50);
-    expect(v.probes.map((p) => p.id)).toEqual(expect.arrayContaining(["web", "worker", "postgres", "redis", "queue", "enginex", "storage", "engine:ocr"]));
+    expect(v.probes.map((p) => p.id)).toEqual(expect.arrayContaining(["web", "worker", "postgres", "redis", "queue", "enginex", "engine:ocr"]));
   });
 });

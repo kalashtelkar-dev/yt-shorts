@@ -222,8 +222,26 @@ def song_index(upload=False):
     if not upload: g.edge("music", "title", "out", "title")
     return g.doc("song-index" + ("-upload" if upload else ""), ("Uploaded song" if upload else "Song link") + " -> audio file, duration, loudness every 0.05 s (the app measures the beat and drop from it), the lyrics as segments with every word force-aligned on the separated vocals, and where the voice is (voice activity). Cache per song; feeds every style-* pipeline.")
 
+# ---------------- store-file ----------------
+# Engine X clears its own storage within hours, so a finished montage's video and cover are copied, one run per file, into
+# a bucket on our object store for the long term (the user's call, 2026-10-01). The app plays them through share links.
+STORE_CONNECTION, STORE_BUCKET = "Demo-Minio", "montageai-media"  # must match ENGINEX_STORE_CONNECTION / ENGINEX_STORE_BUCKET
+def store_file():
+    g = G()
+    inp(g, "file_in", "file", "any", "")
+    inp(g, "key_in", "key", "text", "montages/00000000-0000-0000-0000-000000000000/video.mp4")
+    inp(g, "type_in", "contentType", "text", "video/mp4")
+    g.node("store", engine="storage", operation="connection", params={"use": STORE_CONNECTION})
+    g.node("put", engine="storage", operation="object-put", params={"tier": "cpu", "bucket": STORE_BUCKET})
+    g.edge("store", "connection", "put", "connection").edge("file_in", "value", "put", "input")
+    g.edge("key_in", "value", "put", "key").edge("type_in", "value", "put", "contentType")
+    g.node("out", kind="output", fields=["key", "bytes"])
+    g.edge("put", "key", "out", "key").edge("put", "bytes", "out", "bytes")
+    return g.doc("store-file", f"One Engine X file -> the {STORE_BUCKET} bucket on {STORE_CONNECTION}, at the given key and content type. "
+                 "The app keeps finished montages (video and cover) there; Engine X's own storage is cleared within hours.")
+
 if __name__ == "__main__" and (len(sys.argv) == 1 or sys.argv[1] == "all"):
-    for fname, d in (("gameplay-index", gameplay_index()), ("gameplay-index-upload", gameplay_index(True)), ("song-index", song_index()), ("song-index-upload", song_index(True))):
+    for fname, d in (("gameplay-index", gameplay_index()), ("gameplay-index-upload", gameplay_index(True)), ("song-index", song_index()), ("song-index-upload", song_index(True)), ("store-file", store_file())):
         json.dump(d, open(os.path.join(HERE, f'{fname}.json'), 'w'), indent=2)
         print(fname, "nodes", len(d['graph']['nodes']), "edges", len(d['graph']['edges']))
 
@@ -315,19 +333,36 @@ LOOKS = [
 ]
 assert len(LOOKS) == 10  # the app sends one digit
 
-# How a lyric line moves (src/server/jobs/lyrics.ts picks the sides per line and keeps each row up SLIDE_OUT longer)
-SLIDE_IN, SLIDE_OUT, SLIDE, SLIDE_Y = 0.18, 0.2, 240, 160
+# Each look in the subtitle file: the font's family name (its name table, which libass matches) and the subtitle size
+# that draws its letters as tall as drawtext did at the look's size. libass sizes a font by its line height and drawtext
+# by its em, so the ratio differs per font: measured 2026-10-01 by rendering "HAMBURG" both ways with ffmpeg 7.1 (the
+# same libass and freetype output as Engine X's 9.0.1, pixel for pixel); widths agree within 2%. Passion One's file is its
+# Black weight and libass finds it only by its full name (under "Passion One" it drew a fallback font).
+LOOK_ASS = [("Anton", 168), ("Archivo Black", 83), ("Bungee", 182), ("Luckiest Guy", 95), ("Titan One", 78),
+            ("Black Ops One", 98), ("Russo One", 80), ("Bowlby One", 94), ("Rubik Mono One", 65.5), ("Passion One Black", 88)]
+assert len(LOOK_ASS) == len(LOOKS)  # the app places rows with each look's drawtext line height (lyrics.ts LOOK_ROWS, same order)
+# Where lines sit and how they slide is the app's now (src/server/jobs/lyrics.ts writes every event as plain numbers).
+ASS_HEAD = ("[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 2\nScaledBorderAndShadow: yes\nYCbCr Matrix: None\n\n"
+            "[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, "
+            "Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
+ASS_EVENTS = "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
 
-# Where a lyric line sits: the app gives every line a random spot "p" (0-5, never the same twice in a row); never the
-# centre (the crosshair). y is the line's middle. The gameplay band is y 431-1489; its top HUD ends ~540
-# and the weapon/health HUD starts ~1360.
-# x = x0 - k * (row length) * (letter width): the left edge of the full row, so a row building word by word never shifts.
-SPOTS = [(x0, k, y) for y in ("h*0.34", "h*0.64") for x0, k in (("70", "0"), ("w/2", "0.5"), ("w-70", "1"))]
+def ass_colour(c):  # drawtext "white" / "0xRRGGBB", optionally "@opacity" -> ASS &HAABBGGRR (AA is transparency)
+    c, _, op = c.partition("@")
+    rgb = {"white": "FFFFFF", "black": "000000"}.get(c) or c[2:].upper()
+    return f"&H{round((1 - float(op or 1)) * 255):02X}{rgb[4:6]}{rgb[2:4]}{rgb[0:2]}"
+
+def ass_look(i):  # (the look's style line, its override tags) from its drawtext style
+    st = dict(kv.split("=", 1) for kv in LOOKS[i][2].split(":"))
+    fam, size = LOOK_ASS[i]
+    fill = ass_colour(st["fontcolor"])
+    style = (f"Style: L,{fam},{size:g},{fill},{fill},{ass_colour(st['bordercolor'])},{ass_colour(st['shadowcolor'])},"
+             f"0,0,0,0,100,100,0,0,1,{st['borderw']},{st['shadowy']},5,0,0,0,1")
+    return style, f"\\xshad{st['shadowx']}\\yshad{st['shadowy']}"
 
 def look_table():
-    # rows "\n<digit>;<font input>;<style>;<letter width in px>"; "default" (look 0) catches anything else. The width is
-    # 5% generous, so a right-aligned row never runs off the frame.
-    rows = [(str(i), f"{{in{i}}}", f"fontsize={size}:{st}", f"{size * w / 100 * 1.05:.1f}") for i, (_, size, st, w) in enumerate(LOOKS)]
+    # rows "\n<digit>;<font input>;<subtitle style line>;<override tags>"; "default" (look 0) catches anything else
+    rows = [(str(i), f"{{in{i}}}", *ass_look(i)) for i in range(len(LOOKS))]
     return "".join(f"\n{';'.join(r)}" for r in rows + [("default",) + rows[0][1:]])
 
 # Ultra Edit, one kill (docs/edit-styles/ultra-edit.md): a fixed 6 s window of the recording from K-2, as (recording
@@ -439,14 +474,14 @@ def style(kind):
                                    ("drop_in", "dropAtSec", "text", "none"), ("max_dur", "maxDurationSec", "text", "60"),
                                    ("variation_in", "variation", "text", "Put the slow-motion clip third.")):
         inp(g, nid, name, typ, sample)
-    if lyrical: inp(g, "lines_in", "lines", "text", "[]"); inp(g, "look_in", "lyricLook", "text", "0")
+    if lyrical: inp(g, "subs_in", "subs", "text", "; lyrics"); inp(g, "look_in", "lyricLook", "text", "0")
     g.take("llm", "kill_list", "kill_times", "lead_normal", "lead_slow", "zero_num", "starts_normal_raw", "starts_slow_raw", "starts_normal", "starts_slow",
            "starts_normal_csv", "starts_slow_csv", "starts_normal_alt", "starts_slow_alt", "plan", "clips", "has_speed", "len_max", "len_min", "start_allowed",
            "clip_id_range", "clip_id_range_text", "clip_items_joined", "slow_filters", "segment_filters", "segment_labels",
            "play_sum", "slow_clips", "slow_sum", "play_time", "end_time", "fade_len", "fade_start", "ffmpeg_args", "args_json", "args_list",
            "zero", "has_clips", "render_gate", "make_montage").keep_src_edges()
     if lyrical:
-        g.take("caption_font", "caption_keep")
+        g.take("caption_font")
     # kills and flex arrive as JSON text
     # The kill finder sometimes answers [67, 176] instead of [{"t": 67}, {"t": 176}] (seen on a real match);
     # a number straight after "[" or "," is a bare list entry, so wrap it. "totalKills": 14 follows ":", untouched.
@@ -553,69 +588,40 @@ def style(kind):
     assert layer in tpl, tpl[:400]
     if not lyrical:
         tpl = tpl.replace(layer, "[vc]fade=t=in:st=0:d=0.3,fade=t=out:st={{f}}:d=0.8[v];")
+    else:  # libass draws the lyrics onto the transparent layer (alpha=1 keeps it transparent around them for the glow)
+        tpl = tpl.replace(layer, layer.replace("{{g}}", "subtitles=filename='{in2}':alpha=1,"))
     g.N["ffmpeg_args"]["params"]["template"] = tpl
     g.E = [e for e in g.E if not (e['to']['node'] == "ffmpeg_args" and e['to']['port'] in ("d", "g"))]
     g.edge("cap", "value", "ffmpeg_args", "d")
     if lyrical:
-        # the font is {in2}: drop v8's copy of this edge (it came first) so the order is gameplay, song, font
+        # Lyrics are a subtitle file that libass draws (one `subtitles=` filter), not one drawtext per word: drawtext grew
+        # the render's filter by ~420 characters a word, and a wordy 90 s song passed Linux's 128 KiB limit on a single
+        # argument (spawn E2BIG on two real jobs, 2026-10-01). The app writes the events (src/server/jobs/lyrics.ts
+        # lyricEvents: times, spots, slides and fades as plain numbers); here the job's look adds its style, the file is
+        # written, and packed with the look's font into subs.mkv, whose attached font libass loads ({in2} of the render).
         g.E = [e for e in g.E if not (e['to']['node'] == "make_montage" and e['from']['node'] == "caption_font")]
-        g.edge("caption_font", "file", "make_montage", "input")
-        # this job's look: its font is copied out of the ten downloaded ones, its style goes into the drawtext templates
+        # this job's look: its font is copied out of the ten downloaded ones, its style goes into the subtitle file
         g.util("look_table", "text", {"value": look_table()})
         g.util("look_pattern", "template", {"template": r"^[\s\S]*?\n(?:{{a}}|default);([^;\n]*);([^;\n]*);([^\n]*)[\s\S]*$"})
         g.edge("look_in", "value", "look_pattern", "a")
-        for i, nid in enumerate(("look_font", "look_style", "look_cw"), 1):
+        for i, nid in enumerate(("look_font", "look_style", "look_tags"), 1):
             g.util(nid, "regex", {"replace": f"${i}"}).edge("look_table", "value", nid, "text").edge("look_pattern", "value", nid, "pattern")
         g.N["caption_font"]["params"] = {"tier": "gpu", "input": [FONT_BASE + f for f, *_ in LOOKS], "outputs": [{"name": "caption.ttf", "contentType": "font/ttf"}]}
         g.util("font_args", "template", {"template": json.dumps(["-y", "-f", "data", "-i", "{{a}}", "-map", "0", "-c", "copy", "-f", "data", "{out}"])})
         g.util("font_args_json", "json-parse", {"fenced": False}).util("font_args_list", "merge", {})
         g.edge("look_font", "text", "font_args", "a").edge("font_args", "value", "font_args_json", "text").edge("font_args_json", "value", "font_args_list", "a")
         g.edge("font_args_list", "value", "caption_font", "args")
-        # lyrics, karaoke-style (src/server/jobs/lyrics.ts): one item per step of a line building word by word ("t", shown from
-        # "s" to "e"), with its row "r", the full row's length "n" and the line's spot "p". The items that start before the
-        # end are rebuilt into one text; spots and rows become x0/k/y/dy; then each item is one drawtext.
-        g.util("end_text", "template", {"template": "{{a}}"}).edge("end_time", "value", "end_text", "a")
-        g.util("lines_json", "json-parse", {"fenced": False}).edge("lines_in", "value", "lines_json", "text")
-        g.util("lines_before", "json-filter", {"path": "s", "op": "less-or-equal"})
-        g.edge("lines_json", "value", "lines_before", "value").edge("end_text", "value", "lines_before", "compareTo")
-        if ultra:  # the intro runs without lyrics: only lines that start once the kills do (the intro's length, see the cover)
-            g.util("lines_after_intro", "json-filter", {"path": "a", "op": "greater-or-equal"})
-            g.edge("lines_before", "items", "lines_after_intro", "value").edge("intro_len", "text", "lines_after_intro", "compareTo")
-            g.util("line_item", "json-stringify", {"indent": 0}).edge("lines_after_intro", "items", "line_item", "value")
-        else:
-            g.util("line_item", "json-stringify", {"indent": 0}).edge("lines_before", "items", "line_item", "value")
-        g.util("lines_joined", "join", {"separator": ""}).edge("line_item", "value", "lines_joined", "value")
-        prev = ("lines_joined", "value")
-        def rewrite(nid, pattern, replace):
-            nonlocal prev
-            g.util(nid, "regex", {"flags": "g", "pattern": pattern, "replace": replace}).edge(*prev, nid, "text")
-            prev = (nid, "text")
-        for i, (x0, k, y) in enumerate(SPOTS):
-            rewrite(f"spot_{i}", f'"p":"?{i}"?(?=[,}}])', f'"x0":"{x0}","k":"{k}","y":"{y}"')
-        x0, k, y = SPOTS[4]  # no spot: lower middle
-        rewrite("spot_default", '\\{(?![^}]*"x0":)', f'{{"x0":"{x0}","k":"{k}","y":"{y}",')
-        for r, dy in (("0", "-lh/2"), ("1", "-lh-8"), ("2", "+8")):  # one row centred on y; two rows either side of it
-            rewrite(f"row_{r}", f'"r":"?{r}"?(?=[,}}])', f'"dy":"{dy}"')
-        rewrite("row_default", '\\{(?![^}]*"dy":)', '{"dy":"-lh/2",')
-        # a step without its line's timing (an older app) just appears in place, no slide
-        rewrite("line_default", '\\{(?![^}]*"a":)(?=[^}]*"s":' + NUM + ')(?=[^}]*"e":' + NUM + ')', '{"a":$1,"b":$2,"ix":0,"iy":0,"ox":0,"oy":0,')
-        cap = '(?=[^}]*"KEY":"([^"]+)")'
-        num = lambda key, sign="": '(?=[^}]*"' + key + '":' + ('"?(-?\\d+(?:\\.\\d+)?)"?' if sign else NUM) + ')'
-        pattern = ('\\{' + num("s") + num("e") + cap.replace("KEY", "t") + cap.replace("KEY", "x0") + cap.replace("KEY", "k") + num("n")
-                   + cap.replace("KEY", "y") + cap.replace("KEY", "dy") + num("a") + num("b") + "".join(num(k, "-") for k in ("ix", "iy", "ox", "oy"))
-                   + '[^}]*\\}')  # $1 s $2 e $3 t $4 x0 $5 k $6 n $7 y $8 dy $9 a $10 b $11 ix $12 iy $13 ox $14 oy
-        g.util("draw_items", "regex", {"flags": "g", "pattern": pattern}).edge(*prev, "draw_items", "text")
-        # the line slides in from its side over SLIDE_IN (easing out) as its first word is sung, and slides out toward its
-        # other side over SLIDE_OUT after its end (easing in), fading as it moves; SLIDE px sideways, SLIDE_Y px up or down
-        slide_in, slide_out = f"pow(max(0,1-(t-$9)/{SLIDE_IN}),2)", f"pow(max(0,(t-$10)/{SLIDE_OUT}),2)"
-        x = f"$4-$5*$6*@cw+$11*{SLIDE}*{slide_in}+$13*{SLIDE}*{slide_out}"
-        y = f"$7$8+$12*{SLIDE_Y}*{slide_in}+$14*{SLIDE_Y}*{slide_out}"
-        fade = f"min(1,(t-$9)/{SLIDE_IN})*(1-min(1,max(0,(t-$10)/{SLIDE_OUT})))"
-        g.util("draw_item", "template", {"template": f"§drawtext=fontfile='{{in2}}':text='$3':{{{{a}}}}:x='{x}':y='{y}':alpha='{fade}':enable='gte(t,$1)*lt(t,$2)',§"})
-        g.edge("look_style", "text", "draw_item", "a").edge("draw_item", "value", "draw_items", "replace")
-        g.edge("draw_items", "text", "caption_keep", "text")
-        g.util("cw_fill", "regex", {"flags": "g", "pattern": "@cw"}).edge("caption_keep", "text", "cw_fill", "text").edge("look_cw", "text", "cw_fill", "replace")
-        g.edge("cw_fill", "text", "ffmpeg_args", "g")
+        # each event starts "{@L": the look's own shadow offsets go there (a style has one shadow size for both axes)
+        g.util("look_events", "regex", {"flags": "g", "pattern": "@L"}).edge("subs_in", "value", "look_events", "text").edge("look_tags", "text", "look_events", "replace")
+        g.util("ass_doc", "template", {"template": ASS_HEAD + "{{a}}\n\n[Events]\n" + ASS_EVENTS + "\n{{b}}\n"})
+        g.edge("look_style", "text", "ass_doc", "a").edge("look_events", "text", "ass_doc", "b")
+        g.node("ass_file", engine="file", operation="write", params={"tier": "cpu", "filename": "lyrics.ass", "contentType": "text/x-ssa"})
+        g.edge("ass_doc", "value", "ass_file", "value")
+        g.node("subs", engine="video", operation="custom", params={"tier": "cpu", "output": "subs.mkv", "args": [
+            # the classic font type: ffmpeg 7.1 ignores an attachment marked font/ttf (seen locally, 2026-10-01)
+            "-y", "-i", "{in0}", "-attach", "{in1}", "-metadata:s:t", "mimetype=application/x-truetype-font", "-map", "0", "-c", "copy", "{out}"]})
+        g.edge("ass_file", "file", "subs", "input").edge("caption_font", "file", "subs", "input")  # {in0} the events, {in1} the font
+        g.edge("subs", "file", "make_montage", "input")  # the render's {in2}, after gameplay and song
     # The cut carries the game's own sound (in sync by construction, from the video itself) and no song yet. Voice chat is
     # removed from that short track (seconds, not minutes on the whole recording), then the song goes on: the picture is
     # copied, the clean game sound mixed under the song with the fades.

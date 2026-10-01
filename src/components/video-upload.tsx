@@ -36,7 +36,7 @@ const KINDS = {
   },
 } as const;
 
-const formatSize = (b: number) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.max(1, Math.round(b / 1024 ** 2))} MB`);
+const formatSize = (b: number) => (b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1).replace(/\.0$/, "")} GB` : `${Math.max(1, Math.round(b / 1024 ** 2))} MB`);
 
 export function VideoUpload({
   id,
@@ -139,17 +139,21 @@ export function VideoUpload({
         const file = e.dataTransfer.files[0];
         if (file) start(file);
       }}
+      // Phones: a compact row that opens the file picker (nothing to drag on a phone). Wider screens: a drop zone.
       className={cn(
-        "flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-input bg-panel-raised p-4 text-center transition-colors hover:border-muted-foreground has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
+        "flex cursor-pointer items-center gap-3 rounded-lg border border-input bg-panel-raised p-3 text-left transition-colors hover:border-muted-foreground has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
+        "sm:min-h-32 sm:flex-col sm:justify-center sm:gap-2 sm:border-dashed sm:p-4 sm:text-center",
         dragging && "border-danger bg-danger/5",
       )}
     >
-      <Upload className="size-5 text-muted-foreground" aria-hidden />
-      <span className="text-sm">
-        <span className="font-medium">{k.choose}</span> <span className="text-muted-foreground max-sm:hidden">or drop it here</span>
-      </span>
-      <span className="text-xs text-muted-foreground">
-        {k.formats} · up to {formatSize(maxUploadMb * 1024 * 1024)}
+      <Upload className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+      <span className="flex min-w-0 flex-col gap-0.5 sm:items-center sm:gap-2">
+        <span className="text-sm">
+          <span className="font-medium">{k.choose}</span> <span className="text-muted-foreground max-sm:hidden">or drop it here</span>
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {k.formats} · <span className="text-foreground">max {formatSize(maxUploadMb * 1024 * 1024)}</span>
+        </span>
       </span>
       <input
         ref={input}

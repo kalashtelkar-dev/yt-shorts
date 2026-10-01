@@ -13,5 +13,5 @@ export default async function setup() {
   await admin.query(`drop database if exists ${name} with (force)`);
   await admin.query(`create database ${name}`);
   await admin.end();
-  execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], { env: { ...process.env, DATABASE_URL: TEST_DB_URL }, stdio: "ignore" });
+  execFileSync("npx", ["prisma", "migrate", "deploy"], { env: { ...process.env, DATABASE_URL: TEST_DB_URL }, stdio: "ignore" });
 }

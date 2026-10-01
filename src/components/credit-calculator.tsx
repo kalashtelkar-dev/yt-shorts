@@ -33,7 +33,7 @@ export function CreditCalculator({ minRupees, maxRupees, paisePerCredit, styles 
         />
         <p className="text-sm text-muted-foreground">1 credit is 1 second of editing. GST included. A montage that fails costs nothing.</p>
       </div>
-      <dl className="grid grid-cols-3 gap-3">
+      <dl className="grid auto-cols-fr grid-flow-col gap-3">
         {styles.map((s) => {
           const lo = Math.floor(credits / s.max);
           const hi = Math.floor(credits / s.min);

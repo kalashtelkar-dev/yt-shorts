@@ -58,7 +58,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
         <p role="alert" className="rounded-xl border border-danger/40 bg-panel px-4 py-3 text-sm">
           <span className="font-medium text-danger">The worker isn&apos;t running.</span>{" "}
           <span className="text-muted-foreground">
-            Jobs won&apos;t start, update or finish until it&apos;s back. Start it with <code className="font-mono text-foreground">pnpm worker:dev</code>.
+            Jobs won&apos;t start, update or finish until it&apos;s back. Start it with <code className="font-mono text-foreground">npm run dev:worker</code>.
           </span>
         </p>
       )}

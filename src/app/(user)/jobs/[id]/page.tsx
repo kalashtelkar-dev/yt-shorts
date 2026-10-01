@@ -5,7 +5,7 @@ import { JobLive } from "@/components/job/job-live";
 import { getPublicJob, signedVideo } from "@/server/jobs/public";
 import { getViewer } from "@/server/session";
 
-export const metadata: Metadata = { title: "Your montage" };
+export const metadata: Metadata = { title: "Your montage", robots: { index: false, follow: false } };
 
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
